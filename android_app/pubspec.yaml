@@ -29,6 +29,7 @@ dependencies:
 
   # Networking
   dio: ^5.4.0
+  http: ^1.2.0
 
   # UI Enhancement Libraries
   google_fonts: ^6.2.1

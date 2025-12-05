@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../../config/app_config.dart';
 import '../constants/api_constants.dart';
 
 class ApiClient {
@@ -16,9 +17,9 @@ class ApiClient {
   ApiClient._internal() {
     _dio = Dio(
       BaseOptions(
-        baseUrl: ApiConstants.baseUrl,
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 15),
+        baseUrl: AppConfig.baseUrl,
+        connectTimeout: Duration(seconds: AppConfig.connectTimeout),
+        receiveTimeout: Duration(seconds: AppConfig.receiveTimeout),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',

@@ -1,20 +1,6 @@
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
-
+/// Các API Endpoints - Chỉ chứa đường dẫn, không chứa base URL
+/// Base URL được cấu hình trong app_config.dart
 class ApiConstants {
-  // Tự động chọn baseUrl phù hợp với platform
-  static String get baseUrl {
-    if (kIsWeb) {
-      // Chạy trên Web (Chrome, Edge)
-      return 'http://localhost:5134/api';
-    } else if (defaultTargetPlatform == TargetPlatform.android) {
-      // Android Emulator: 10.0.2.2 trỏ tới localhost của máy tính
-      return 'http://10.0.2.2:5134/api';
-    } else {
-      // Windows, macOS, Linux, iOS
-      return 'http://localhost:5134/api';
-    }
-  }
-
   // Auth Endpoints
   static const String login = '/auth/login';
   static const String register = '/auth/register';
@@ -47,6 +33,9 @@ class ApiConstants {
 
   // Message Endpoints
   static const String messages = '/messages';
+
+  // Notification Endpoints
+  static const String notifications = '/notifications';
 
   // Payment Endpoints
   static const String payment = '/payment';

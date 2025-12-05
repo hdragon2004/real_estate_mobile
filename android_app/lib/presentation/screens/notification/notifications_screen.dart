@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
+import '../../../core/repositories/notification_repository.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../core/theme/app_shadows.dart';
+import '../property/property_detail_screen.dart';
+import '../chat/chat_screen.dart';
 
 /// Model cho Notification
 class NotificationModel {
-  final String id;
+  final int id;
   final String title;
   final String message;
   final DateTime timestamp;
   final bool isRead;
   final NotificationType type;
-  final String? imageUrl;
-  final String? actionId; // ID của property, appointment, etc.
+  final int? postId;
+  final int? senderId;
 
   NotificationModel({
     required this.id,
@@ -20,9 +28,38 @@ class NotificationModel {
     required this.timestamp,
     this.isRead = false,
     required this.type,
-    this.imageUrl,
-    this.actionId,
+    this.postId,
+    this.senderId,
   });
+
+  factory NotificationModel.fromJson(Map<String, dynamic> json) {
+    return NotificationModel(
+      id: json['id'] as int,
+      title: json['title'] as String,
+      message: json['message'] as String,
+      timestamp: DateTime.parse(json['createdAt'] as String),
+      isRead: json['isRead'] as bool? ?? false,
+      type: _parseType(json['type'] as String),
+      postId: json['postId'] as int?,
+      senderId: json['senderId'] as int?,
+    );
+  }
+
+  static NotificationType _parseType(String type) {
+    switch (type.toLowerCase()) {
+      case 'property':
+      case 'new_property':
+        return NotificationType.property;
+      case 'appointment':
+      case 'expire':
+      case 'expired':
+        return NotificationType.appointment;
+      case 'message':
+        return NotificationType.message;
+      default:
+        return NotificationType.system;
+    }
+  }
 }
 
 enum NotificationType {
@@ -41,8 +78,10 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
+  final NotificationRepository _repository = NotificationRepository();
   bool _isLoading = false;
-  final List<NotificationModel> _notifications = _getSampleNotifications(); // Dữ liệu mẫu
+  final List<NotificationModel> _notifications = [];
+  int? _currentUserId; // TODO: Lấy từ auth service
 
   @override
   void initState() {
@@ -51,66 +90,114 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _loadNotifications() async {
+    if (_currentUserId == null) {
+      // TODO: Lấy userId từ auth
+      // _currentUserId = await AuthService.getCurrentUserId();
+      // Tạm thời dùng userId = 1
+      _currentUserId = 1;
+    }
+    
     setState(() => _isLoading = true);
-    // TODO: Gọi API lấy notifications
-    await Future.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-  }
-
-  // Dữ liệu mẫu
-  static List<NotificationModel> _getSampleNotifications() {
-    return [
-      NotificationModel(
-        id: '1',
-        title: 'Tin nhắn mới',
-        message: 'Bạn có tin nhắn mới từ Nguyễn Văn A',
-        timestamp: DateTime.now().subtract(const Duration(minutes: 10)),
-        isRead: false,
-        type: NotificationType.message,
-        actionId: 'chat1',
-      ),
-      NotificationModel(
-        id: '2',
-        title: 'Bất động sản mới',
-        message: 'Có 5 bất động sản mới trong khu vực yêu thích của bạn',
-        timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-        isRead: false,
-        type: NotificationType.property,
-      ),
-      NotificationModel(
-        id: '3',
-        title: 'Nhắc lịch hẹn',
-        message: 'Bạn có lịch hẹn xem nhà vào ngày mai',
-        timestamp: DateTime.now().subtract(const Duration(hours: 5)),
-        isRead: true,
-        type: NotificationType.appointment,
-      ),
-    ];
-  }
-
-  void _markAsRead(NotificationModel notification) {
-    if (!notification.isRead) {
+    try {
+      final data = await _repository.getNotifications(_currentUserId!);
+      if (!mounted) return;
+      
       setState(() {
-        // TODO: Update local state
+        _notifications = data.map((json) => NotificationModel.fromJson(json)).toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        _isLoading = false;
       });
-      // TODO: Gọi API đánh dấu đã đọc
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi tải thông báo: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _markAsRead(NotificationModel notification) async {
+    if (notification.isRead) return;
+    
+    try {
+      await _repository.markAsRead(notification.id);
+      if (!mounted) return;
+      
+      setState(() {
+        final index = _notifications.indexWhere((n) => n.id == notification.id);
+        if (index >= 0) {
+          _notifications[index] = NotificationModel(
+            id: notification.id,
+            title: notification.title,
+            message: notification.message,
+            timestamp: notification.timestamp,
+            isRead: true,
+            type: notification.type,
+            postId: notification.postId,
+            senderId: notification.senderId,
+          );
+        }
+      });
+    } catch (e) {
+      debugPrint('Error marking as read: $e');
+    }
+  }
+
+  Future<void> _deleteNotification(NotificationModel notification, int index) async {
+    try {
+      await _repository.deleteNotification(notification.id);
+      if (!mounted) return;
+      
+      setState(() {
+        _notifications.removeAt(index);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi xóa thông báo: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
 
   void _handleNotificationTap(NotificationModel notification) {
     _markAsRead(notification);
 
-    // TODO: Điều hướng dựa trên type
     switch (notification.type) {
       case NotificationType.property:
-        // Navigator.pushNamed(context, '/property-detail', arguments: notification.actionId);
+        if (notification.postId != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PropertyDetailScreen(
+                propertyId: notification.postId.toString(),
+              ),
+            ),
+          );
+        }
         break;
       case NotificationType.appointment:
-        // Navigator.pushNamed(context, '/appointment-detail', arguments: notification.actionId);
+        // TODO: Điều hướng đến màn hình lịch hẹn
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tính năng lịch hẹn đang phát triển')),
+        );
         break;
       case NotificationType.message:
-        // Navigator.pushNamed(context, '/chat', arguments: notification.actionId);
+        if (notification.senderId != null && notification.postId != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                chatId: '${notification.senderId}_${notification.postId}',
+              ),
+            ),
+          );
+        }
         break;
       case NotificationType.system:
         break;
@@ -120,13 +207,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   IconData _getNotificationIcon(NotificationType type) {
     switch (type) {
       case NotificationType.property:
-        return Icons.home;
+        return Iconsax.home;
       case NotificationType.appointment:
-        return Icons.calendar_today;
+        return Iconsax.calendar;
       case NotificationType.message:
-        return Icons.chat;
+        return Iconsax.message;
       case NotificationType.system:
-        return Icons.notifications;
+        return Iconsax.notification;
+    }
+  }
+
+  Color _getNotificationColor(NotificationType type) {
+    switch (type) {
+      case NotificationType.property:
+        return AppColors.primary;
+      case NotificationType.appointment:
+        return AppColors.accent;
+      case NotificationType.message:
+        return Colors.blue;
+      case NotificationType.system:
+        return AppColors.textSecondary;
     }
   }
 
@@ -150,92 +250,126 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Thông báo'),
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        title: Text('Thông báo', style: AppTextStyles.h6),
         actions: [
           TextButton(
             onPressed: () {
               // TODO: Mở cài đặt thông báo
-              // Navigator.pushNamed(context, '/notification-settings');
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Tính năng cài đặt thông báo đang phát triển')),
+              );
             },
-            child: const Text('Cài đặt'),
+            child: Text('Cài đặt', style: AppTextStyles.labelMedium),
           ),
         ],
       ),
       body: _isLoading
-          ? const LoadingIndicator()
+          ? const Center(child: LoadingIndicator())
           : _notifications.isEmpty
-              ? const EmptyState(
-                  icon: Icons.notifications_none,
+              ? EmptyState(
+                  icon: Iconsax.notification_bing,
                   title: 'Chưa có thông báo',
                   message: 'Bạn sẽ nhận được thông báo tại đây',
                 )
               : RefreshIndicator(
                   onRefresh: _loadNotifications,
+                  color: AppColors.primary,
                   child: ListView.builder(
+                    padding: const EdgeInsets.all(20),
                     itemCount: _notifications.length,
                     itemBuilder: (context, index) {
                       final notification = _notifications[index];
+                      final color = _getNotificationColor(notification.type);
+                      
                       return Dismissible(
-                        key: Key(notification.id),
+                        key: Key(notification.id.toString()),
                         direction: DismissDirection.endToStart,
                         background: Container(
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.only(right: 20),
-                          color: Colors.red,
-                          child: const Icon(Icons.delete, color: Colors.white),
+                          decoration: BoxDecoration(
+                            color: AppColors.error,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Iconsax.trash, color: Colors.white),
                         ),
                         onDismissed: (direction) {
-                          setState(() {
-                            _notifications.removeAt(index);
-                          });
-                          // TODO: Gọi API xóa notification
+                          _deleteNotification(notification, index);
                         },
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: notification.isRead
-                                ? Colors.grey.shade300
-                                : Theme.of(context).colorScheme.primary,
-                            child: Icon(
-                              _getNotificationIcon(notification.type),
-                              color: notification.isRead
-                                  ? Colors.grey.shade600
-                                  : Colors.white,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: notification.isRead ? AppColors.border : color.withOpacity(0.3),
+                              width: notification.isRead ? 1 : 2,
                             ),
+                            boxShadow: AppShadows.card,
                           ),
-                          title: Text(
-                            notification.title,
-                            style: TextStyle(
-                              fontWeight: notification.isRead
-                                  ? FontWeight.normal
-                                  : FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(notification.message),
-                              const SizedBox(height: 4),
-                              Text(
-                                _formatTime(notification.timestamp),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(16),
+                            leading: Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: notification.isRead 
+                                    ? color.withOpacity(0.1) 
+                                    : color.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ],
-                          ),
-                          trailing: notification.isRead
-                              ? null
-                              : Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.primary,
-                                    shape: BoxShape.circle,
+                              child: Icon(
+                                _getNotificationIcon(notification.type),
+                                color: color,
+                                size: 24,
+                              ),
+                            ),
+                            title: Text(
+                              notification.title,
+                              style: AppTextStyles.labelLarge.copyWith(
+                                fontWeight: notification.isRead 
+                                    ? FontWeight.normal 
+                                    : FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Gap(4),
+                                Text(
+                                  notification.message,
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const Gap(8),
+                                Text(
+                                  _formatTime(notification.timestamp),
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    color: AppColors.textHint,
                                   ),
                                 ),
-                          onTap: () => _handleNotificationTap(notification),
+                              ],
+                            ),
+                            trailing: notification.isRead
+                                ? null
+                                : Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                            onTap: () => _handleNotificationTap(notification),
+                          ),
                         ),
                       );
                     },

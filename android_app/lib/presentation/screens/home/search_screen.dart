@@ -1,11 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../../widgets/common/property_card.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../../core/models/post_model.dart';
+import '../../../core/repositories/post_repository.dart';
+import '../../../core/repositories/category_repository.dart';
+import '../../../core/repositories/area_repository.dart';
+import '../../../core/models/category_model.dart';
+import '../../../core/models/area_model.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../core/theme/app_shadows.dart';
+import '../../../core/services/favorite_service.dart';
+import '../property/property_detail_screen.dart';
+import '../home/search_results_screen.dart';
+import '../home/filter_screen.dart';
 
-/// Màn hình Tìm kiếm
+/// Màn hình Tìm kiếm - Modern UI với tích hợp API
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
@@ -16,14 +30,24 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final PostRepository _postRepository = PostRepository();
+  final CategoryRepository _categoryRepository = CategoryRepository();
+  final AreaRepository _areaRepository = AreaRepository();
+  final FavoriteService _favoriteService = FavoriteService();
+  
   bool _isLoading = false;
-  final List<PostModel> _results = [];
-  final List<String> _recentSearches = ['Căn hộ Hà Nội', 'Nhà phố TP.HCM'];
+  List<PostModel> _results = [];
+  List<CategoryModel> _categories = [];
+  List<CityModel> _cities = [];
+  
+  // Recent searches - có thể lưu vào SharedPreferences sau
+  final List<String> _recentSearches = [];
 
   @override
   void initState() {
     super.initState();
     _searchFocusNode.requestFocus();
+    _loadInitialData();
   }
 
   @override
@@ -33,16 +57,60 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
-  void _handleSearch(String query) {
-    if (query.isEmpty) return;
+  Future<void> _loadInitialData() async {
+    try {
+      final results = await Future.wait([
+        _categoryRepository.getActiveCategories(),
+        _areaRepository.getCities(),
+      ]);
+      
+      if (mounted) {
+        setState(() {
+          _categories = results[0] as List<CategoryModel>;
+          _cities = results[1] as List<CityModel>;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading initial data: $e');
+    }
+  }
+
+  Future<void> _handleSearch(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() => _results.clear());
+      return;
+    }
 
     setState(() => _isLoading = true);
 
-    // TODO: Gọi API tìm kiếm
-    Future.delayed(const Duration(seconds: 1), () {
+    try {
+      final results = await _postRepository.searchPosts(query: query.trim());
+      if (!mounted) return;
+      
+      setState(() {
+        _results = results;
+        _isLoading = false;
+      });
+      
+      // Lưu vào recent searches
+      if (query.trim().isNotEmpty && !_recentSearches.contains(query.trim())) {
+        setState(() {
+          _recentSearches.insert(0, query.trim());
+          if (_recentSearches.length > 10) {
+            _recentSearches.removeLast();
+          }
+        });
+      }
+    } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-    });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi tìm kiếm: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   void _handleRecentSearch(String query) {
@@ -50,17 +118,33 @@ class _SearchScreenState extends State<SearchScreen> {
     _handleSearch(query);
   }
 
+  void _handleCategorySearch(CategoryModel category) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SearchResultsScreen(
+          query: category.name,
+          filters: {'categoryId': category.id},
+        ),
+      ),
+    );
+  }
+
   void _handleLocationSearch() {
-    // TODO: Mở Google Map để chọn địa điểm
-    // Navigator.push(
-    //   context,
-    //   MaterialPageRoute(
-    //     builder: (context) => MapSearchScreen(),
-    //   ),
-    // );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Tính năng tìm kiếm theo bản đồ sẽ được tích hợp Google Maps'),
+    // Mở màn hình tìm kiếm theo bản đồ
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const MapSearchScreen(),
+      ),
+    );
+  }
+
+  void _handleAdvancedSearch() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FilterScreen(),
       ),
     );
   }
@@ -68,43 +152,59 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: AppTextField(
-          controller: _searchController,
-          hint: 'Tìm kiếm địa điểm, loại hình...',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    setState(() {
-                      _searchController.clear();
-                      _results.clear();
-                    });
-                  },
-                )
-              : null,
-          focusNode: _searchFocusNode,
-          onChanged: (value) {
-            setState(() {});
-            if (value.isNotEmpty) {
-              _handleSearch(value);
-            }
-          },
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        title: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceVariant,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: TextField(
+            controller: _searchController,
+            focusNode: _searchFocusNode,
+            style: AppTextStyles.bodyMedium,
+            decoration: InputDecoration(
+              hintText: 'Tìm kiếm địa điểm, loại hình...',
+              hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint),
+              prefixIcon: const Icon(Iconsax.search_normal_1, color: AppColors.textSecondary),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      color: AppColors.textSecondary,
+                      onPressed: () {
+                        setState(() {
+                          _searchController.clear();
+                          _results.clear();
+                        });
+                      },
+                    )
+                  : null,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            onChanged: (value) {
+              setState(() {});
+              if (value.isNotEmpty) {
+                _handleSearch(value);
+              } else {
+                setState(() => _results.clear());
+              }
+            },
+            onSubmitted: _handleSearch,
+          ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.map),
+            icon: const Icon(Iconsax.map_1, color: AppColors.textPrimary),
             tooltip: 'Tìm kiếm theo bản đồ',
             onPressed: _handleLocationSearch,
           ),
-          TextButton(
-            onPressed: () {
-              _searchController.clear();
-              _results.clear();
-              Navigator.of(context).pop();
-            },
-            child: const Text('Hủy'),
+          IconButton(
+            icon: const Icon(Iconsax.filter, color: AppColors.textPrimary),
+            tooltip: 'Bộ lọc nâng cao',
+            onPressed: _handleAdvancedSearch,
           ),
         ],
       ),
@@ -114,7 +214,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const LoadingIndicator();
+      return const Center(child: LoadingIndicator());
     }
 
     if (_searchController.text.isEmpty) {
@@ -122,80 +222,205 @@ class _SearchScreenState extends State<SearchScreen> {
     }
 
     if (_results.isEmpty) {
-      return const EmptyState(
-        icon: Icons.search_off,
+      return EmptyState(
+        icon: Iconsax.search_normal_1,
         title: 'Không tìm thấy kết quả',
-        message: 'Thử tìm kiếm với từ khóa khác',
+        message: 'Thử tìm kiếm với từ khóa khác hoặc sử dụng bộ lọc',
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       itemCount: _results.length,
       itemBuilder: (context, index) {
-        return PropertyCard(
-          property: _results[index],
-          onTap: () {
-            // TODO: Điều hướng đến chi tiết
-          },
+        final property = _results[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: PropertyCard(
+            property: property,
+            isFavorite: _favoriteService.isFavorite(property.id),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PropertyDetailScreen(
+                    propertyId: property.id.toString(),
+                    initialProperty: property,
+                  ),
+                ),
+              );
+            },
+            onFavoriteTap: () => _favoriteService.toggleFavorite(property),
+          ),
         );
       },
     );
   }
 
   Widget _buildRecentSearches() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Tìm kiếm theo bản đồ
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.map, color: Colors.blue),
-            title: const Text('Tìm kiếm theo bản đồ'),
-            subtitle: const Text('Chọn địa điểm trên bản đồ'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: _handleLocationSearch,
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Quick Actions
+          Row(
+            children: [
+              Expanded(
+                child: _buildQuickActionCard(
+                  icon: Iconsax.map_1,
+                  title: 'Tìm theo bản đồ',
+                  subtitle: 'Chọn địa điểm',
+                  color: AppColors.primary,
+                  onTap: _handleLocationSearch,
+                ),
+              ),
+              const Gap(12),
+              Expanded(
+                child: _buildQuickActionCard(
+                  icon: Iconsax.filter,
+                  title: 'Bộ lọc nâng cao',
+                  subtitle: 'Lọc chi tiết',
+                  color: AppColors.accent,
+                  onTap: _handleAdvancedSearch,
+                ),
+              ),
+            ],
           ),
+          const Gap(32),
+          
+          // Loại hình
+          Text('Tìm theo loại hình', style: AppTextStyles.h5),
+          const Gap(16),
+          if (_categories.isEmpty)
+            const Center(child: CircularProgressIndicator())
+          else
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: _categories.map((category) {
+                return _buildCategoryCard(category);
+              }).toList(),
+            ),
+          
+          // Tìm kiếm gần đây
+          if (_recentSearches.isNotEmpty) ...[
+            const Gap(32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Tìm kiếm gần đây', style: AppTextStyles.h5),
+                TextButton(
+                  onPressed: () => setState(() => _recentSearches.clear()),
+                  child: Text('Xóa', style: AppTextStyles.labelMedium.copyWith(color: AppColors.error)),
+                ),
+              ],
+            ),
+            const Gap(12),
+            ..._recentSearches.map((search) => _buildRecentSearchItem(search)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.3)),
         ),
-        const SizedBox(height: 24),
-        const Text(
-          'Tìm kiếm gần đây',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ..._recentSearches.map((search) => ListTile(
-              leading: const Icon(Icons.history),
-              title: Text(search),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () => _handleRecentSearch(search),
-            )),
-        const SizedBox(height: 24),
-        const Text(
-          'Loại hình',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            'Căn hộ',
-            'Nhà phố',
-            'Biệt thự',
-            'Đất nền',
-            'Chung cư',
-          ].map((tag) => ActionChip(
-                label: Text(tag),
-                onPressed: () => _handleRecentSearch(tag),
-              )).toList(),
+            Icon(icon, color: color, size: 32),
+            const Gap(12),
+            Text(title, style: AppTextStyles.labelLarge),
+            const Gap(4),
+            Text(subtitle, style: AppTextStyles.bodySmall),
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryCard(CategoryModel category) {
+    return GestureDetector(
+      onTap: () => _handleCategorySearch(category),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+          boxShadow: AppShadows.small,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Iconsax.category, size: 20, color: AppColors.primary),
+            const Gap(8),
+            Text(category.name, style: AppTextStyles.labelMedium),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentSearchItem(String search) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: ListTile(
+        leading: Icon(Iconsax.clock, color: AppColors.textSecondary),
+        title: Text(search, style: AppTextStyles.bodyMedium),
+        trailing: Icon(Iconsax.arrow_right_3, size: 18, color: AppColors.textSecondary),
+        onTap: () => _handleRecentSearch(search),
+      ),
+    );
+  }
+}
+
+/// Màn hình tìm kiếm theo bản đồ (Placeholder - cần tích hợp Google Maps)
+class MapSearchScreen extends StatelessWidget {
+  const MapSearchScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Tìm kiếm theo bản đồ'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Iconsax.map_1, size: 80, color: AppColors.textHint),
+            const Gap(16),
+            Text('Tính năng đang phát triển', style: AppTextStyles.h5),
+            const Gap(8),
+            Text(
+              'Tích hợp Google Maps để tìm kiếm theo địa điểm',
+              style: AppTextStyles.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

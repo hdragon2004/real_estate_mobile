@@ -49,6 +49,15 @@ class AppShadows {
         ),
       ];
 
+  // Top shadow - cho bottom sheets, navigation bars
+  static const List<BoxShadow> top = [
+        BoxShadow(
+          color: Color(0x1A000000), // 10% opacity
+          blurRadius: 20,
+          offset: Offset(0, -4),
+        ),
+      ];
+
   // Floating button shadow - primary color
   static const List<BoxShadow> floatingButton = [
         BoxShadow(
