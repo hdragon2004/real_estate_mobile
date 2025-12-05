@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../widgets/common/property_card.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
+import '../../../core/models/post_model.dart';
 
 /// Màn hình Kết quả tìm kiếm
 class SearchResultsScreen extends StatefulWidget {
@@ -20,7 +21,7 @@ class SearchResultsScreen extends StatefulWidget {
 
 class _SearchResultsScreenState extends State<SearchResultsScreen> {
   bool _isLoading = false;
-  final List<PropertyModel> _results = []; // TODO: Load từ API
+  final List<PostModel> _results = [];
   String _sortBy = 'Mới nhất';
 
   @override

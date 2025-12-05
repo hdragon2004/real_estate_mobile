@@ -1,4 +1,17 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:gap/gap.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../core/models/post_model.dart';
+import '../../../core/repositories/post_repository.dart';
+import '../../../core/services/favorite_service.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_shadows.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../core/utils/formatters.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../chat/chat_screen.dart';
@@ -8,10 +21,12 @@ import 'map_screen.dart';
 /// Màn hình Chi tiết bất động sản
 class PropertyDetailScreen extends StatefulWidget {
   final String propertyId;
+  final PostModel? initialProperty;
 
   const PropertyDetailScreen({
     super.key,
     required this.propertyId,
+    this.initialProperty,
   });
 
   @override
@@ -19,16 +34,20 @@ class PropertyDetailScreen extends StatefulWidget {
 }
 
 class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
-  bool _isLoading = false;
-  bool _isFavorite = false;
+  final PostRepository _postRepository = PostRepository();
+  final FavoriteService _favoriteService = FavoriteService();
   final PageController _imageController = PageController();
+
+  PostModel? _property;
+  bool _isLoading = false;
   int _currentImageIndex = 0;
-  final List<String> _images = []; // TODO: Load từ API
 
   @override
   void initState() {
     super.initState();
-    _loadPropertyDetail();
+    _property = widget.initialProperty;
+    _isLoading = widget.initialProperty == null;
+    _loadPropertyDetail(showLoader: widget.initialProperty == null);
   }
 
   @override
@@ -37,282 +56,403 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     super.dispose();
   }
 
-  Future<void> _loadPropertyDetail() async {
-    setState(() => _isLoading = true);
-    // TODO: Gọi API lấy chi tiết
-    await Future.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
+  Future<void> _loadPropertyDetail({bool showLoader = false}) async {
+    if (showLoader) {
+      setState(() => _isLoading = true);
+    }
+
+    try {
+      final id = int.tryParse(widget.propertyId);
+      if (id == null) {
+        throw Exception('ID bất động sản không hợp lệ');
+      }
+
+      final property = await _postRepository.getPostById(id);
+      if (!mounted) return;
+      setState(() {
+        _property = property;
+        _isLoading = false;
+      });
+      _favoriteService.upsert(property);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Không thể tải chi tiết: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
-  void _toggleFavorite() {
-    setState(() => _isFavorite = !_isFavorite);
-    // TODO: Gọi API toggle favorite
+  void _toggleFavorite(PostModel property) {
+    HapticFeedback.lightImpact();
+    _favoriteService.toggleFavorite(property);
+    setState(() {});
   }
 
-  void _openImageGallery() {
-    if (_images.isEmpty) return;
+  void _openImageGallery(List<String> images) {
+    if (images.isEmpty) return;
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ImageGalleryScreen(
-          images: _images,
+          images: images,
           initialIndex: _currentImageIndex,
         ),
       ),
     );
   }
 
+  Future<void> _launchPhone(String? phone) async {
+    if (phone == null || phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có số điện thoại liên hệ.')),
+      );
+      return;
+    }
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không thể mở ứng dụng điện thoại.')),
+      );
+    }
+  }
+
+  Future<void> _launchMail(String? email) async {
+    if (email == null || email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có email liên hệ.')),
+      );
+      return;
+    }
+    final uri = Uri(scheme: 'mailto', path: email);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không thể mở ứng dụng email.')),
+      );
+    }
+  }
+
   void _openMap() {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => MapScreen(
-          propertyId: widget.propertyId,
-        ),
+        builder: (context) => MapScreen(propertyId: widget.propertyId),
       ),
     );
   }
 
-  void _contactOwner() {
-    // Mở chat với chủ tin
+  void _contactOwner(PostModel property) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ChatScreen(
-          chatId: 'owner_${widget.propertyId}',
-          userName: 'Nguyễn Văn A',
-          userAvatar: null,
+          chatId: 'owner_${property.id}',
+          userName: property.user?.name ?? 'Chủ tin',
+          userAvatar: property.user?.avatarUrl,
         ),
       ),
     );
   }
 
-  void _callOwner() {
-    // TODO: Gọi điện cho chủ tin
-    // launchUrl(Uri.parse('tel:0123456789'));
+  List<String> _buildImageList(PostModel property) {
+    final List<String> urls = property.images
+        .map((image) => _resolveImageUrl(image.url))
+        .where((url) => url.isNotEmpty)
+        .toList();
+
+    if (urls.isEmpty && property.firstImageUrl.isNotEmpty) {
+      urls.add(_resolveImageUrl(property.firstImageUrl));
+    }
+    return urls;
+  }
+
+  String _resolveImageUrl(String url) {
+    if (url.isEmpty) return '';
+    if (url.startsWith('http')) return url;
+    if (url.startsWith('/')) {
+      return 'http://10.0.2.2:5134$url';
+    }
+    return url;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    final property = _property;
+
+    if (_isLoading && property == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: const LoadingIndicator(),
+        body: const Center(child: LoadingIndicator()),
       );
     }
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // App bar với image
-          SliverAppBar(
-            expandedHeight: 300,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: _images.isEmpty
-                  ? Container(
-                      color: Colors.grey.shade300,
-                      child: const Icon(Icons.image, size: 80),
-                    )
-                  : PageView.builder(
-                      controller: _imageController,
-                      onPageChanged: (index) {
-                        setState(() => _currentImageIndex = index);
-                      },
-                      itemCount: _images.length,
-                      itemBuilder: (context, index) {
-                        return GestureDetector(
-                          onTap: _openImageGallery,
-                          child: Image.network(
-                            _images[index],
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: Colors.grey.shade300,
-                                child: const Icon(Icons.image, size: 80),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-            ),
-            actions: [
-              IconButton(
-                icon: Icon(
-                  _isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: _isFavorite ? Colors.red : Colors.white,
-                ),
-                onPressed: _toggleFavorite,
-              ),
-              IconButton(
-                icon: const Icon(Icons.share),
-                onPressed: () {
-                  // TODO: Share property
-                },
+    if (property == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Chi tiết bất động sản'),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('Không tìm thấy bất động sản.'),
+              const Gap(12),
+              AppButton(
+                text: 'Thử lại',
+                onPressed: () => _loadPropertyDetail(showLoader: true),
+                isOutlined: true,
               ),
             ],
           ),
-          // Content
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+        ),
+      );
+    }
+
+    final images = _buildImageList(property);
+
+    final isFavorite = _favoriteService.isFavorite(property.id);
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () => _loadPropertyDetail(showLoader: false),
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          slivers: [
+            _buildImageAppBar(property, images, isFavorite),
+            SliverToBoxAdapter(child: _buildPrimaryInfo(property)),
+            SliverToBoxAdapter(child: _buildQuickStats(property)),
+            SliverToBoxAdapter(child: _buildDescription(property)),
+            SliverToBoxAdapter(child: _buildLocation(property)),
+            SliverToBoxAdapter(child: _buildContactCard(property)),
+            const SliverToBoxAdapter(child: Gap(100)),
+          ],
+        ),
+      ),
+      bottomNavigationBar: _buildBottomBar(property),
+    );
+  }
+
+  SliverAppBar _buildImageAppBar(PostModel property, List<String> images, bool isFavorite) {
+    return SliverAppBar(
+      expandedHeight: 360,
+      pinned: true,
+      backgroundColor: AppColors.background,
+      surfaceTintColor: Colors.transparent,
+      title: Text(property.categoryName ?? 'Chi tiết', style: AppTextStyles.h6.copyWith(color: Colors.white)),
+      flexibleSpace: FlexibleSpaceBar(
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            images.isEmpty
+                ? Container(
+                    color: AppColors.surfaceVariant,
+                    child: const Icon(Icons.image, size: 80, color: AppColors.textHint),
+                  )
+                : PageView.builder(
+                    controller: _imageController,
+                    onPageChanged: (index) => setState(() => _currentImageIndex = index),
+                    itemCount: images.length,
+                    itemBuilder: (context, index) {
+                      return GestureDetector(
+                        onTap: () => _openImageGallery(images),
+                        child: Hero(
+                          tag: 'property_${property.id}_image_$index',
+                          child: CachedNetworkImage(
+                            imageUrl: images[index],
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(color: AppColors.surfaceVariant),
+                            errorWidget: (context, url, error) => Container(
+                              color: AppColors.surfaceVariant,
+                              child: const Icon(Icons.broken_image, size: 48, color: AppColors.textHint),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+            Positioned(
+              bottom: 24,
+              left: 0,
+              right: 0,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Image indicators
-                  if (_images.length > 1)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        _images.length,
-                        (index) => Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _currentImageIndex == index
-                                ? Theme.of(context).colorScheme.primary
-                                : Colors.grey.shade300,
-                          ),
-                        ),
+                  if (images.length > 1)
+                    SmoothPageIndicator(
+                      controller: _imageController,
+                      count: images.length,
+                      effect: const ExpandingDotsEffect(
+                        dotHeight: 6,
+                        dotWidth: 6,
+                        activeDotColor: Colors.white,
+                        dotColor: Color(0x66FFFFFF),
                       ),
                     ),
-                  const SizedBox(height: 16),
-                  // Title & Price
-                  const Text(
-                    'Căn hộ cao cấp tại Quận 1',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '15 tỷ',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Location
-                  Row(
-                    children: [
-                      Icon(Icons.location_on, color: Colors.grey.shade600),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          '123 Đường ABC, Quận 1, TP.HCM',
-                          style: TextStyle(color: Colors.grey.shade600),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  // Property info
-                  _buildInfoRow(Icons.bed, 'Phòng ngủ', '3'),
-                  _buildInfoRow(Icons.bathtub, 'Phòng tắm', '2'),
-                  _buildInfoRow(Icons.square_foot, 'Diện tích', '120 m²'),
-                  _buildInfoRow(Icons.calendar_today, 'Ngày đăng', '15/01/2024'),
-                  const SizedBox(height: 24),
-                  // Description
-                  const Text(
-                    'Mô tả',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Căn hộ cao cấp với đầy đủ tiện nghi, view đẹp, gần trung tâm. Phòng khách rộng rãi, phòng ngủ thoáng mát, bếp hiện đại. Khu vực an ninh tốt, gần trường học, bệnh viện, siêu thị.',
-                    style: TextStyle(color: Colors.grey.shade700, height: 1.5),
-                  ),
-                  const SizedBox(height: 24),
-                  // Thông tin liên hệ
+                  const Gap(12),
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Thông tin liên hệ',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildContactRow(Icons.person, 'Nguyễn Văn A'),
-                        _buildContactRow(Icons.phone, '0123456789'),
-                        _buildContactRow(Icons.email, 'owner@example.com'),
-                      ],
+                    child: Text(
+                      property.transactionType == TransactionType.sale ? 'Đang bán' : 'Cho thuê',
+                      style: AppTextStyles.labelSmall.copyWith(color: Colors.white),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Map button
-                  AppButton(
-                    text: 'Xem vị trí trên bản đồ',
-                    onPressed: _openMap,
-                    isOutlined: true,
-                    icon: Icons.map,
-                  ),
-                  const SizedBox(height: 16),
-                  // Action buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: AppButton(
-                          text: 'Gọi điện',
-                          onPressed: _callOwner,
-                          isOutlined: true,
-                          icon: Icons.phone,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: AppButton(
-                          text: 'Nhắn tin',
-                          onPressed: _contactOwner,
-                          icon: Icons.chat,
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: Icon(
+            isFavorite ? Icons.favorite : Icons.favorite_outline,
+            color: isFavorite ? AppColors.error : Colors.white,
+          ),
+          onPressed: () => _toggleFavorite(property),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPrimaryInfo(PostModel property) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(property.title, style: AppTextStyles.h4),
+          const Gap(12),
+          Row(
+            children: [
+              _InfoPill(
+                icon: Icons.location_on,
+                label: property.area?.ward?.name ?? 'Không xác định',
+              ),
+              const Gap(8),
+              _InfoPill(
+                icon: Icons.category_outlined,
+                label: property.categoryName ?? 'Danh mục',
+              ),
+            ],
+          ),
+          const Gap(16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                Formatters.formatPriceWithUnit(property.price, property.priceUnit),
+                style: AppTextStyles.priceLarge,
+              ),
+              const Gap(12),
+              Text(
+                Formatters.formatRelative(property.created),
+                style: AppTextStyles.bodySmall,
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildQuickStats(PostModel property) {
+    final stats = <_QuickStat>[
+      _QuickStat(label: 'Diện tích', value: Formatters.formatArea(property.areaSize), icon: Icons.square_foot),
+      if (property.soPhongNgu != null)
+        _QuickStat(label: 'Phòng ngủ', value: '${property.soPhongNgu}', icon: Icons.bed_outlined),
+      if (property.soPhongTam != null)
+        _QuickStat(label: 'Phòng tắm', value: '${property.soPhongTam}', icon: Icons.bathtub_outlined),
+      if (property.soTang != null)
+        _QuickStat(label: 'Số tầng', value: '${property.soTang}', icon: Icons.landscape_outlined),
+      if (property.huongNha != null)
+        _QuickStat(label: 'Hướng nhà', value: property.huongNha!, icon: Icons.explore_outlined),
+      if (property.phapLy != null)
+        _QuickStat(label: 'Pháp lý', value: property.phapLy!, icon: Icons.gavel_outlined),
+    ];
+
+    if (stats.isEmpty) return const SizedBox.shrink();
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: stats.map((stat) => _QuickStatCard(stat: stat)).toList(),
+      ),
+    );
+  }
+
+  Widget _buildDescription(PostModel property) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.grey.shade600),
-          const SizedBox(width: 12),
+          Text('Mô tả chi tiết', style: AppTextStyles.h5),
+          const Gap(12),
           Text(
-            label,
-            style: TextStyle(color: Colors.grey.shade600),
+            property.description,
+            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary, height: 1.6),
           ),
-          const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocation(PostModel property) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Vị trí', style: AppTextStyles.h5),
+          const Gap(12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: AppShadows.card,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.location_on, color: AppColors.primary),
+                    const Gap(8),
+                    Expanded(
+                      child: Text(
+                        property.fullAddress,
+                        style: AppTextStyles.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
+                const Gap(12),
+                AppButton(
+                  text: 'Xem trên bản đồ',
+                  onPressed: _openMap,
+                  isOutlined: true,
+                  icon: Icons.map,
+                ),
+              ],
             ),
           ),
         ],
@@ -320,19 +460,174 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     );
   }
 
-  Widget _buildContactRow(IconData icon, String value) {
+  Widget _buildContactCard(PostModel property) {
+    final user = property.user;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: Colors.grey.shade600),
-          const SizedBox(width: 12),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
+          Text('Liên hệ', style: AppTextStyles.h5),
+          const Gap(12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: AppShadows.card,
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundImage: user?.avatarUrl != null ? NetworkImage(user!.avatarUrl!) : null,
+                      child: user?.avatarUrl == null
+                          ? Text((user?.name ?? 'U')[0].toUpperCase(), style: AppTextStyles.h5.copyWith(color: Colors.white))
+                          : null,
+                    ),
+                    const Gap(12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(user?.name ?? 'Chủ tin', style: AppTextStyles.h6),
+                          const Gap(4),
+                          Text(user?.email ?? '-', style: AppTextStyles.bodySmall),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => _launchMail(user?.email),
+                      icon: const Icon(Icons.email_outlined),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppButton(
+                        text: 'Gọi điện',
+                        onPressed: () => _launchPhone(user?.phone),
+                        isOutlined: true,
+                        icon: Icons.phone,
+                      ),
+                    ),
+                    const Gap(12),
+                    Expanded(
+                      child: AppButton(
+                        text: 'Nhắn tin',
+                        onPressed: () => _contactOwner(property),
+                        icon: Icons.chat_bubble_outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(PostModel property) {
+    final user = property.user;
+    return Container(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 12,
+        bottom: 12 + MediaQuery.of(context).padding.bottom,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        boxShadow: AppShadows.bottomNav,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: AppButton(
+              text: 'Gọi ngay',
+              onPressed: () => _launchPhone(user?.phone),
+              isOutlined: true,
+              icon: Icons.call,
+            ),
+          ),
+          const Gap(12),
+          Expanded(
+            child: AppButton(
+              text: 'Đặt lịch xem',
+              onPressed: () => _contactOwner(property),
+              icon: Icons.calendar_month,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _InfoPill({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: AppColors.textSecondary),
+          const Gap(6),
+          Text(label, style: AppTextStyles.labelSmall),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickStat {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  _QuickStat({required this.label, required this.value, required this.icon});
+}
+
+class _QuickStatCard extends StatelessWidget {
+  final _QuickStat stat;
+
+  const _QuickStatCard({required this.stat});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppShadows.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(stat.icon, color: AppColors.primary, size: 20),
+          const Gap(8),
+          Text(stat.value, style: AppTextStyles.h6),
+          const Gap(4),
+          Text(stat.label, style: AppTextStyles.bodySmall),
         ],
       ),
     );

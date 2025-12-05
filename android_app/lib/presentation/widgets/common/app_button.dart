@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../core/theme/app_shadows.dart';
 
-/// Widget button dùng chung cho toàn bộ ứng dụng
-class AppButton extends StatelessWidget {
+/// Widget button dùng chung với scale animation cho mobile
+class AppButton extends StatefulWidget {
   final String text;
   final VoidCallback? onPressed;
   final bool isLoading;
@@ -9,8 +13,9 @@ class AppButton extends StatelessWidget {
   final Color? backgroundColor;
   final Color? textColor;
   final double? width;
-  final double? height;
+  final double height;
   final IconData? icon;
+  final bool useGradient;
 
   const AppButton({
     super.key,
@@ -21,75 +26,150 @@ class AppButton extends StatelessWidget {
     this.backgroundColor,
     this.textColor,
     this.width,
-    this.height,
+    this.height = 54,
     this.icon,
+    this.useGradient = false,
   });
+
+  @override
+  State<AppButton> createState() => _AppButtonState();
+}
+
+class _AppButtonState extends State<AppButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    if (widget.onPressed != null && !widget.isLoading) {
+      _controller.forward();
+    }
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    _controller.reverse();
+  }
+
+  void _onTapCancel() {
+    _controller.reverse();
+  }
+
+  void _onTap() {
+    if (widget.onPressed != null && !widget.isLoading) {
+      HapticFeedback.lightImpact();
+      widget.onPressed!();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final buttonStyle = isOutlined
-        ? OutlinedButton.styleFrom(
-            backgroundColor: backgroundColor ?? Colors.transparent,
-            foregroundColor: textColor ?? theme.colorScheme.primary,
-            side: BorderSide(color: textColor ?? theme.colorScheme.primary),
-            minimumSize: Size(width ?? double.infinity, height ?? 50),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          )
-        : ElevatedButton.styleFrom(
-            backgroundColor: backgroundColor ?? theme.colorScheme.primary,
-            foregroundColor: textColor ?? Colors.white,
-            minimumSize: Size(width ?? double.infinity, height ?? 50),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          );
+    final isDisabled = widget.onPressed == null || widget.isLoading;
 
-    Widget buttonContent = isLoading
-        ? SizedBox(
-            height: 20,
-            width: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isOutlined
-                    ? (textColor ?? theme.colorScheme.primary)
-                    : Colors.white,
+    return GestureDetector(
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
+      onTap: _onTap,
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 150),
+              opacity: isDisabled ? 0.6 : 1.0,
+              child: Container(
+                width: widget.width,
+                height: widget.height,
+                decoration: _buildDecoration(theme),
+                child: Center(child: _buildContent(theme)),
               ),
             ),
-          )
-        : Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 20),
-                const SizedBox(width: 8),
-              ],
-              Text(
-                text,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
           );
+        },
+      ),
+    );
+  }
 
-    if (isOutlined) {
-      return OutlinedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: buttonStyle,
-        child: buttonContent,
+  BoxDecoration _buildDecoration(ThemeData theme) {
+    if (widget.isOutlined) {
+      return BoxDecoration(
+        color: widget.backgroundColor ?? Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: widget.textColor ?? AppColors.primary,
+          width: 1.5,
+        ),
       );
     }
 
-    return ElevatedButton(
-      onPressed: isLoading ? null : onPressed,
-      style: buttonStyle,
-      child: buttonContent,
+    if (widget.useGradient) {
+      return BoxDecoration(
+        gradient: AppColors.primaryGradient,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: AppShadows.small,
+      );
+    }
+
+    return BoxDecoration(
+      color: widget.backgroundColor ?? AppColors.primary,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: AppShadows.small,
+    );
+  }
+
+  Widget _buildContent(ThemeData theme) {
+    if (widget.isLoading) {
+      return SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+          valueColor: AlwaysStoppedAnimation<Color>(
+            widget.isOutlined
+                ? (widget.textColor ?? AppColors.primary)
+                : Colors.white,
+          ),
+        ),
+      );
+    }
+
+    final textColor = widget.isOutlined
+        ? (widget.textColor ?? AppColors.primary)
+        : (widget.textColor ?? Colors.white);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.icon != null) ...[
+          Icon(widget.icon, size: 20, color: textColor),
+          const SizedBox(width: 8),
+        ],
+        Text(
+          widget.text,
+          style: AppTextStyles.buttonLarge.copyWith(color: textColor),
+        ),
+      ],
     );
   }
 }

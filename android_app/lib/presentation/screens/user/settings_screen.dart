@@ -189,51 +189,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Chọn ngôn ngữ'),
-        content: StatefulBuilder(
-          builder: (context, setDialogState) {
-            String tempLanguage = _selectedLanguage;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  title: const Text('Tiếng Việt'),
-                  leading: Radio<String>(
-                    value: 'Tiếng Việt',
-                    groupValue: tempLanguage,
-                    onChanged: (value) {
-                      if (value != null) {
-                        setDialogState(() {
-                          tempLanguage = value;
-                        });
-                        setState(() {
-                          _selectedLanguage = value;
-                        });
-                        Navigator.pop(context);
-                      }
-                    },
-                  ),
-                ),
-                ListTile(
-                  title: const Text('English'),
-                  leading: Radio<String>(
-                    value: 'English',
-                    groupValue: tempLanguage,
-                    onChanged: (value) {
-                      if (value != null) {
-                        setDialogState(() {
-                          tempLanguage = value;
-                        });
-                        setState(() {
-                          _selectedLanguage = value;
-                        });
-                        Navigator.pop(context);
-                      }
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('Tiếng Việt'),
+              leading: Icon(
+                _selectedLanguage == 'Tiếng Việt' 
+                    ? Icons.radio_button_checked 
+                    : Icons.radio_button_unchecked,
+                color: _selectedLanguage == 'Tiếng Việt' 
+                    ? Theme.of(context).primaryColor 
+                    : null,
+              ),
+              onTap: () {
+                setState(() {
+                  _selectedLanguage = 'Tiếng Việt';
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: const Text('English'),
+              leading: Icon(
+                _selectedLanguage == 'English' 
+                    ? Icons.radio_button_checked 
+                    : Icons.radio_button_unchecked,
+                color: _selectedLanguage == 'English' 
+                    ? Theme.of(context).primaryColor 
+                    : null,
+              ),
+              onTap: () {
+                setState(() {
+                  _selectedLanguage = 'English';
+                });
+                Navigator.pop(context);
+              },
+            ),
+          ],
         ),
       ),
     );

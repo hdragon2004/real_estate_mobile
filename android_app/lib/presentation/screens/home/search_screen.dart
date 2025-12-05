@@ -3,6 +3,7 @@ import '../../widgets/common/app_text_field.dart';
 import '../../widgets/common/property_card.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
+import '../../../core/models/post_model.dart';
 
 /// Màn hình Tìm kiếm
 class SearchScreen extends StatefulWidget {
@@ -16,7 +17,7 @@ class _SearchScreenState extends State<SearchScreen> {
   final _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   bool _isLoading = false;
-  final List<PropertyModel> _results = []; // TODO: Load từ API
+  final List<PostModel> _results = [];
   final List<String> _recentSearches = ['Căn hộ Hà Nội', 'Nhà phố TP.HCM'];
 
   @override
