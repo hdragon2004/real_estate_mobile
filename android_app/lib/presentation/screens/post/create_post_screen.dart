@@ -409,7 +409,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         MapEntry('Area_Size', _areaController.text),
         MapEntry('CategoryId', _selectedCategory!.id.toString()),
         MapEntry('UserId', userId.toString()), // Thêm UserId
-        // Địa chỉ từ dropdown - API sẽ tự động tạo Area nếu cần
+        // Địa chỉ từ dropdown - API sẽ tự động tạo Ward nếu cần
         MapEntry('FullAddress', fullAddress),
         MapEntry('CityName', _selectedProvince!.name),
         MapEntry('DistrictName', _selectedDistrict!.name),

@@ -3,9 +3,9 @@ import 'package:gap/gap.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../../widgets/common/app_button.dart';
 import '../../../core/models/category_model.dart';
-import '../../../core/models/area_model.dart';
+import '../../../core/models/location_model.dart';
 import '../../../core/repositories/category_repository.dart';
-import '../../../core/repositories/area_repository.dart';
+import '../../../core/repositories/location_repository.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
@@ -74,7 +74,7 @@ class FilterScreen extends StatefulWidget {
 class _FilterScreenState extends State<FilterScreen> {
   late FilterModel _filters;
   final CategoryRepository _categoryRepository = CategoryRepository();
-  final AreaRepository _areaRepository = AreaRepository();
+  final LocationRepository _locationRepository = LocationRepository();
   
   List<CategoryModel> _categories = [];
   List<CityModel> _cities = [];
@@ -114,7 +114,7 @@ class _FilterScreenState extends State<FilterScreen> {
     try {
       final results = await Future.wait([
         _categoryRepository.getActiveCategories(),
-        _areaRepository.getCities(),
+        _locationRepository.getCities(),
       ]);
       
       if (mounted) {
@@ -138,7 +138,7 @@ class _FilterScreenState extends State<FilterScreen> {
 
   Future<void> _loadDistricts(int cityId) async {
     try {
-      final districts = await _areaRepository.getDistrictsByCity(cityId);
+      final districts = await _locationRepository.getDistrictsByCity(cityId);
       if (mounted) {
         setState(() {
           _districts = districts;
@@ -157,7 +157,7 @@ class _FilterScreenState extends State<FilterScreen> {
 
   Future<void> _loadWards(int districtId) async {
     try {
-      final wards = await _areaRepository.getWardsByDistrict(districtId);
+      final wards = await _locationRepository.getWardsByDistrict(districtId);
       if (mounted) {
         setState(() {
           _wards = wards;

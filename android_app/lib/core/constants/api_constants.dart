@@ -14,19 +14,17 @@ class ApiConstants {
   static const String posts = '/posts';
   static const String postSearch = '/posts/search';
   static const String postsByUser = '/posts/user'; // + /{userId}
-  static const String postDraft = '/posts/draft';
-  static const String postDraftSave = '/posts/draft/save';
 
   // Category Endpoints
   static const String categories = '/categories';
   static const String categoriesAll = '/categories/all';
 
-  // Area Endpoints
-  static const String cities = '/areas/cities';
-  static const String districts = '/areas/districts';
-  static const String wards = '/areas/wards';
-  // /areas/cities/{cityId}/districts - lấy quận theo thành phố
-  // /areas/districts/{districtId}/wards - lấy phường theo quận
+  // Location Endpoints (City/District/Ward)
+  static const String cities = '/locations/cities';
+  static const String districts = '/locations/districts';
+  static const String wards = '/locations/wards';
+  // /locations/cities/{cityId}/districts - lấy quận theo thành phố
+  // /locations/districts/{districtId}/wards - lấy phường theo quận
 
   // Favorite Endpoints
   static const String favorites = '/favorites';

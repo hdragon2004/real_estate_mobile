@@ -1,8 +1,8 @@
 import '../network/api_client.dart';
 import '../constants/api_constants.dart';
-import '../models/area_model.dart';
+import '../models/location_model.dart';
 
-class AreaRepository {
+class LocationRepository {
   final ApiClient _apiClient = ApiClient();
 
   Future<List<CityModel>> getCities() async {
@@ -79,3 +79,4 @@ class AreaRepository {
     }
   }
 }
+

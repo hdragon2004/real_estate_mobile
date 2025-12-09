@@ -31,8 +31,8 @@ class PostModel {
   final int userId;
   final int categoryId;
   final String? categoryName;
-  final int areaId;
-  final String? areaName;
+  final int wardId; // Thay areaId bằng wardId
+  final String? areaName; // Giữ lại để backward compatibility
   final String? userName;
   final bool isApproved;
   final DateTime? expiryDate;
@@ -48,7 +48,8 @@ class PostModel {
   final String? timeAgo;
   final PostUser? user;
   final PostCategory? category;
-  final PostArea? area;
+  final PostArea? area; // Giữ lại để backward compatibility
+  final PostWard? ward; // Thêm ward mới
 
   PostModel({
     required this.id,
@@ -64,7 +65,7 @@ class PostModel {
     required this.userId,
     required this.categoryId,
     this.categoryName,
-    required this.areaId,
+    required this.wardId,
     this.areaName,
     this.userName,
     required this.isApproved,
@@ -82,6 +83,7 @@ class PostModel {
     this.user,
     this.category,
     this.area,
+    this.ward,
   });
 
   factory PostModel.fromJson(Map<String, dynamic> json) {
@@ -101,7 +103,7 @@ class PostModel {
       userId: json['userId'] ?? 0,
       categoryId: json['categoryId'] ?? 0,
       categoryName: json['categoryName'],
-      areaId: json['areaId'] ?? 0,
+      wardId: json['wardId'] ?? json['areaId'] ?? 0, // Backward compatibility: đọc areaId nếu không có wardId
       areaName: json['areaName'],
       userName: json['userName'],
       isApproved: json['isApproved'] ?? false,
@@ -125,7 +127,8 @@ class PostModel {
       category: json['category'] != null
           ? PostCategory.fromJson(json['category'])
           : null,
-      area: json['area'] != null ? PostArea.fromJson(json['area']) : null,
+      area: json['area'] != null ? PostArea.fromJson(json['area']) : null, // Backward compatibility
+      ward: json['ward'] != null ? PostWard.fromJson(json['ward']) : null,
     );
   }
 
@@ -175,11 +178,12 @@ class PostModel {
   }
 
   String get fullAddress {
-    if (area != null && area!.ward != null) {
-      final ward = area!.ward!;
-      final district = ward.district;
+    // Ưu tiên dùng ward mới, fallback về area.ward để backward compatibility
+    PostWard? wardObj = ward ?? area?.ward;
+    if (wardObj != null) {
+      final district = wardObj.district;
       final city = district?.city;
-      return '$streetName, ${ward.name}, ${district?.name ?? ''}, ${city?.name ?? ''}';
+      return '$streetName, ${wardObj.name}, ${district?.name ?? ''}, ${city?.name ?? ''}';
     }
     return streetName;
   }

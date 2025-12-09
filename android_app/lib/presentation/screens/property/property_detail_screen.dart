@@ -334,7 +334,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
             children: [
               _InfoPill(
                 icon: Icons.location_on,
-                label: property.area?.ward?.name ?? 'Không xác định',
+                label: property.ward?.name ?? property.area?.ward?.name ?? 'Không xác định',
               ),
               const Gap(8),
               _InfoPill(
