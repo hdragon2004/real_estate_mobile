@@ -250,7 +250,6 @@ class AddressComponents {
     for (var component in components) {
       final types = List<String>.from(component['types'] ?? []);
       final longName = component['long_name'] ?? '';
-      final shortName = component['short_name'] ?? '';
 
       if (types.contains('street_number')) {
         streetNumber = longName;

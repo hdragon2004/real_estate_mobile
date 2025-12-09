@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/confirmation_dialog.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/services/auth_storage_service.dart';
 
 /// Màn hình Hồ sơ cá nhân
 class ProfileScreen extends StatefulWidget {
@@ -213,8 +215,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (confirmed == true) {
-      // TODO: Xử lý đăng xuất
-      // Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      // Xóa token và dữ liệu đăng nhập
+      await ApiClient().clearAuthToken();
+      await AuthStorageService.clearAll();
+      
+      if (!mounted) return;
+      // Chuyển đến màn hình đăng nhập và xóa tất cả route trước đó
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }
   }
 }

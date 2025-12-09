@@ -5,19 +5,17 @@ import 'package:gap/gap.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/models/category_model.dart';
-import '../../../core/models/area_model.dart';
+import '../../../core/models/vietnam_address_model.dart';
 import '../../../core/repositories/post_repository.dart';
 import '../../../core/repositories/category_repository.dart';
-import '../../../core/repositories/area_repository.dart';
+import '../../../core/repositories/user_repository.dart';
 import '../../../core/services/image_picker_service.dart';
+import '../../../core/services/vietnam_address_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/loading_indicator.dart';
-import 'google_places_search_screen.dart';
-import '../../../core/services/google_places_service.dart';
-import '../../../config/app_config.dart';
 
 /// Màn hình đăng tin bất động sản - Modern UI với Multi-step Form
 class CreatePostScreen extends StatefulWidget {
@@ -31,7 +29,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final PageController _pageController = PageController();
   final PostRepository _postRepository = PostRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
-  final AreaRepository _areaRepository = AreaRepository();
+  final UserRepository _userRepository = UserRepository();
   
   int _currentStep = 0;
   final int _totalSteps = 5;
@@ -55,22 +53,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   // Form Data
   TransactionType _transactionType = TransactionType.sale;
   PriceUnit _priceUnit = PriceUnit.total;
-  String _status = 'available';
+  final String _status = 'available';
   CategoryModel? _selectedCategory;
-  CityModel? _selectedCity;
-  DistrictModel? _selectedDistrict;
-  WardModel? _selectedWard;
+  VietnamProvince? _selectedProvince;
+  VietnamDistrict? _selectedDistrict;
+  VietnamWard? _selectedWard;
   String? _huongNha;
   String? _huongBanCong;
   List<File> _selectedImages = [];
 
   // Data Lists
   List<CategoryModel> _categories = [];
-  List<CityModel> _cities = [];
-  List<DistrictModel> _districts = [];
-  List<DistrictModel> _filteredDistricts = [];
-  List<WardModel> _wards = [];
-  List<WardModel> _filteredWards = [];
+  List<VietnamProvince> _provinces = [];
+  List<VietnamDistrict> _districts = [];
+  List<VietnamWard> _wards = [];
 
   // Hướng nhà options
   final List<String> _huongNhaOptions = [
@@ -105,13 +101,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     try {
       final results = await Future.wait([
         _categoryRepository.getActiveCategories(),
-        _areaRepository.getCities(),
+        VietnamAddressService.fetchProvinces(),
       ]);
       
       if (mounted) {
         setState(() {
           _categories = results[0] as List<CategoryModel>;
-          _cities = results[1] as List<CityModel>;
+          _provinces = results[1] as List<VietnamProvince>;
           _isLoading = false;
         });
       }
@@ -125,33 +121,43 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
-  Future<void> _loadDistricts(int cityId) async {
+  Future<void> _loadDistricts(String provinceCode) async {
     try {
-      final districts = await _areaRepository.getDistrictsByCity(cityId);
+      final districts = await VietnamAddressService.fetchDistricts(provinceCode);
       if (mounted) {
         setState(() {
-          _filteredDistricts = districts;
+          _districts = districts;
           _selectedDistrict = null;
           _selectedWard = null;
-          _filteredWards = [];
+          _wards = [];
         });
       }
     } catch (e) {
       debugPrint('Error loading districts: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi tải quận/huyện: $e')),
+        );
+      }
     }
   }
 
-  Future<void> _loadWards(int districtId) async {
+  Future<void> _loadWards(String districtCode) async {
     try {
-      final wards = await _areaRepository.getWardsByDistrict(districtId);
+      final wards = await VietnamAddressService.fetchWards(districtCode);
       if (mounted) {
         setState(() {
-          _filteredWards = wards;
+          _wards = wards;
           _selectedWard = null;
         });
       }
     } catch (e) {
       debugPrint('Error loading wards: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi tải phường/xã: $e')),
+        );
+      }
     }
   }
 
@@ -194,8 +200,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         }
         return true;
       case 1: // Địa điểm
-        if (_selectedCity == null) {
-          _showError('Vui lòng chọn thành phố');
+        if (_selectedProvince == null) {
+          _showError('Vui lòng chọn tỉnh/thành phố');
           return false;
         }
         if (_selectedDistrict == null) {
@@ -207,7 +213,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           return false;
         }
         if (_streetController.text.trim().isEmpty) {
-          _showError('Vui lòng nhập tên đường');
+          _showError('Vui lòng nhập tên đường/số nhà');
           return false;
         }
         return true;
@@ -254,10 +260,26 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickImages() async {
-    final images = await ImagePickerService.pickMultipleImagesFromGallery(context);
-    if (images.isNotEmpty && mounted) {
+    // Hiển thị dialog cho phép chọn giữa camera và thư viện
+    final source = await _showImageSourceDialog();
+    if (source == null || !mounted) return;
+
+    List<File> newImages = [];
+    
+    if (source == 'camera') {
+      // Chụp ảnh từ camera
+      final image = await ImagePickerService.takePicture(context);
+      if (image != null) {
+        newImages.add(image);
+      }
+    } else if (source == 'gallery') {
+      // Chọn nhiều ảnh từ thư viện
+      newImages = await ImagePickerService.pickMultipleImagesFromGallery(context);
+    }
+
+    if (newImages.isNotEmpty && mounted) {
       setState(() {
-        _selectedImages.addAll(images);
+        _selectedImages.addAll(newImages);
         if (_selectedImages.length > 10) {
           _selectedImages = _selectedImages.take(10).toList();
           ScaffoldMessenger.of(context).showSnackBar(
@@ -268,108 +290,60 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
+  /// Hiển thị dialog cho phép chọn giữa camera và thư viện
+  Future<String?> _showImageSourceDialog() async {
+    return showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.textHint,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: Icon(Iconsax.camera, color: AppColors.primary),
+                title: Text('Chụp ảnh', style: AppTextStyles.labelLarge),
+                subtitle: Text('Chụp ảnh mới từ camera', style: AppTextStyles.bodySmall),
+                onTap: () => Navigator.pop(context, 'camera'),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: Icon(Iconsax.gallery, color: AppColors.primary),
+                title: Text('Chọn từ thư viện', style: AppTextStyles.labelLarge),
+                subtitle: Text('Chọn nhiều ảnh từ thư viện', style: AppTextStyles.bodySmall),
+                onTap: () => Navigator.pop(context, 'gallery'),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: Icon(Iconsax.close_circle, color: AppColors.textSecondary),
+                title: Text('Hủy', style: AppTextStyles.labelLarge),
+                onTap: () => Navigator.pop(context),
+              ),
+              const Gap(8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _removeImage(int index) {
     setState(() {
       _selectedImages.removeAt(index);
     });
   }
 
-  /// Mở màn hình tìm kiếm Google Places
-  Future<void> _openGooglePlacesSearch() async {
-    final result = await Navigator.push<PlaceDetails>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => GooglePlacesSearchScreen(
-          initialQuery: _streetController.text,
-        ),
-      ),
-    );
-
-    if (result != null && mounted) {
-      await _handleGooglePlaceSelected(result);
-    }
-  }
-
-  /// Xử lý khi chọn địa điểm từ Google Places
-  Future<void> _handleGooglePlaceSelected(PlaceDetails placeDetails) async {
-    try {
-      // Parse địa chỉ từ Google Places
-      final parsedAddress = placeDetails.parseAddress();
-      
-      // Cập nhật tên đường
-      _streetController.text = parsedAddress['streetName'] ?? placeDetails.formattedAddress;
-
-      // Tìm City/District/Ward tương ứng trong database
-      await _matchAddressToDatabase(parsedAddress);
-
-      // Hiển thị thông báo thành công
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã chọn địa điểm: ${placeDetails.name}'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi xử lý địa điểm: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
-  /// Tìm City/District/Ward trong database dựa trên địa chỉ từ Google Places
-  Future<void> _matchAddressToDatabase(Map<String, String?> parsedAddress) async {
-    final cityName = parsedAddress['cityName'];
-    final districtName = parsedAddress['districtName'];
-    final wardName = parsedAddress['wardName'];
-
-    if (cityName != null) {
-      // Tìm City
-      final matchingCity = _cities.firstWhere(
-        (city) => city.name.toLowerCase().contains(cityName.toLowerCase()) ||
-                  cityName.toLowerCase().contains(city.name.toLowerCase()),
-        orElse: () => _cities.first,
-      );
-
-      if (matchingCity != null) {
-        setState(() => _selectedCity = matchingCity);
-        await _loadDistricts(matchingCity.id);
-
-        if (districtName != null && _filteredDistricts.isNotEmpty) {
-          // Tìm District
-          final matchingDistrict = _filteredDistricts.firstWhere(
-            (district) => district.name.toLowerCase().contains(districtName.toLowerCase()) ||
-                          districtName.toLowerCase().contains(district.name.toLowerCase()),
-            orElse: () => _filteredDistricts.first,
-          );
-
-          if (matchingDistrict != null) {
-            setState(() => _selectedDistrict = matchingDistrict);
-            await _loadWards(matchingDistrict.id);
-
-            if (wardName != null && _filteredWards.isNotEmpty) {
-              // Tìm Ward
-              final matchingWard = _filteredWards.firstWhere(
-                (ward) => ward.name.toLowerCase().contains(wardName.toLowerCase()) ||
-                          wardName.toLowerCase().contains(ward.name.toLowerCase()),
-                orElse: () => _filteredWards.first,
-              );
-
-              if (matchingWard != null) {
-                setState(() => _selectedWard = matchingWard);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
 
   Future<void> _submitPost() async {
     if (!_validateCurrentStep()) return;
@@ -377,9 +351,52 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     setState(() => _isSubmitting = true);
 
     try {
+      // Lấy thông tin user hiện tại để lấy userId
+      int userId;
+      try {
+        final currentUser = await _userRepository.getProfile();
+        userId = currentUser.id;
+      } catch (e) {
+        // Nếu chưa đăng nhập, yêu cầu đăng nhập
+        if (mounted) {
+          final shouldLogin = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text('Yêu cầu đăng nhập', style: AppTextStyles.h6),
+              content: Text(
+                'Bạn cần đăng nhập để đăng tin. Vui lòng đăng nhập để tiếp tục.',
+                style: AppTextStyles.bodyMedium,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text('Hủy', style: AppTextStyles.labelLarge),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(
+                    'Đăng nhập',
+                    style: AppTextStyles.labelLarge.copyWith(color: AppColors.primary),
+                  ),
+                ),
+              ],
+            ),
+          );
+          
+          if (shouldLogin == true && mounted && context.mounted) {
+            Navigator.pop(context); // Đóng màn hình đăng tin
+            Navigator.pushNamed(context, '/login'); // Chuyển đến màn hình đăng nhập
+          }
+        }
+        return;
+      }
+      
       // Tạo FormData
       final formData = FormData();
 
+      // Tạo địa chỉ đầy đủ từ dropdown
+      final fullAddress = '${_streetController.text.trim()}, ${_selectedWard!.name}, ${_selectedDistrict!.name}, ${_selectedProvince!.name}';
+      
       // Basic info
       formData.fields.addAll([
         MapEntry('Title', _titleController.text.trim()),
@@ -391,7 +408,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         MapEntry('Street_Name', _streetController.text.trim()),
         MapEntry('Area_Size', _areaController.text),
         MapEntry('CategoryId', _selectedCategory!.id.toString()),
-        MapEntry('AreaId', _selectedWard!.id.toString()), // Using ward ID as AreaId
+        MapEntry('UserId', userId.toString()), // Thêm UserId
+        // Địa chỉ từ dropdown - API sẽ tự động tạo Area nếu cần
+        MapEntry('FullAddress', fullAddress),
+        MapEntry('CityName', _selectedProvince!.name),
+        MapEntry('DistrictName', _selectedDistrict!.name),
+        MapEntry('WardName', _selectedWard!.name),
       ]);
 
       // Optional fields
@@ -428,8 +450,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         ));
       }
 
-      // Submit
-      await _postRepository.createPost(formData);
+      // Submit - role mặc định là 0 (User)
+      await _postRepository.createPost(formData, role: 0);
 
       if (mounted) {
         Navigator.pop(context, true); // Return true to indicate success
@@ -442,7 +464,21 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
     } catch (e) {
       if (mounted) {
-        _showError('Lỗi đăng tin: $e');
+        String errorMessage = 'Lỗi đăng tin';
+        if (e is DioException && e.response != null) {
+          // Lấy message từ server response
+          final responseData = e.response?.data;
+          if (responseData is Map && responseData.containsKey('message')) {
+            errorMessage = responseData['message'] ?? errorMessage;
+          } else if (responseData is String) {
+            errorMessage = responseData;
+          } else {
+            errorMessage = 'Lỗi ${e.response?.statusCode}: ${e.message}';
+          }
+        } else {
+          errorMessage = 'Lỗi đăng tin: $e';
+        }
+        _showError(errorMessage);
       }
     } finally {
       if (mounted) {
@@ -658,69 +694,63 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           Text('Chọn địa điểm của bất động sản', style: AppTextStyles.bodySmall),
           const Gap(24),
           
-          // Thành phố
-          _buildDropdown<CityModel>(
-            label: 'Thành phố *',
-            value: _selectedCity,
-            items: _cities,
-            displayText: (city) => city.name,
-            onChanged: (city) {
-              setState(() => _selectedCity = city);
-              if (city != null) {
-                _loadDistricts(city.id);
+          // Tỉnh/Thành phố
+          _buildDropdown<VietnamProvince>(
+            label: 'Tỉnh/Thành phố *',
+            value: _selectedProvince,
+            items: _provinces,
+            displayText: (province) => province.name,
+            onChanged: (province) {
+              setState(() {
+                _selectedProvince = province;
+                _selectedDistrict = null;
+                _selectedWard = null;
+                _districts = [];
+                _wards = [];
+              });
+              if (province != null) {
+                _loadDistricts(province.code);
               }
             },
           ),
           const Gap(20),
           
           // Quận/Huyện
-          _buildDropdown<DistrictModel>(
+          _buildDropdown<VietnamDistrict>(
             label: 'Quận/Huyện *',
             value: _selectedDistrict,
-            items: _filteredDistricts,
+            items: _districts,
             displayText: (district) => district.name,
             onChanged: (district) {
-              setState(() => _selectedDistrict = district);
+              setState(() {
+                _selectedDistrict = district;
+                _selectedWard = null;
+                _wards = [];
+              });
               if (district != null) {
-                _loadWards(district.id);
+                _loadWards(district.code);
               }
             },
-            enabled: _selectedCity != null,
+            enabled: _selectedProvince != null,
           ),
           const Gap(20),
           
           // Phường/Xã
-          _buildDropdown<WardModel>(
+          _buildDropdown<VietnamWard>(
             label: 'Phường/Xã *',
             value: _selectedWard,
-            items: _filteredWards,
+            items: _wards,
             displayText: (ward) => ward.name,
             onChanged: (ward) => setState(() => _selectedWard = ward),
             enabled: _selectedDistrict != null,
           ),
           const Gap(20),
           
-          // Tìm kiếm bằng Google Maps
-          Container(
-            margin: const EdgeInsets.only(bottom: 20),
-            child: AppButton(
-              text: 'Tìm kiếm trên bản đồ',
-              onPressed: _openGooglePlacesSearch,
-              isOutlined: true,
-              icon: Iconsax.map_1,
-            ),
-          ),
-          
-          // Tên đường
+          // Tên đường/Số nhà
           _buildTextField(
             controller: _streetController,
             label: 'Tên đường/Số nhà *',
             hint: 'VD: 123 Nguyễn Huệ',
-            suffixIcon: IconButton(
-              icon: const Icon(Iconsax.search_normal_1),
-              onPressed: _openGooglePlacesSearch,
-              tooltip: 'Tìm kiếm địa điểm',
-            ),
           ),
         ],
       ),
@@ -1021,6 +1051,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     int maxLines = 1,
     TextInputType? keyboardType,
     String? suffixText,
+    Widget? suffixIcon,
+    bool enabled = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1031,11 +1063,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           controller: controller,
           maxLines: maxLines,
           keyboardType: keyboardType,
+          enabled: enabled,
           style: AppTextStyles.bodyMedium,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint),
             suffixText: suffixText,
+            suffixIcon: suffixIcon,
             filled: true,
             fillColor: AppColors.surface,
             border: OutlineInputBorder(
@@ -1143,7 +1177,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             border: Border.all(color: AppColors.border),
           ),
           child: DropdownButtonFormField<T>(
-            value: value,
+            initialValue: value,
             items: [
               if (allowNull)
                 DropdownMenuItem<T>(

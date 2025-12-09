@@ -178,8 +178,6 @@ class _FilterScreenState extends State<FilterScreen> {
     _filters.maxPrice = double.tryParse(_maxPriceController.text);
     _filters.minArea = double.tryParse(_minAreaController.text);
     _filters.maxArea = double.tryParse(_maxAreaController.text);
-    
-    Navigator.of(context).pop(_filters);
   }
 
   void _resetFilters() {
@@ -426,6 +424,7 @@ class _FilterScreenState extends State<FilterScreen> {
                   child: AppButton(
                     text: 'Áp dụng bộ lọc',
                     onPressed: () {
+                      _applyFilters();
                       final filters = _filters.toQueryParams();
                       Navigator.pushReplacement(
                         context,
@@ -535,7 +534,7 @@ class _FilterScreenState extends State<FilterScreen> {
     required Function(T?) onChanged,
   }) {
     return DropdownButtonFormField<T>(
-      value: items.contains(value) ? value : null,
+      initialValue: items.contains(value) ? value : null,
       decoration: InputDecoration(
         labelText: label,
         filled: true,

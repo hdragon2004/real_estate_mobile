@@ -80,7 +80,7 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final NotificationRepository _repository = NotificationRepository();
   bool _isLoading = false;
-  final List<NotificationModel> _notifications = [];
+  List<NotificationModel> _notifications = [];
   int? _currentUserId; // TODO: Lấy từ auth service
 
   @override
@@ -90,12 +90,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _loadNotifications() async {
-    if (_currentUserId == null) {
-      // TODO: Lấy userId từ auth
-      // _currentUserId = await AuthService.getCurrentUserId();
-      // Tạm thời dùng userId = 1
-      _currentUserId = 1;
-    }
+    // TODO: Lấy userId từ auth
+    // _currentUserId = await AuthService.getCurrentUserId();
+    // Tạm thời dùng userId = 1
+    _currentUserId ??= 1;
     
     setState(() => _isLoading = true);
     try {
@@ -306,7 +304,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             color: AppColors.surface,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: notification.isRead ? AppColors.border : color.withOpacity(0.3),
+                              color: notification.isRead ? AppColors.border : color.withValues(alpha: 0.3),
                               width: notification.isRead ? 1 : 2,
                             ),
                             boxShadow: AppShadows.card,
@@ -318,8 +316,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               height: 48,
                               decoration: BoxDecoration(
                                 color: notification.isRead 
-                                    ? color.withOpacity(0.1) 
-                                    : color.withOpacity(0.2),
+                                    ? color.withValues(alpha: 0.1) 
+                                    : color.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(

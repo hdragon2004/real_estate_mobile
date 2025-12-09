@@ -12,6 +12,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/image_url_helper.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../chat/chat_screen.dart';
@@ -167,23 +168,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
 
   List<String> _buildImageList(PostModel property) {
     final List<String> urls = property.images
-        .map((image) => _resolveImageUrl(image.url))
+        .map((image) => ImageUrlHelper.resolveImageUrl(image.url))
         .where((url) => url.isNotEmpty)
         .toList();
 
     if (urls.isEmpty && property.firstImageUrl.isNotEmpty) {
-      urls.add(_resolveImageUrl(property.firstImageUrl));
+      urls.add(ImageUrlHelper.resolveImageUrl(property.firstImageUrl));
     }
     return urls;
-  }
-
-  String _resolveImageUrl(String url) {
-    if (url.isEmpty) return '';
-    if (url.startsWith('http')) return url;
-    if (url.startsWith('/')) {
-      return 'http://10.0.2.2:5134$url';
-    }
-    return url;
   }
 
   @override

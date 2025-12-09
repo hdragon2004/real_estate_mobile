@@ -45,41 +45,68 @@ class PermissionService {
 
   /// Kiểm tra và yêu cầu quyền truy cập thư viện ảnh
   static Future<bool> requestPhotoLibraryPermission(BuildContext context) async {
-    final status = await Permission.photos.status;
-
-    if (status.isGranted) {
-      return true;
-    }
-
-    if (status.isDenied) {
-      final result = await Permission.photos.request();
-      if (result.isGranted) {
+    // Android 13+ (API 33+) sử dụng Permission.photos
+    // Android < 13 sử dụng Permission.storage
+    try {
+      // Thử dùng photos permission trước (Android 13+)
+      final photosStatus = await Permission.photos.status;
+      if (photosStatus.isGranted) {
         return true;
-      } else if (result.isPermanentlyDenied) {
-        if (context.mounted) {
-          await _showPermissionDeniedDialog(
-            context,
-            'Quyền truy cập thư viện ảnh',
-            'Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh. Vui lòng cấp quyền trong Cài đặt.',
-          );
+      }
+      
+      if (photosStatus.isDenied) {
+        final result = await Permission.photos.request();
+        if (result.isGranted) {
+          return true;
+        } else if (result.isPermanentlyDenied) {
+          if (context.mounted) {
+            await _showPermissionDeniedDialog(
+              context,
+              'Quyền truy cập thư viện ảnh',
+              'Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh. Vui lòng cấp quyền trong Cài đặt.',
+            );
+          }
+          return false;
         }
+      }
+      
+      // Fallback cho Android < 13
+      final storageStatus = await Permission.storage.status;
+      if (storageStatus.isGranted) {
+        return true;
+      }
+      
+      if (storageStatus.isDenied) {
+        final result = await Permission.storage.request();
+        if (result.isGranted) {
+          return true;
+        } else if (result.isPermanentlyDenied) {
+          if (context.mounted) {
+            await _showPermissionDeniedDialog(
+              context,
+              'Quyền truy cập thư viện ảnh',
+              'Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh. Vui lòng cấp quyền trong Cài đặt.',
+            );
+          }
+          return false;
+        }
+      }
+      
+      return false;
+    } catch (e) {
+      debugPrint('Error requesting photo library permission: $e');
+      // Nếu có lỗi, thử dùng storage permission
+      try {
+        final storageStatus = await Permission.storage.status;
+        if (storageStatus.isGranted) {
+          return true;
+        }
+        final result = await Permission.storage.request();
+        return result.isGranted;
+      } catch (_) {
         return false;
       }
-      return false;
     }
-
-    if (status.isPermanentlyDenied) {
-      if (context.mounted) {
-        await _showPermissionDeniedDialog(
-          context,
-          'Quyền truy cập thư viện ảnh',
-          'Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh. Vui lòng cấp quyền trong Cài đặt.',
-        );
-      }
-      return false;
-    }
-
-    return false;
   }
 
   /// Kiểm tra và yêu cầu quyền truy cập vị trí

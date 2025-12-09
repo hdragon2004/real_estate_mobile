@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/image_url_helper.dart';
 
 /// Widget card hiển thị thông tin bất động sản - Modern UI
 class PropertyCard extends StatelessWidget {
@@ -28,10 +29,7 @@ class PropertyCard extends StatelessWidget {
   String? _getImageUrl() {
     if (property.images.isNotEmpty) {
       final imageUrl = property.images.first.url;
-      if (imageUrl.startsWith('/')) {
-        return 'http://10.0.2.2:5134$imageUrl';
-      }
-      return imageUrl;
+      return ImageUrlHelper.resolveImageUrl(imageUrl);
     }
     return null;
   }

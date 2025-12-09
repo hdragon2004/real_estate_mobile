@@ -5,6 +5,9 @@ import '../screens/chat/chat_list_screen.dart';
 import '../screens/user/profile_screen.dart';
 import '../screens/post/create_post_screen.dart';
 import '../widgets/navigation/custom_bottom_nav_bar.dart';
+import '../../core/repositories/user_repository.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
 
 /// Layout chính với Custom Bottom Navigation Bar
 /// Thiết kế: 5 tabs - Trang chủ, Yêu thích, Đăng tin (FAB), Tin nhắn, Tài khoản
@@ -52,28 +55,77 @@ class _MainLayoutState extends State<MainLayout> {
     }
   }
 
-  void _openCreatePostScreen() {
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return const CreatePostScreen();
-        },
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-            )),
-            child: child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 300),
-      ),
-    );
+  Future<void> _openCreatePostScreen() async {
+    // Kiểm tra user đã đăng nhập chưa
+    final userRepository = UserRepository();
+    try {
+      await userRepository.getProfile();
+      // Nếu đã đăng nhập, mở màn hình đăng tin
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) {
+            return const CreatePostScreen();
+          },
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
+    } catch (e) {
+      // Nếu chưa đăng nhập, hiển thị dialog yêu cầu đăng nhập
+      if (!mounted) return;
+      final shouldLogin = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Yêu cầu đăng nhập',
+            style: AppTextStyles.h6,
+          ),
+          content: Text(
+            'Bạn cần đăng nhập để đăng tin. Vui lòng đăng nhập để tiếp tục.',
+            style: AppTextStyles.bodyMedium,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Hủy',
+                style: AppTextStyles.labelLarge,
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                'Đăng nhập',
+                style: AppTextStyles.labelLarge.copyWith(
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      // Nếu user chọn đăng nhập, chuyển đến màn hình đăng nhập
+      if (shouldLogin == true && mounted) {
+        Navigator.pushNamed(context, '/login');
+      }
+    }
   }
 
   @override

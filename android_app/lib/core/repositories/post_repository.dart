@@ -92,10 +92,10 @@ class PostRepository {
     }
   }
 
-  Future<PostModel> createPost(FormData formData) async {
+  Future<PostModel> createPost(FormData formData, {int role = 0}) async {
     try {
       final response = await _apiClient.dio.post(
-        ApiConstants.posts,
+        '${ApiConstants.posts}?role=$role',
         data: formData,
         options: Options(
           contentType: 'multipart/form-data',

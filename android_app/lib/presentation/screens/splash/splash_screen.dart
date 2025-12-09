@@ -3,6 +3,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/services/auth_storage_service.dart';
+import '../../../core/repositories/user_repository.dart';
+import '../../../core/network/api_client.dart';
 
 /// Màn hình Splash - Kiểm tra phiên đăng nhập và điều hướng
 class SplashScreen extends StatefulWidget {
@@ -20,11 +23,60 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuthAndNavigate() async {
-    await Future.delayed(const Duration(milliseconds: 2500));
+    // Delay tối thiểu để hiển thị splash screen
+    await Future.delayed(const Duration(milliseconds: 1500));
     
     if (!mounted) return;
+
+    // Đảm bảo token đã được load vào ApiClient (nếu có)
+    // ApiClient.initialize() đã được gọi trong main(), nhưng đảm bảo chắc chắn
+    final apiClient = ApiClient();
     
-    Navigator.pushReplacementNamed(context, '/login');
+    // Kiểm tra xem có token đã lưu trong storage không
+    final hasToken = await AuthStorageService.hasToken();
+    
+    if (hasToken) {
+      // Có token trong storage, đảm bảo token đã được load vào ApiClient
+      // Nếu chưa có trong ApiClient, load lại từ storage
+      final token = await AuthStorageService.getToken();
+      if (token != null && token.isNotEmpty) {
+        await apiClient.setAuthToken(token);
+      }
+      
+      // Kiểm tra token còn hợp lệ không bằng cách gọi API getProfile
+      try {
+        final userRepository = UserRepository();
+        final user = await userRepository.getProfile();
+        
+        // Token hợp lệ, user đã được đăng nhập tự động
+        debugPrint('[SplashScreen] Đăng nhập tự động thành công cho user: ${user.email}');
+        
+        if (!mounted) return;
+        // Sử dụng context sau khi kiểm tra mounted
+        if (context.mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      } catch (e) {
+        // Token không hợp lệ hoặc đã hết hạn
+        debugPrint('[SplashScreen] Token không hợp lệ: $e');
+        
+        // Xóa token và dữ liệu đăng nhập
+        await AuthStorageService.clearAll();
+        await apiClient.clearAuthToken();
+        
+        if (!mounted) return;
+        // Sử dụng context sau khi kiểm tra mounted
+        if (context.mounted) {
+          Navigator.pushReplacementNamed(context, '/login');
+        }
+      }
+    } else {
+      // Không có token, chuyển đến login
+      debugPrint('[SplashScreen] Không có token, chuyển đến màn hình đăng nhập');
+      if (mounted && context.mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    }
   }
 
   @override

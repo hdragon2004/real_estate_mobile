@@ -8,6 +8,8 @@ import '../../../core/theme/app_shadows.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import '../../../core/repositories/auth_repository.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/services/auth_storage_service.dart';
 
 /// Màn hình Đăng nhập - Modern UI
 class LoginScreen extends StatefulWidget {
@@ -38,10 +40,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final authRepo = AuthRepository();
-      await authRepo.login(
+      final authResponse = await authRepo.login(
         _emailController.text.trim(),
         _passwordController.text,
       );
+
+      // Lưu token vào ApiClient và secure storage
+      await ApiClient().setAuthToken(authResponse.token);
+      // Lưu userId để sử dụng sau này
+      await AuthStorageService.saveUserId(authResponse.user.id);
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');

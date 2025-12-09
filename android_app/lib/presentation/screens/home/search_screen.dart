@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
-import '../../widgets/common/app_text_field.dart';
 import '../../widgets/common/property_card.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/repositories/post_repository.dart';
 import '../../../core/repositories/category_repository.dart';
-import '../../../core/repositories/area_repository.dart';
 import '../../../core/models/category_model.dart';
-import '../../../core/models/area_model.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
@@ -32,13 +29,11 @@ class _SearchScreenState extends State<SearchScreen> {
   final FocusNode _searchFocusNode = FocusNode();
   final PostRepository _postRepository = PostRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
-  final AreaRepository _areaRepository = AreaRepository();
   final FavoriteService _favoriteService = FavoriteService();
   
   bool _isLoading = false;
   List<PostModel> _results = [];
   List<CategoryModel> _categories = [];
-  List<CityModel> _cities = [];
   
   // Recent searches - có thể lưu vào SharedPreferences sau
   final List<String> _recentSearches = [];
@@ -59,15 +54,11 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Future<void> _loadInitialData() async {
     try {
-      final results = await Future.wait([
-        _categoryRepository.getActiveCategories(),
-        _areaRepository.getCities(),
-      ]);
+      final categories = await _categoryRepository.getActiveCategories();
       
       if (mounted) {
         setState(() {
-          _categories = results[0] as List<CategoryModel>;
-          _cities = results[1] as List<CityModel>;
+          _categories = categories;
         });
       }
     } catch (e) {
@@ -336,9 +327,9 @@ class _SearchScreenState extends State<SearchScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

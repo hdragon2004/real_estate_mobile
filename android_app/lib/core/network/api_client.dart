@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../config/app_config.dart';
-import '../constants/api_constants.dart';
+import '../services/auth_storage_service.dart';
 
 class ApiClient {
   late final Dio _dio;
@@ -57,14 +57,50 @@ class ApiClient {
 
   Dio get dio => _dio;
 
-  // Thiết lập token xác thực
-  void setAuthToken(String? token) {
+  // Tải token từ secure storage (gọi từ main hoặc khi cần)
+  Future<void> _loadTokenFromStorage() async {
+    try {
+      final token = await AuthStorageService.getToken();
+      if (token != null && token.isNotEmpty) {
+        _authToken = token;
+        debugPrint('[ApiClient] Đã khôi phục token từ storage');
+      }
+    } catch (e) {
+      debugPrint('[ApiClient] Lỗi khi load token từ storage: $e');
+    }
+  }
+
+  // Khởi tạo và load token từ storage (gọi từ main)
+  static Future<void> initialize() async {
+    final instance = ApiClient();
+    await instance._loadTokenFromStorage();
+  }
+
+  // Thiết lập token xác thực và lưu vào storage
+  Future<void> setAuthToken(String? token) async {
     _authToken = token;
+    if (token != null && token.isNotEmpty) {
+      try {
+        await AuthStorageService.saveToken(token);
+        debugPrint('[ApiClient] Đã lưu token vào storage');
+      } catch (e) {
+        debugPrint('[ApiClient] Lỗi khi lưu token: $e');
+      }
+    } else {
+      // Nếu token null, xóa khỏi storage
+      await clearAuthToken();
+    }
   }
 
   // Xóa token khi đăng xuất
-  void clearAuthToken() {
+  Future<void> clearAuthToken() async {
     _authToken = null;
+    try {
+      await AuthStorageService.deleteToken();
+      debugPrint('[ApiClient] Đã xóa token khỏi storage');
+    } catch (e) {
+      debugPrint('[ApiClient] Lỗi khi xóa token: $e');
+    }
   }
 
   // GET request wrapper
