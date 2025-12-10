@@ -8,6 +8,8 @@ import '../../../core/repositories/user_repository.dart';
 import '../../../core/repositories/post_repository.dart';
 import '../../../core/repositories/favorite_repository.dart';
 import '../../../core/models/auth_models.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/image_url_helper.dart' as image_helper;
 
 /// Màn hình Hồ sơ cá nhân
@@ -40,8 +42,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final userId = await AuthStorageService.getUserId();
       if (userId == null) {
+        // Không redirect về login, chỉ hiển thị trạng thái chưa đăng nhập
         if (!mounted) return;
-        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+        setState(() {
+          _isLoading = false;
+          _user = null;
+        });
         return;
       }
 
@@ -91,8 +97,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title: const Text('Hồ sơ'),
           automaticallyImplyLeading: false,
         ),
-        body: const Center(
-          child: Text('Không thể tải thông tin người dùng'),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.person_outline,
+                size: 64,
+                color: AppColors.textHint,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Yêu cầu đăng nhập',
+                style: AppTextStyles.h6,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Bạn cần đăng nhập để xem hồ sơ cá nhân',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/login');
+                },
+                child: const Text('Đăng nhập'),
+              ),
+            ],
+          ),
         ),
       );
     }

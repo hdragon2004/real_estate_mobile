@@ -48,14 +48,14 @@ class _SplashScreenState extends State<SplashScreen> {
         final userRepository = UserRepository();
         final user = await userRepository.getProfile();
         
-        // Token hợp lệ, user đã được đăng nhập tự động
-        debugPrint('[SplashScreen] Đăng nhập tự động thành công cho user: ${user.email}');
+        // Token hợp lệ, user đã được đăng nhập tự động → vào thẳng home
+        debugPrint('[SplashScreen] Token hợp lệ cho user: ${user.email}, vào thẳng home');
         
         if (!mounted) return;
-        // Sử dụng context sau khi kiểm tra mounted
         if (context.mounted) {
           Navigator.pushReplacementNamed(context, '/home');
         }
+        return;
       } catch (e) {
         // Token không hợp lệ hoặc đã hết hạn
         debugPrint('[SplashScreen] Token không hợp lệ: $e');
@@ -63,19 +63,15 @@ class _SplashScreenState extends State<SplashScreen> {
         // Xóa token và dữ liệu đăng nhập
         await AuthStorageService.clearAll();
         await apiClient.clearAuthToken();
-        
-        if (!mounted) return;
-        // Sử dụng context sau khi kiểm tra mounted
-        if (context.mounted) {
-          Navigator.pushReplacementNamed(context, '/welcome');
-        }
       }
-    } else {
-      // Không có token, chuyển đến welcome screen
-      debugPrint('[SplashScreen] Không có token, chuyển đến màn hình chào mừng');
-      if (mounted && context.mounted) {
-        Navigator.pushReplacementNamed(context, '/welcome');
-      }
+    }
+    
+    // Không có token hoặc token không hợp lệ → chuyển đến welcome screen
+    // Tại đây user có thể chọn đăng nhập hoặc tiếp tục không đăng nhập
+    debugPrint('[SplashScreen] Không có token hoặc token không hợp lệ, chuyển đến màn hình chào mừng');
+    if (!mounted) return;
+    if (context.mounted) {
+      Navigator.pushReplacementNamed(context, '/welcome');
     }
   }
 

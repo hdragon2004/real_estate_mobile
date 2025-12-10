@@ -177,7 +177,54 @@ class _MainLayoutState extends State<MainLayout> {
         currentIndex: _currentIndex,
         isScrolling: _isScrolling,
         hasUnreadMessages: _hasUnreadMessages,
-        onTap: (index) {
+        onTap: (index) async {
+          // Kiểm tra đăng nhập cho các tab cần thiết
+          if (index == 1 || index == 2 || index == 3) { // Favorites, Chat, Profile
+            final userId = await AuthStorageService.getUserId();
+            if (userId == null) {
+              // Hiển thị dialog yêu cầu đăng nhập
+              final shouldLogin = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  title: Text(
+                    'Yêu cầu đăng nhập',
+                    style: AppTextStyles.h6,
+                  ),
+                  content: Text(
+                    'Bạn cần đăng nhập để sử dụng tính năng này.',
+                    style: AppTextStyles.bodyMedium,
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: Text(
+                        'Hủy',
+                        style: AppTextStyles.labelLarge,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text(
+                        'Đăng nhập',
+                        style: AppTextStyles.labelLarge.copyWith(
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+              
+              if (shouldLogin == true && mounted && context.mounted) {
+                Navigator.pushNamed(context, '/login');
+              }
+              return;
+            }
+          }
+          
           setState(() {
             _currentIndex = index;
           });

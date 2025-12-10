@@ -8,6 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/repositories/post_repository.dart';
 import '../../../core/services/favorite_service.dart';
+import '../../../core/services/auth_storage_service.dart';
+import '../../../core/repositories/user_repository.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -37,6 +39,7 @@ class PostDetailsScreen extends StatefulWidget {
 class _PostDetailsScreenState extends State<PostDetailsScreen> {
   final PostRepository _postRepository = PostRepository();
   final FavoriteService _favoriteService = FavoriteService();
+  final UserRepository _userRepository = UserRepository();
   final PageController _imageController = PageController();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _titleKey = GlobalKey();
@@ -126,10 +129,59 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     }
   }
 
-  void _toggleFavorite(PostModel property) {
+  Future<void> _toggleFavorite(PostModel property) async {
+    // Kiểm tra đăng nhập trước khi favorite
+    final userId = await AuthStorageService.getUserId();
+    if (userId == null) {
+      _showLoginRequiredDialog('Bạn cần đăng nhập để thêm vào danh sách yêu thích.');
+      return;
+    }
+    
     HapticFeedback.lightImpact();
-    _favoriteService.toggleFavorite(property);
+    await _favoriteService.toggleFavorite(property, userId);
     setState(() {});
+  }
+  
+  Future<void> _showLoginRequiredDialog(String message) async {
+    if (!mounted) return;
+    final shouldLogin = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'Yêu cầu đăng nhập',
+          style: AppTextStyles.h6,
+        ),
+        content: Text(
+          message,
+          style: AppTextStyles.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Hủy',
+              style: AppTextStyles.labelLarge,
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Đăng nhập',
+              style: AppTextStyles.labelLarge.copyWith(
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    
+    if (shouldLogin == true && mounted && context.mounted) {
+      Navigator.pushNamed(context, '/login');
+    }
   }
 
   void _openImageGallery(List<String> images) {
@@ -146,6 +198,13 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   }
 
   Future<void> _launchPhone(String? phone) async {
+    // Kiểm tra đăng nhập trước khi gọi điện
+    final userId = await AuthStorageService.getUserId();
+    if (userId == null) {
+      _showLoginRequiredDialog('Bạn cần đăng nhập để xem số điện thoại và gọi điện.');
+      return;
+    }
+    
     if (phone == null || phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Chưa có số điện thoại liên hệ.')),
@@ -190,7 +249,15 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     );
   }
 
-  void _contactOwner(PostModel property) {
+  Future<void> _contactOwner(PostModel property) async {
+    // Kiểm tra đăng nhập trước khi nhắn tin
+    final userId = await AuthStorageService.getUserId();
+    if (userId == null) {
+      _showLoginRequiredDialog('Bạn cần đăng nhập để nhắn tin với người đăng.');
+      return;
+    }
+    
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
