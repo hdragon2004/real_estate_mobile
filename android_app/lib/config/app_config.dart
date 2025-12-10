@@ -16,7 +16,7 @@ class AppConfig {
   // ============================================
   /// Ngrok domain từ file ngrok.yml
   /// Domain này tương ứng với tunnel có addr: 5134 (android-api)
-  static const String ngrokDomain = 'colourful-carina-syringeful.ngrok-free.dev';
+  static const String ngrokDomain = 'expressless-dorla-destructively.ngrok-free.dev';
   
   /// Protocol cho ngrok (http hoặc https)
   static const String ngrokProtocol = 'https'; // ngrok mặc định dùng https

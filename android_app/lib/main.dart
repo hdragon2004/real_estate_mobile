@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+
 import 'core/theme/app_theme.dart';
 import 'core/network/api_client.dart';
 import 'presentation/screens/splash/splash_screen.dart';
@@ -8,16 +10,18 @@ import 'presentation/screens/splash/welcome_screen.dart';
 import 'presentation/screens/auth/login_screen.dart';
 import 'presentation/layout/main_layout.dart';
 
-void main() async {
+Future<void> main() async {
+  // Bắt buộc cho mọi async init trước runApp
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize date formatting for Vietnamese locale
+
+  // Khởi tạo định dạng ngày cho locale tiếng Việt
   await initializeDateFormatting('vi_VN', null);
-  
-  // Initialize ApiClient and load token from storage
+  Intl.defaultLocale = 'vi_VN';
+
+  // Khởi tạo ApiClient, load token, v.v.
   await ApiClient.initialize();
-  
-  // Set system UI overlay style
+
+  // Cấu hình thanh trạng thái & thanh điều hướng hệ thống
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -26,7 +30,7 @@ void main() async {
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
-  
+
   runApp(const MyApp());
 }
 
@@ -39,7 +43,10 @@ class MyApp extends StatelessWidget {
       title: 'Real Estate Hub',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+
+      // Có thể dùng home hoặc initialRoute, ở đây giữ home như bạn
       home: const SplashScreen(),
+
       routes: {
         '/splash': (context) => const SplashScreen(),
         '/welcome': (context) => const WelcomeScreen(),

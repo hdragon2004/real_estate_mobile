@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
 import 'permission_service.dart';
 
 /// Service xử lý chọn và chụp ảnh
@@ -11,7 +12,8 @@ class ImagePickerService {
   /// Trả về File ảnh hoặc null nếu bị hủy/lỗi
   static Future<File?> takePicture(BuildContext context) async {
     // Kiểm tra và yêu cầu quyền camera
-    final hasPermission = await PermissionService.requestCameraPermission(context);
+    final hasPermission =
+        await PermissionService.requestCameraPermission(context);
     if (!hasPermission) {
       return null;
     }
@@ -20,7 +22,7 @@ class ImagePickerService {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.camera,
         imageQuality: 85, // Chất lượng ảnh (0-100)
-        maxWidth: 1920, // Giới hạn kích thước
+        maxWidth: 1920,   // Giới hạn kích thước
         maxHeight: 1920,
       );
 
@@ -39,11 +41,12 @@ class ImagePickerService {
     }
   }
 
-  /// Chọn ảnh từ thư viện
+  /// Chọn 1 ảnh từ thư viện
   /// Trả về File ảnh hoặc null nếu bị hủy/lỗi
   static Future<File?> pickImageFromGallery(BuildContext context) async {
     // Kiểm tra và yêu cầu quyền thư viện ảnh
-    final hasPermission = await PermissionService.requestPhotoLibraryPermission(context);
+    final hasPermission =
+        await PermissionService.requestPhotoLibraryPermission(context);
     if (!hasPermission) {
       return null;
     }
@@ -71,42 +74,36 @@ class ImagePickerService {
     }
   }
 
-  /// Hiển thị dialog cho phép chọn chụp ảnh hoặc chọn từ thư viện
-  /// Trả về File ảnh hoặc null
+  /// Hiển thị bottom sheet cho phép chọn nguồn ảnh: camera hoặc thư viện
+  /// Trả về File ảnh hoặc null nếu hủy
   static Future<File?> showImageSourceDialog(BuildContext context) async {
-    return showModalBottomSheet<File>(
+    // Hỏi người dùng muốn lấy từ nguồn nào
+    final ImageSource? source =
+        await showModalBottomSheet<ImageSource>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (sheetContext) {
         return SafeArea(
           child: Wrap(
             children: [
               ListTile(
                 leading: const Icon(Icons.camera_alt),
                 title: const Text('Chụp ảnh'),
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  final image = await takePicture(context);
-                  if (image != null && context.mounted) {
-                    Navigator.of(context).pop(image);
-                  }
+                onTap: () {
+                  Navigator.of(sheetContext).pop(ImageSource.camera);
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library),
                 title: const Text('Chọn từ thư viện'),
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  final image = await pickImageFromGallery(context);
-                  if (image != null && context.mounted) {
-                    Navigator.of(context).pop(image);
-                  }
+                onTap: () {
+                  Navigator.of(sheetContext).pop(ImageSource.gallery);
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.cancel),
                 title: const Text('Hủy'),
                 onTap: () {
-                  Navigator.of(context).pop();
+                  Navigator.of(sheetContext).pop();
                 },
               ),
             ],
@@ -114,12 +111,27 @@ class ImagePickerService {
         );
       },
     );
+
+    // Người dùng hủy
+    if (source == null) return null;
+
+    // Sau khi bottom sheet đóng, mới thực hiện hành động tương ứng
+    if (source == ImageSource.camera) {
+      return await takePicture(context);
+    } else {
+      return await pickImageFromGallery(context);
+    }
   }
 
   /// Chọn nhiều ảnh từ thư viện
-  /// Trả về danh sách File ảnh
-  static Future<List<File>> pickMultipleImagesFromGallery(BuildContext context, {required int maxImages}) async {
-    final hasPermission = await PermissionService.requestPhotoLibraryPermission(context);
+  /// [maxImages]: số ảnh tối đa cho phép (mặc định 10)
+  /// Trả về danh sách File ảnh (có thể rỗng)
+  static Future<List<File>> pickMultipleImagesFromGallery(
+    BuildContext context, {
+    int maxImages = 10,
+  }) async {
+    final hasPermission =
+        await PermissionService.requestPhotoLibraryPermission(context);
     if (!hasPermission) {
       return [];
     }
@@ -131,7 +143,12 @@ class ImagePickerService {
         maxHeight: 1920,
       );
 
-      return images.map((xFile) => File(xFile.path)).toList();
+      if (images.isEmpty) return [];
+
+      // Giới hạn số lượng ảnh theo maxImages
+      final limitedImages = images.take(maxImages).toList();
+
+      return limitedImages.map((xFile) => File(xFile.path)).toList();
     } catch (e) {
       debugPrint('Error picking multiple images: $e');
       if (context.mounted) {
@@ -143,4 +160,3 @@ class ImagePickerService {
     }
   }
 }
-
