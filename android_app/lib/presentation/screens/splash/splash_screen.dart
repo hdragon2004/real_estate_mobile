@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/services/auth_storage_service.dart';
@@ -67,14 +67,14 @@ class _SplashScreenState extends State<SplashScreen> {
         if (!mounted) return;
         // Sử dụng context sau khi kiểm tra mounted
         if (context.mounted) {
-          Navigator.pushReplacementNamed(context, '/login');
+          Navigator.pushReplacementNamed(context, '/welcome');
         }
       }
     } else {
-      // Không có token, chuyển đến login
-      debugPrint('[SplashScreen] Không có token, chuyển đến màn hình đăng nhập');
+      // Không có token, chuyển đến welcome screen
+      debugPrint('[SplashScreen] Không có token, chuyển đến màn hình chào mừng');
       if (mounted && context.mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
+        Navigator.pushReplacementNamed(context, '/welcome');
       }
     }
   }
@@ -90,15 +90,37 @@ class _SplashScreenState extends State<SplashScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppColors.primary,
-              AppColors.primaryLight,
-              AppColors.primaryDark,
+              Color(0xFF2A4A4F), // Medium blue-green - vừa đủ sáng, không quá chói
+              Color(0xFF3D5A5F),
+              Color(0xFF2A4A4F),
             ],
-            stops: [0.0, 0.5, 1.0],
           ),
         ),
         child: Stack(
           children: [
+            // Background image
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/background1.jpg',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+            // Dark overlay - lớp mỏng đen để làm tối ảnh, không làm mờ
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.3),
+                    Colors.black.withValues(alpha: 0.5),
+                  ],
+                ),
+              ),
+            ),
             // Background decorations
             Positioned(
               top: -100,
@@ -161,8 +183,8 @@ class _SplashScreenState extends State<SplashScreen> {
                       ],
                     ),
                     child: const Center(
-                      child: Icon(
-                        Iconsax.home_1,
+                      child: FaIcon(
+                        FontAwesomeIcons.house,
                         size: 60,
                         color: AppColors.primary,
                       ),

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
-import '../../widgets/common/app_button.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:syncfusion_flutter_sliders/sliders.dart';
 import '../../../core/models/category_model.dart';
-import '../../../core/models/location_model.dart';
+import '../../../core/models/vietnam_address_model.dart';
 import '../../../core/repositories/category_repository.dart';
-import '../../../core/repositories/location_repository.dart';
+import '../../../core/services/vietnam_address_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../../core/theme/app_shadows.dart';
 import '../home/search_results_screen.dart';
 
 /// Model cho Filter
@@ -58,7 +57,7 @@ class FilterModel {
   }
 }
 
-/// Màn hình Bộ lọc nâng cao
+/// Màn hình Bộ lọc nâng cao - Modern Design
 class FilterScreen extends StatefulWidget {
   final FilterModel? initialFilters;
 
@@ -74,17 +73,20 @@ class FilterScreen extends StatefulWidget {
 class _FilterScreenState extends State<FilterScreen> {
   late FilterModel _filters;
   final CategoryRepository _categoryRepository = CategoryRepository();
-  final LocationRepository _locationRepository = LocationRepository();
   
   List<CategoryModel> _categories = [];
-  List<CityModel> _cities = [];
-  List<DistrictModel> _districts = [];
-  List<WardModel> _wards = [];
   
-  final _minPriceController = TextEditingController();
-  final _maxPriceController = TextEditingController();
-  final _minAreaController = TextEditingController();
-  final _maxAreaController = TextEditingController();
+  // Location data từ VietnamAddressService
+  VietnamProvince? _selectedProvince;
+  VietnamDistrict? _selectedDistrict;
+  VietnamWard? _selectedWard;
+  List<VietnamProvince> _provinces = [];
+  List<VietnamDistrict> _districts = [];
+  List<VietnamWard> _wards = [];
+  
+  // Range values for sliders
+  SfRangeValues _priceRange = const SfRangeValues(0.0, 10000.0); // triệu VNĐ
+  SfRangeValues _areaRange = const SfRangeValues(0.0, 500.0); // m²
 
   @override
   void initState() {
@@ -95,18 +97,14 @@ class _FilterScreenState extends State<FilterScreen> {
   }
 
   void _initializeControllers() {
-    if (_filters.minPrice != null) _minPriceController.text = _filters.minPrice!.toString();
-    if (_filters.maxPrice != null) _maxPriceController.text = _filters.maxPrice!.toString();
-    if (_filters.minArea != null) _minAreaController.text = _filters.minArea!.toString();
-    if (_filters.maxArea != null) _maxAreaController.text = _filters.maxArea!.toString();
+    if (_filters.minPrice != null) _priceRange = SfRangeValues(_filters.minPrice!, _priceRange.end);
+    if (_filters.maxPrice != null) _priceRange = SfRangeValues(_priceRange.start, _filters.maxPrice!);
+    if (_filters.minArea != null) _areaRange = SfRangeValues(_filters.minArea!, _areaRange.end);
+    if (_filters.maxArea != null) _areaRange = SfRangeValues(_areaRange.start, _filters.maxArea!);
   }
 
   @override
   void dispose() {
-    _minPriceController.dispose();
-    _maxPriceController.dispose();
-    _minAreaController.dispose();
-    _maxAreaController.dispose();
     super.dispose();
   }
 
@@ -114,40 +112,29 @@ class _FilterScreenState extends State<FilterScreen> {
     try {
       final results = await Future.wait([
         _categoryRepository.getActiveCategories(),
-        _locationRepository.getCities(),
+        VietnamAddressService.fetchProvinces(),
       ]);
       
       if (mounted) {
         setState(() {
           _categories = results[0] as List<CategoryModel>;
-          _cities = results[1] as List<CityModel>;
+          _provinces = results[1] as List<VietnamProvince>;
         });
-        
-        // Load districts và wards nếu đã chọn
-        if (_filters.cityId != null) {
-          await _loadDistricts(_filters.cityId!);
-        }
-        if (_filters.districtId != null) {
-          await _loadWards(_filters.districtId!);
-        }
       }
     } catch (e) {
       debugPrint('Error loading filter data: $e');
     }
   }
 
-  Future<void> _loadDistricts(int cityId) async {
+  Future<void> _loadDistricts(String provinceCode) async {
     try {
-      final districts = await _locationRepository.getDistrictsByCity(cityId);
+      final districts = await VietnamAddressService.fetchDistricts(provinceCode);
       if (mounted) {
         setState(() {
           _districts = districts;
-          if (_filters.districtId != null && 
-              !districts.any((d) => d.id == _filters.districtId)) {
-            _filters.districtId = null;
-            _filters.wardId = null;
-            _wards = [];
-          }
+          _selectedDistrict = null;
+          _selectedWard = null;
+          _wards = [];
         });
       }
     } catch (e) {
@@ -155,16 +142,13 @@ class _FilterScreenState extends State<FilterScreen> {
     }
   }
 
-  Future<void> _loadWards(int districtId) async {
+  Future<void> _loadWards(String districtCode) async {
     try {
-      final wards = await _locationRepository.getWardsByDistrict(districtId);
+      final wards = await VietnamAddressService.fetchWards(districtCode);
       if (mounted) {
         setState(() {
           _wards = wards;
-          if (_filters.wardId != null && 
-              !wards.any((w) => w.id == _filters.wardId)) {
-            _filters.wardId = null;
-          }
+          _selectedWard = null;
         });
       }
     } catch (e) {
@@ -172,21 +156,30 @@ class _FilterScreenState extends State<FilterScreen> {
     }
   }
 
+
   void _applyFilters() {
-    // Update filters from text fields
-    _filters.minPrice = double.tryParse(_minPriceController.text);
-    _filters.maxPrice = double.tryParse(_maxPriceController.text);
-    _filters.minArea = double.tryParse(_minAreaController.text);
-    _filters.maxArea = double.tryParse(_maxAreaController.text);
+    // Update filters from sliders
+    _filters.minPrice = _priceRange.start > 0 ? _priceRange.start : null;
+    _filters.maxPrice = _priceRange.end < 10000 ? _priceRange.end : null;
+    _filters.minArea = _areaRange.start > 0 ? _areaRange.start : null;
+    _filters.maxArea = _areaRange.end < 500 ? _areaRange.end : null;
+    
+    // Update location filters từ VietnamAddressService
+    if (_selectedProvince != null) {
+      _filters.cityId = _selectedProvince!.code.hashCode; // Dùng hashCode của code
+    } else {
+      _filters.cityId = null;
+    }
   }
 
   void _resetFilters() {
     setState(() {
       _filters = FilterModel();
-      _minPriceController.clear();
-      _maxPriceController.clear();
-      _minAreaController.clear();
-      _maxAreaController.clear();
+      _priceRange = const SfRangeValues(0.0, 10000.0);
+      _areaRange = const SfRangeValues(0.0, 500.0);
+      _selectedProvince = null;
+      _selectedDistrict = null;
+      _selectedWard = null;
       _districts = [];
       _wards = [];
     });
@@ -199,11 +192,21 @@ class _FilterScreenState extends State<FilterScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         elevation: 0,
-        title: Text('Bộ lọc nâng cao', style: AppTextStyles.h6),
+        leading: IconButton(
+          icon: const FaIcon(FontAwesomeIcons.arrowLeft, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text('Bộ lọc nâng cao', style: AppTextStyles.h6.copyWith(fontWeight: FontWeight.bold)),
         actions: [
           TextButton(
             onPressed: _resetFilters,
-            child: Text('Đặt lại', style: AppTextStyles.labelMedium.copyWith(color: AppColors.error)),
+            child: Text(
+              'Đặt lại',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -215,13 +218,13 @@ class _FilterScreenState extends State<FilterScreen> {
               children: [
                 // Loại hình
                 _buildSection(
-                  icon: Iconsax.category,
+                  icon: FontAwesomeIcons.tag,
                   title: 'Loại hình',
                   child: _categories.isEmpty
                       ? const Center(child: CircularProgressIndicator())
                       : Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
+                          spacing: 10,
+                          runSpacing: 10,
                           children: _categories.map((category) {
                             final isSelected = _filters.categoryId == category.id;
                             return _buildFilterChip(
@@ -236,126 +239,119 @@ class _FilterScreenState extends State<FilterScreen> {
                           }).toList(),
                         ),
                 ),
-                const Gap(24),
+                const Gap(28),
                 
                 // Địa điểm
                 _buildSection(
-                  icon: Iconsax.location,
+                  icon: FontAwesomeIcons.locationDot,
                   title: 'Địa điểm',
                   child: Column(
                     children: [
-                      // Thành phố
-                      _buildDropdown<CityModel>(
+                      // Tỉnh/Thành phố
+                      _buildDropdown<VietnamProvince>(
                         label: 'Thành phố',
-                        value: _cities.firstWhere((c) => c.id == _filters.cityId, orElse: () => _cities.isNotEmpty ? _cities.first : CityModel(id: 0, name: 'Chọn thành phố')),
-                        items: _cities,
-                        onChanged: (city) {
+                        value: _selectedProvince,
+                        items: _provinces,
+                        displayText: (province) => province.name,
+                        onChanged: (province) {
                           setState(() {
-                            _filters.cityId = city?.id;
-                            _filters.districtId = null;
-                            _filters.wardId = null;
+                            _selectedProvince = province;
+                            _selectedDistrict = null;
+                            _selectedWard = null;
                             _districts = [];
                             _wards = [];
                           });
-                          if (city != null) _loadDistricts(city.id);
+                          if (province != null) {
+                            _loadDistricts(province.code);
+                          }
                         },
                       ),
-                      const Gap(12),
-                      // Quận/Huyện
-                      if (_filters.cityId != null && _districts.isNotEmpty)
-                        _buildDropdown<DistrictModel>(
+                      if (_selectedProvince != null && _districts.isNotEmpty) ...[
+                        const Gap(12),
+                        // Quận/Huyện
+                        _buildDropdown<VietnamDistrict>(
                           label: 'Quận/Huyện',
-                          value: _districts.firstWhere((d) => d.id == _filters.districtId, orElse: () => DistrictModel(id: 0, name: 'Chọn quận/huyện', cityId: _filters.cityId!)),
+                          value: _selectedDistrict,
                           items: _districts,
+                          displayText: (district) => district.name,
                           onChanged: (district) {
                             setState(() {
-                              _filters.districtId = district?.id;
-                              _filters.wardId = null;
+                              _selectedDistrict = district;
+                              _selectedWard = null;
                               _wards = [];
                             });
-                            if (district != null) _loadWards(district.id);
+                            if (district != null) {
+                              _loadWards(district.code);
+                            }
                           },
                         ),
-                      if (_filters.districtId != null && _wards.isNotEmpty) ...[
+                      ],
+                      if (_selectedDistrict != null && _wards.isNotEmpty) ...[
                         const Gap(12),
                         // Phường/Xã
-                        _buildDropdown<WardModel>(
+                        _buildDropdown<VietnamWard>(
                           label: 'Phường/Xã',
-                          value: _wards.firstWhere((w) => w.id == _filters.wardId, orElse: () => WardModel(id: 0, name: 'Chọn phường/xã', districtId: _filters.districtId!)),
+                          value: _selectedWard,
                           items: _wards,
-                          onChanged: (ward) {
-                            setState(() {
-                              _filters.wardId = ward?.id;
-                            });
-                          },
+                          displayText: (ward) => ward.name,
+                          onChanged: (ward) => setState(() => _selectedWard = ward),
                         ),
                       ],
                     ],
                   ),
                 ),
-                const Gap(24),
+                const Gap(28),
                 
                 // Khoảng giá
                 _buildSection(
-                  icon: Iconsax.dollar_circle,
+                  icon: FontAwesomeIcons.dollarSign,
                   title: 'Khoảng giá (triệu VNĐ)',
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          controller: _minPriceController,
-                          label: 'Từ',
-                          hint: '0',
-                          icon: Iconsax.arrow_down,
-                        ),
-                      ),
-                      const Gap(12),
-                      Expanded(
-                        child: _buildTextField(
-                          controller: _maxPriceController,
-                          label: 'Đến',
-                          hint: 'Không giới hạn',
-                          icon: Iconsax.arrow_up,
-                        ),
-                      ),
-                    ],
+                  child: _buildRangeSlider(
+                    values: _priceRange,
+                    min: 0.0,
+                    max: 10000.0,
+                    onChanged: (SfRangeValues newValues) {
+                      setState(() {
+                        _priceRange = newValues;
+                      });
+                    },
+                    formatValue: (double value) {
+                      if (value >= 1000) {
+                        return '${(value / 1000).toStringAsFixed(1)} tỷ';
+                      }
+                      return '${value.toStringAsFixed(0)} triệu';
+                    },
                   ),
                 ),
-                const Gap(24),
+                const Gap(28),
                 
                 // Diện tích
                 _buildSection(
-                  icon: Iconsax.ruler,
+                  icon: FontAwesomeIcons.ruler,
                   title: 'Diện tích (m²)',
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          controller: _minAreaController,
-                          label: 'Từ',
-                          hint: '0',
-                        ),
-                      ),
-                      const Gap(12),
-                      Expanded(
-                        child: _buildTextField(
-                          controller: _maxAreaController,
-                          label: 'Đến',
-                          hint: 'Không giới hạn',
-                        ),
-                      ),
-                    ],
+                  child: _buildRangeSlider(
+                    values: _areaRange,
+                    min: 0.0,
+                    max: 500.0,
+                    onChanged: (SfRangeValues newValues) {
+                      setState(() {
+                        _areaRange = newValues;
+                      });
+                    },
+                    formatValue: (double value) {
+                      return '${value.toStringAsFixed(0)} m²';
+                    },
                   ),
                 ),
-                const Gap(24),
+                const Gap(28),
                 
                 // Số phòng ngủ
                 _buildSection(
-                  icon: Iconsax.home,
+                  icon: FontAwesomeIcons.bed,
                   title: 'Số phòng ngủ',
                   child: Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: List.generate(5, (index) {
                       final count = index + 1;
                       final isSelected = _filters.soPhongNgu == count;
@@ -371,15 +367,15 @@ class _FilterScreenState extends State<FilterScreen> {
                     }),
                   ),
                 ),
-                const Gap(24),
+                const Gap(28),
                 
                 // Số phòng tắm
                 _buildSection(
-                  icon: Iconsax.brush,
+                  icon: FontAwesomeIcons.bath,
                   title: 'Số phòng tắm',
                   child: Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: List.generate(4, (index) {
                       final count = index + 1;
                       final isSelected = _filters.soPhongTam == count;
@@ -395,50 +391,71 @@ class _FilterScreenState extends State<FilterScreen> {
                     }),
                   ),
                 ),
-                const Gap(32),
+                const Gap(40),
               ],
             ),
           ),
-          // Bottom buttons
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
+          // Bottom buttons - Simplified design
+          SafeArea(
+            child: Container(
+              padding: const EdgeInsets.all(20),
               color: AppColors.surface,
-              boxShadow: AppShadows.top,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _resetFilters,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: BorderSide(color: AppColors.border),
-                    ),
-                    child: Text('Đặt lại', style: AppTextStyles.labelLarge),
-                  ),
-                ),
-                const Gap(12),
-                Expanded(
-                  flex: 2,
-                  child: AppButton(
-                    text: 'Áp dụng bộ lọc',
-                    onPressed: () {
-                      _applyFilters();
-                      final filters = _filters.toQueryParams();
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SearchResultsScreen(
-                            query: 'Kết quả tìm kiếm',
-                            filters: filters,
-                          ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _resetFilters,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: BorderSide(color: AppColors.border, width: 1.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      );
-                    },
+                      ),
+                      child: Text(
+                        'Đặt lại',
+                        style: AppTextStyles.labelLarge.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                  const Gap(12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        _applyFilters();
+                        final filters = _filters.toQueryParams();
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SearchResultsScreen(
+                              query: 'Kết quả tìm kiếm',
+                              filters: filters,
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'Áp dụng bộ lọc',
+                        style: AppTextStyles.labelLarge.copyWith(
+                          color: AppColors.textOnPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -456,9 +473,14 @@ class _FilterScreenState extends State<FilterScreen> {
       children: [
         Row(
           children: [
-            Icon(icon, size: 20, color: AppColors.primary),
-            const Gap(8),
-            Text(title, style: AppTextStyles.h6),
+            FaIcon(icon, size: 20, color: AppColors.primary),
+            const Gap(12),
+            Text(
+              title,
+              style: AppTextStyles.h6.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
         const Gap(16),
@@ -474,15 +496,26 @@ class _FilterScreenState extends State<FilterScreen> {
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 2 : 1,
+            width: isSelected ? 2 : 1.5,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           label,
@@ -495,77 +528,82 @@ class _FilterScreenState extends State<FilterScreen> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    IconData? icon,
+  Widget _buildRangeSlider({
+    required SfRangeValues values,
+    required double min,
+    required double max,
+    required Function(SfRangeValues) onChanged,
+    required String Function(double) formatValue,
   }) {
-    return TextField(
-      controller: controller,
-      keyboardType: TextInputType.number,
-      style: AppTextStyles.bodyMedium,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: icon != null ? Icon(icon, size: 18) : null,
-        filled: true,
-        fillColor: AppColors.surfaceVariant,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.primary, width: 2),
-        ),
-      ),
+    return SfRangeSlider(
+      min: min,
+      max: max,
+      values: values,
+      onChanged: onChanged,
+      activeColor: AppColors.error, // Màu đỏ cho track
+      inactiveColor: AppColors.border,
+      tooltipShape: const SfPaddleTooltipShape(), // Bubble shape
+      tooltipTextFormatterCallback: (dynamic actualValue, String formattedText) {
+        return formatValue(actualValue as double);
+      },
+      enableTooltip: true,
     );
   }
 
   Widget _buildDropdown<T>({
     required String label,
-    required T value,
+    required T? value,
     required List<T> items,
-    required Function(T?) onChanged,
+    required String Function(T) displayText,
+    required void Function(T?) onChanged,
   }) {
-    return DropdownButtonFormField<T>(
-      initialValue: items.contains(value) ? value : null,
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: AppColors.surfaceVariant,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.border),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTextStyles.labelMedium.copyWith(
+            color: AppColors.textSecondary,
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.border),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceVariant,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: DropdownButtonFormField<T>(
+            initialValue: value != null && items.contains(value) ? value : null,
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(vertical: 16),
+            ),
+            items: [
+              DropdownMenuItem<T>(
+                value: null,
+                child: Text('Tất cả', style: AppTextStyles.bodyMedium),
+              ),
+              ...items.map((item) => DropdownMenuItem<T>(
+                value: item,
+                child: Text(displayText(item), style: AppTextStyles.bodyMedium),
+              )),
+            ],
+            onChanged: onChanged,
+            style: AppTextStyles.bodyMedium,
+            isExpanded: true,
+            icon: const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: FaIcon(
+                FontAwesomeIcons.chevronDown,
+                size: 14,
+                color: AppColors.textHint,
+              ),
+            ),
+          ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.primary, width: 2),
-        ),
-      ),
-      items: [
-        DropdownMenuItem<T>(value: null, child: Text('Tất cả', style: AppTextStyles.bodyMedium)),
-        ...items.map((item) {
-          final name = item is CityModel ? item.name : 
-                      item is DistrictModel ? item.name :
-                      item is WardModel ? item.name : '';
-          return DropdownMenuItem<T>(
-            value: item,
-            child: Text(name, style: AppTextStyles.bodyMedium),
-          );
-        }),
       ],
-      onChanged: onChanged,
     );
   }
 }
-

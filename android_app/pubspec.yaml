@@ -33,19 +33,21 @@ dependencies:
 
   # Secure Storage for authentication token
   flutter_secure_storage: ^9.2.2
-
+  # Font Awesome Icons
+  font_awesome_flutter: ^10.12.0
+  
   # UI Enhancement Libraries
   google_fonts: ^6.2.1
   flutter_animate: ^4.5.0
   cached_network_image: ^3.4.1
   shimmer: ^3.0.0
   flutter_staggered_animations: ^1.1.1
-  iconsax_flutter: ^1.0.0
   flutter_svg: ^2.0.10+1
   smooth_page_indicator: ^1.2.0+3
   gap: ^3.0.1
   url_launcher: ^6.3.0
   intl: ^0.19.0
+  syncfusion_flutter_sliders: ^31.2.18
 
 dev_dependencies:
   flutter_test:
@@ -59,4 +61,8 @@ dev_dependencies:
 flutter:
 
   uses-material-design: true
+
+  # Assets
+  assets:
+    - assets/images/
 

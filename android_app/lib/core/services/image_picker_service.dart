@@ -118,7 +118,7 @@ class ImagePickerService {
 
   /// Chọn nhiều ảnh từ thư viện
   /// Trả về danh sách File ảnh
-  static Future<List<File>> pickMultipleImagesFromGallery(BuildContext context) async {
+  static Future<List<File>> pickMultipleImagesFromGallery(BuildContext context, {required int maxImages}) async {
     final hasPermission = await PermissionService.requestPhotoLibraryPermission(context);
     if (!hasPermission) {
       return [];

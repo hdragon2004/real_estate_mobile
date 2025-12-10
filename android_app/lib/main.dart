@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/theme/app_theme.dart';
 import 'core/network/api_client.dart';
 import 'presentation/screens/splash/splash_screen.dart';
+import 'presentation/screens/splash/welcome_screen.dart';
 import 'presentation/screens/auth/login_screen.dart';
 import 'presentation/layout/main_layout.dart';
 
@@ -41,6 +42,7 @@ class MyApp extends StatelessWidget {
       home: const SplashScreen(),
       routes: {
         '/splash': (context) => const SplashScreen(),
+        '/welcome': (context) => const WelcomeScreen(),
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const MainLayout(),
       },

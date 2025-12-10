@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
@@ -162,7 +163,7 @@ class _AppButtonState extends State<AppButton>
       mainAxisSize: MainAxisSize.min,
       children: [
         if (widget.icon != null) ...[
-          Icon(widget.icon, size: 20, color: textColor),
+          FaIcon(widget.icon, size: 20, color: textColor),
           const SizedBox(width: 8),
         ],
         Text(

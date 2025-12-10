@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
+import '../../../core/repositories/message_repository.dart';
+import '../../../core/services/auth_storage_service.dart';
+import '../../../core/utils/image_url_helper.dart' as image_helper;
 import 'chat_screen.dart';
 
 /// Model cho Chat
 class ChatModel {
   final String id;
-  final String userId;
+  final int userId;
   final String userName;
   final String? userAvatar;
   final String lastMessage;
   final DateTime lastMessageTime;
   final int unreadCount;
   final bool isOnline;
+  final int postId;
+  final String? postTitle;
 
   ChatModel({
     required this.id,
@@ -23,7 +28,27 @@ class ChatModel {
     required this.lastMessageTime,
     this.unreadCount = 0,
     this.isOnline = false,
+    required this.postId,
+    this.postTitle,
   });
+
+  factory ChatModel.fromJson(Map<String, dynamic> json) {
+    final lastMessage = json['lastMessage'] as Map<String, dynamic>?;
+    return ChatModel(
+      id: '${json['postId']}_${json['otherUserId']}',
+      userId: json['otherUserId'] as int,
+      userName: json['otherUserName'] as String? ?? 'Người dùng',
+      userAvatar: json['otherUserAvatarUrl'] as String?,
+      lastMessage: lastMessage?['content'] as String? ?? '',
+      lastMessageTime: lastMessage != null && lastMessage['sentTime'] != null
+          ? DateTime.parse(lastMessage['sentTime'] as String)
+          : DateTime.now(),
+      unreadCount: json['unreadCount'] as int? ?? 0,
+      isOnline: false, // TODO: Implement online status
+      postId: json['postId'] as int,
+      postTitle: json['postTitle'] as String?,
+    );
+  }
 }
 
 /// Màn hình Danh sách cuộc trò chuyện
@@ -35,8 +60,9 @@ class ChatListScreen extends StatefulWidget {
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {
+  final MessageRepository _messageRepository = MessageRepository();
   bool _isLoading = false;
-  final List<ChatModel> _chats = _getSampleChats(); // Dữ liệu mẫu
+  List<ChatModel> _chats = [];
 
   @override
   void initState() {
@@ -46,34 +72,47 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   Future<void> _loadChats() async {
     setState(() => _isLoading = true);
-    // TODO: Gọi API lấy danh sách chat
-    await Future.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-  }
+    try {
+      final userId = await AuthStorageService.getUserId();
+      if (userId == null) {
+        if (!mounted) return;
+        setState(() {
+          _chats = [];
+          _isLoading = false;
+        });
+        return;
+      }
 
-  // Dữ liệu mẫu
-  static List<ChatModel> _getSampleChats() {
-    return [
-      ChatModel(
-        id: '1',
-        userId: 'user1',
-        userName: 'Nguyễn Văn A',
-        lastMessage: 'Xin chào, tôi quan tâm đến căn hộ của bạn',
-        lastMessageTime: DateTime.now().subtract(const Duration(minutes: 5)),
-        unreadCount: 2,
-        isOnline: true,
-      ),
-      ChatModel(
-        id: '2',
-        userId: 'user2',
-        userName: 'Trần Thị B',
-        lastMessage: 'Cảm ơn bạn đã liên hệ',
-        lastMessageTime: DateTime.now().subtract(const Duration(hours: 2)),
-        unreadCount: 0,
-        isOnline: false,
-      ),
-    ];
+      // Lấy danh sách conversations từ API
+      // Note: Backend hiện tại sử dụng Stream Chat, endpoint này có thể không tồn tại
+      // Nếu không có, sẽ trả về danh sách rỗng
+      try {
+        final conversations = await _messageRepository.getConversations(userId);
+        
+        if (!mounted) return;
+        setState(() {
+          _chats = conversations
+              .map((json) => ChatModel.fromJson(json))
+              .toList();
+          _isLoading = false;
+        });
+      } catch (e) {
+        // Nếu endpoint không tồn tại hoặc có lỗi, hiển thị danh sách rỗng
+        debugPrint('Lỗi khi tải conversations: $e');
+        if (!mounted) return;
+        setState(() {
+          _chats = [];
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Lỗi khi tải chats: $e');
+      if (!mounted) return;
+      setState(() {
+        _chats = [];
+        _isLoading = false;
+      });
+    }
   }
 
   String _formatTime(DateTime time) {
@@ -96,6 +135,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tin nhắn'),
+        automaticallyImplyLeading: false,
       ),
       body: _isLoading
           ? const LoadingIndicator()
@@ -115,11 +155,15 @@ class _ChatListScreenState extends State<ChatListScreen> {
                         leading: Stack(
                           children: [
                             CircleAvatar(
-                              backgroundImage: chat.userAvatar != null
-                                  ? NetworkImage(chat.userAvatar!)
+                              backgroundImage: chat.userAvatar != null && chat.userAvatar!.isNotEmpty
+                                  ? NetworkImage(image_helper.ImageUrlHelper.resolveImageUrl(chat.userAvatar!))
                                   : null,
-                              child: chat.userAvatar == null
-                                  ? Text(chat.userName[0].toUpperCase())
+                              backgroundColor: Theme.of(context).colorScheme.primary,
+                              child: chat.userAvatar == null || chat.userAvatar!.isEmpty
+                                  ? Text(
+                                      chat.userName.isNotEmpty ? chat.userName[0].toUpperCase() : 'U',
+                                      style: const TextStyle(color: Colors.white),
+                                    )
                                   : null,
                             ),
                             if (chat.isOnline)
@@ -194,6 +238,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
                                 chatId: chat.id,
                                 userName: chat.userName,
                                 userAvatar: chat.userAvatar,
+                                otherUserId: chat.userId,
+                                postId: chat.postId,
                               ),
                             ),
                           );

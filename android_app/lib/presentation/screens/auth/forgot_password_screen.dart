@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/app_text_field.dart';
+import '../../../core/theme/app_colors.dart';
 
 /// Màn hình Quên mật khẩu
 class ForgotPasswordScreen extends StatefulWidget {
@@ -120,7 +121,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         Icon(
           Icons.check_circle,
           size: 80,
-          color: Colors.green,
+          color: AppColors.primary,
         ),
         const SizedBox(height: 24),
         const Text(

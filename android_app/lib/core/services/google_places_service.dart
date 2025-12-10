@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 /// Service để tích hợp Google Places API
@@ -13,19 +14,24 @@ class GooglePlacesService {
     String? apiKey,
     String? language = 'vi',
     String? components = 'country:vn', // Giới hạn tìm kiếm trong Việt Nam
+    String? types, // Loại địa điểm: locality (thành phố), (cities) cho thành phố
   }) async {
     if (apiKey == null || apiKey.isEmpty) {
       throw Exception('Google Places API Key is required');
     }
 
     try {
-      final url = Uri.parse(
-        '$_baseUrl/place/autocomplete/json?'
-        'input=${Uri.encodeComponent(query)}'
-        '&key=$apiKey'
-        '&language=$language'
-        '&components=$components',
-      );
+      var urlString = '$_baseUrl/place/autocomplete/json?'
+          'input=${Uri.encodeComponent(query)}'
+          '&key=$apiKey'
+          '&language=$language'
+          '&components=$components';
+      
+      if (types != null && types.isNotEmpty) {
+        urlString += '&types=$types';
+      }
+      
+      final url = Uri.parse(urlString);
 
       final response = await http.get(url);
       
@@ -35,11 +41,15 @@ class GooglePlacesService {
         if (data['status'] == 'OK' || data['status'] == 'ZERO_RESULTS') {
           final predictions = data['predictions'] as List?;
           if (predictions != null) {
-            return predictions
+            final results = predictions
                 .map((p) => PlacePrediction.fromJson(p))
                 .toList();
+            // Debug: Log số lượng kết quả
+            debugPrint('[GooglePlacesService] Found ${results.length} predictions');
+            return results;
           }
         } else {
+          debugPrint('[GooglePlacesService] API Error: ${data['status']}');
           throw Exception('Google Places API error: ${data['status']}');
         }
       } else {
@@ -89,42 +99,6 @@ class GooglePlacesService {
     }
   }
 
-  /// Geocoding: Chuyển đổi tọa độ thành địa chỉ
-  static Future<PlaceDetails> reverseGeocode(
-    double latitude,
-    double longitude, {
-    String? apiKey,
-    String? language = 'vi',
-  }) async {
-    if (apiKey == null || apiKey.isEmpty) {
-      throw Exception('Google Places API Key is required');
-    }
-
-    try {
-      final url = Uri.parse(
-        '$_baseUrl/geocode/json?'
-        'latlng=$latitude,$longitude'
-        '&key=$apiKey'
-        '&language=$language',
-      );
-
-      final response = await http.get(url);
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        
-        if (data['status'] == 'OK' && data['results'].isNotEmpty) {
-          return PlaceDetails.fromJson(data['results'][0]);
-        } else {
-          throw Exception('Google Places API error: ${data['status']}');
-        }
-      } else {
-        throw Exception('HTTP error: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error reverse geocoding: $e');
-    }
-  }
 }
 
 /// Model cho Place Prediction (kết quả autocomplete)
@@ -133,22 +107,34 @@ class PlacePrediction {
   final String description;
   final String? mainText;
   final String? secondaryText;
+  final List<String> types; // Loại địa điểm (locality, administrative_area_level_1, etc.)
 
   PlacePrediction({
     required this.placeId,
     required this.description,
     this.mainText,
     this.secondaryText,
+    this.types = const [],
   });
 
   factory PlacePrediction.fromJson(Map<String, dynamic> json) {
     final structuredFormatting = json['structured_formatting'];
+    final typesList = json['types'] as List?;
     return PlacePrediction(
       placeId: json['place_id'] ?? '',
       description: json['description'] ?? '',
       mainText: structuredFormatting?['main_text'],
       secondaryText: structuredFormatting?['secondary_text'],
+      types: typesList != null 
+          ? typesList.map((e) => e.toString()).toList()
+          : [],
     );
+  }
+
+  /// Kiểm tra xem có phải là thành phố (locality) không
+  bool get isCity {
+    return types.contains('locality') || 
+           types.contains('administrative_area_level_1');
   }
 }
 
@@ -184,32 +170,6 @@ class PlaceDetails {
     );
   }
 
-  /// Parse địa chỉ để tìm City, District, Ward
-  /// Trả về map với keys: cityName, districtName, wardName, streetName
-  Map<String, String?> parseAddress() {
-    final components = addressComponents;
-    
-    // Tìm các thành phần địa chỉ
-    String? cityName = components.locality ?? components.administrativeAreaLevel1;
-    String? districtName = components.administrativeAreaLevel2 ?? components.sublocality;
-    String? wardName = components.sublocalityLevel1 ?? components.sublocalityLevel2;
-    String? streetName = components.route;
-    String? streetNumber = components.streetNumber;
-    
-    // Kết hợp street number và route
-    if (streetNumber != null && streetName != null) {
-      streetName = '$streetNumber $streetName';
-    } else if (streetNumber != null) {
-      streetName = streetNumber;
-    }
-    
-    return {
-      'cityName': cityName,
-      'districtName': districtName,
-      'wardName': wardName,
-      'streetName': streetName ?? formattedAddress.split(',').first.trim(),
-    };
-  }
 }
 
 /// Model cho Address Components

@@ -5,11 +5,14 @@ import '../models/location_model.dart';
 class LocationRepository {
   final ApiClient _apiClient = ApiClient();
 
+  /// Lấy danh sách cities từ API backend - KHÔNG dùng database local
   Future<List<CityModel>> getCities() async {
     try {
+      // Gọi API endpoint để lấy cities từ backend
       final response = await _apiClient.get(ApiConstants.cities);
 
       if (response is List) {
+        // Parse response từ API thành CityModel
         return response.map((json) => CityModel.fromJson(json)).toList();
       }
       return [];

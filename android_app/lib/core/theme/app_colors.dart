@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary Colors - Xanh dương đậm (chuyên nghiệp, tin cậy)
-  static const Color primary = Color(0xFF1E3A5F);
-  static const Color primaryLight = Color(0xFF2E5A8F);
-  static const Color primaryDark = Color(0xFF0F1F3A);
+  // Primary Colors - Cyan/Turquoise (đã làm tối đi 3 phần)
+  static const Color primary = Color(0xFF47B0A9); // Tối hơn #66FCF1
+  static const Color primaryLight = Color(0xFF6FD4CD); // Lighter variant
+  static const Color primaryDark = Color(0xFF2F8A84); // Darker variant
 
   // Secondary Colors - Vàng gold (sang trọng)
   static const Color secondary = Color(0xFFD4AF37);

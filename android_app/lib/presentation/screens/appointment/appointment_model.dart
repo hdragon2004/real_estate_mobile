@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 /// Model cho Appointment
 class AppointmentModel {
@@ -57,7 +58,7 @@ extension AppointmentStatusExtension on AppointmentStatus {
       case AppointmentStatus.confirmed:
         return Colors.green;
       case AppointmentStatus.completed:
-        return Colors.blue;
+        return AppColors.primary;
       case AppointmentStatus.cancelled:
         return Colors.red;
     }

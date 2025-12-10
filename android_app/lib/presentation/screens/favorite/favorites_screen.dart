@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../widgets/common/property_card.dart';
+import '../../widgets/common/post_card.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/confirmation_dialog.dart';
-import '../property/property_detail_screen.dart';
+import '../post/post_details_screen.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/services/favorite_service.dart';
 
@@ -37,6 +37,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Yêu thích'),
+        automaticallyImplyLeading: false,
       ),
       body: ValueListenableBuilder<List<PostModel>>(
         valueListenable: _favoriteService.favoritesListenable,
@@ -50,18 +51,19 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             itemCount: favorites.length,
             itemBuilder: (context, index) {
               final property = favorites[index];
-              return PropertyCard(
+              return PostCard(
                 property: property,
                 isFavorite: true,
+                margin: EdgeInsets.only(bottom: index < favorites.length - 1 ? 16 : 0),
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => PropertyDetailScreen(
+                      builder: (context) => PostDetailsScreen(
                         propertyId: property.id.toString(),
                         initialProperty: property,
                       ),

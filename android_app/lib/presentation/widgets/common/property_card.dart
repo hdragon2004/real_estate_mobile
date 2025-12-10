@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/theme/app_colors.dart';
@@ -164,14 +164,14 @@ class PropertyCard extends StatelessWidget {
                     Row(
                       children: [
                         Icon(
-                          Iconsax.location,
+                          FontAwesomeIcons.locationDot,
                           size: 14,
                           color: AppColors.textSecondary,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            property.fullAddress,
+                            property.displayAddress,
                             style: AppTextStyles.bodySmall,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -198,7 +198,7 @@ class PropertyCard extends StatelessWidget {
                           ),
                         if (property.soPhongTam != null) const SizedBox(width: 12),
                         _buildFeatureChip(
-                          Iconsax.ruler,
+                          FontAwesomeIcons.ruler,
                           '${property.areaSize.toStringAsFixed(0)} m²',
                         ),
                       ],
@@ -229,8 +229,8 @@ class PropertyCard extends StatelessWidget {
       height: isCompact ? 140 : 180,
       color: AppColors.surfaceVariant,
       child: const Center(
-        child: Icon(
-          Iconsax.image,
+        child: FaIcon(
+          FontAwesomeIcons.image,
           size: 48,
           color: AppColors.textHint,
         ),

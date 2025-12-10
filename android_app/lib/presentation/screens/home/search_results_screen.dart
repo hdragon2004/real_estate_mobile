@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../widgets/common/property_card.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
@@ -9,7 +9,7 @@ import '../../../core/repositories/post_repository.dart';
 import '../../../core/services/favorite_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../property/property_detail_screen.dart';
+import '../post/post_details_screen.dart';
 import 'filter_screen.dart';
 
 /// Màn hình Kết quả tìm kiếm
@@ -99,9 +99,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         break;
       case 'Diện tích':
         results.sort((a, b) {
-          final areaA = (a.area is num) ? (a.area as num).toDouble() : 0.0;
-          final areaB = (b.area is num) ? (b.area as num).toDouble() : 0.0;
-          return areaB.compareTo(areaA);
+          return b.areaSize.compareTo(a.areaSize);
         });
         break;
       case 'Mới nhất':
@@ -129,7 +127,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 .map((option) => ListTile(
                       title: Text(option, style: AppTextStyles.bodyMedium),
                       trailing: _sortBy == option
-                          ? Icon(Iconsax.tick_circle, color: AppColors.primary)
+                          ? FaIcon(FontAwesomeIcons.circleCheck, color: AppColors.primary)
                           : null,
                       onTap: () {
                         setState(() => _sortBy = option);
@@ -183,12 +181,12 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         title: Text('Kết quả tìm kiếm', style: AppTextStyles.h6),
         actions: [
           IconButton(
-            icon: Icon(Iconsax.filter, color: AppColors.textPrimary),
+            icon: FaIcon(FontAwesomeIcons.filter, color: AppColors.textPrimary),
             onPressed: _openFilter,
             tooltip: 'Bộ lọc',
           ),
           IconButton(
-            icon: Icon(Iconsax.sort, color: AppColors.textPrimary),
+            icon: FaIcon(FontAwesomeIcons.arrowDownWideShort, color: AppColors.textPrimary),
             onPressed: _showSortOptions,
             tooltip: 'Sắp xếp',
           ),
@@ -198,7 +196,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           ? const Center(child: LoadingIndicator())
           : _results.isEmpty
               ? EmptyState(
-                  icon: Iconsax.search_normal_1,
+                  icon: FontAwesomeIcons.magnifyingGlass,
                   title: 'Không tìm thấy kết quả',
                   message: 'Thử thay đổi từ khóa hoặc bộ lọc',
                   buttonText: 'Thử lại',
@@ -238,7 +236,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => PropertyDetailScreen(
+                                      builder: (context) => PostDetailsScreen(
                                         propertyId: property.id.toString(),
                                         initialProperty: property,
                                       ),

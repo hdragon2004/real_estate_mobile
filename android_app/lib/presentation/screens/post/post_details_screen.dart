@@ -2,9 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gap/gap.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 import '../../../core/models/post_model.dart';
 import '../../../core/repositories/post_repository.dart';
 import '../../../core/services/favorite_service.dart';
@@ -20,28 +20,31 @@ import 'image_gallery_screen.dart';
 import 'map_screen.dart';
 
 /// Màn hình Chi tiết bất động sản
-class PropertyDetailScreen extends StatefulWidget {
+class PostDetailsScreen extends StatefulWidget {
   final String propertyId;
   final PostModel? initialProperty;
 
-  const PropertyDetailScreen({
+  const PostDetailsScreen({
     super.key,
     required this.propertyId,
     this.initialProperty,
   });
 
   @override
-  State<PropertyDetailScreen> createState() => _PropertyDetailScreenState();
+  State<PostDetailsScreen> createState() => _PostDetailsScreenState();
 }
 
-class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
+class _PostDetailsScreenState extends State<PostDetailsScreen> {
   final PostRepository _postRepository = PostRepository();
   final FavoriteService _favoriteService = FavoriteService();
   final PageController _imageController = PageController();
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _titleKey = GlobalKey();
 
   PostModel? _property;
   bool _isLoading = false;
   int _currentImageIndex = 0;
+  bool _showFloatingButtons = true;
 
   @override
   void initState() {
@@ -49,12 +52,46 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     _property = widget.initialProperty;
     _isLoading = widget.initialProperty == null;
     _loadPropertyDetail(showLoader: widget.initialProperty == null);
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _imageController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_titleKey.currentContext == null) {
+      setState(() {
+        _showFloatingButtons = true;
+      });
+      return;
+    }
+    
+    final RenderBox? titleBox = _titleKey.currentContext?.findRenderObject() as RenderBox?;
+    if (titleBox == null) {
+      setState(() {
+        _showFloatingButtons = true;
+      });
+      return;
+    }
+    
+    final titlePosition = titleBox.localToGlobal(Offset.zero);
+    final screenHeight = MediaQuery.of(context).size.height;
+    final imageHeight = screenHeight * 0.3;
+    final appBarHeight = kToolbarHeight + MediaQuery.of(context).padding.top;
+    final threshold = imageHeight + appBarHeight;
+    
+    // Ẩn floating buttons khi scroll qua tiêu đề (khi tiêu đề đã lên trên cùng)
+    final shouldShow = titlePosition.dy > threshold;
+    
+    if (shouldShow != _showFloatingButtons) {
+      setState(() {
+        _showFloatingButtons = !shouldShow;
+      });
+    }
   }
 
   Future<void> _loadPropertyDetail({bool showLoader = false}) async {
@@ -159,8 +196,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       MaterialPageRoute(
         builder: (context) => ChatScreen(
           chatId: 'owner_${property.id}',
-          userName: property.user?.name ?? 'Chủ tin',
-          userAvatar: property.user?.avatarUrl,
+          otherUserId: property.userId,
+          postId: property.id,
         ),
       ),
     );
@@ -220,29 +257,42 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       body: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () => _loadPropertyDetail(showLoader: false),
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-          slivers: [
-            _buildImageAppBar(property, images, isFavorite),
-            SliverToBoxAdapter(child: _buildPrimaryInfo(property)),
-            SliverToBoxAdapter(child: _buildQuickStats(property)),
-            SliverToBoxAdapter(child: _buildDescription(property)),
-            SliverToBoxAdapter(child: _buildLocation(property)),
-            SliverToBoxAdapter(child: _buildContactCard(property)),
-            const SliverToBoxAdapter(child: Gap(100)),
+        child: Stack(
+          children: [
+            CustomScrollView(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              slivers: [
+                _buildImageAppBar(property, images, isFavorite),
+                SliverToBoxAdapter(child: _buildPrimaryInfo(property, key: _titleKey)),
+                SliverToBoxAdapter(child: _buildQuickStats(property)),
+                SliverToBoxAdapter(child: _buildDescription(property)),
+                SliverToBoxAdapter(child: _buildLocation(property)),
+                SliverToBoxAdapter(child: _buildContactCard(property)),
+                const SliverToBoxAdapter(child: Gap(100)),
+              ],
+            ),
+            // Floating buttons (message, call) - chỉ hiển thị khi ở trên
+            if (_showFloatingButtons) _buildFloatingButtons(property),
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(property),
     );
   }
 
   SliverAppBar _buildImageAppBar(PostModel property, List<String> images, bool isFavorite) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final imageHeight = screenHeight * 0.3; // 30% màn hình
+    
     return SliverAppBar(
-      expandedHeight: 360,
+      expandedHeight: imageHeight,
       pinned: true,
       backgroundColor: AppColors.background,
       surfaceTintColor: Colors.transparent,
+      leading: IconButton(
+        icon: const FaIcon(FontAwesomeIcons.arrowLeft, color: Colors.white),
+        onPressed: () => Navigator.pop(context),
+      ),
       title: Text(property.categoryName ?? 'Chi tiết', style: AppTextStyles.h6.copyWith(color: Colors.white)),
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
@@ -251,7 +301,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
             images.isEmpty
                 ? Container(
                     color: AppColors.surfaceVariant,
-                    child: const Icon(Icons.image, size: 80, color: AppColors.textHint),
+                    child: const FaIcon(FontAwesomeIcons.image, size: 80, color: AppColors.textHint),
                   )
                 : PageView.builder(
                     controller: _imageController,
@@ -268,7 +318,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                             placeholder: (context, url) => Container(color: AppColors.surfaceVariant),
                             errorWidget: (context, url, error) => Container(
                               color: AppColors.surfaceVariant,
-                              child: const Icon(Icons.broken_image, size: 48, color: AppColors.textHint),
+                              child: const FaIcon(FontAwesomeIcons.image, size: 48, color: AppColors.textHint),
                             ),
                           ),
                         ),
@@ -312,18 +362,69 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       ),
       actions: [
         IconButton(
-          icon: Icon(
-            isFavorite ? Icons.favorite : Icons.favorite_outline,
+          icon: FaIcon(
+            isFavorite ? FontAwesomeIcons.solidHeart : FontAwesomeIcons.heart,
             color: isFavorite ? AppColors.error : Colors.white,
           ),
           onPressed: () => _toggleFavorite(property),
+        ),
+        IconButton(
+          icon: const FaIcon(FontAwesomeIcons.share, color: Colors.white),
+          onPressed: () {
+            // TODO: Implement share functionality
+          },
         ),
       ],
     );
   }
 
-  Widget _buildPrimaryInfo(PostModel property) {
+  Widget _buildFloatingButtons(PostModel property) {
+    final user = property.user;
+    return Positioned(
+      bottom: 20,
+      left: 20,
+      right: 20,
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () => _contactOwner(property),
+              icon: const FaIcon(FontAwesomeIcons.message, size: 18),
+              label: const Text('Tin nhắn'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () => _launchPhone(user?.phone),
+              icon: const FaIcon(FontAwesomeIcons.phone, size: 18),
+              label: const Text('Gọi điện'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrimaryInfo(PostModel property, {Key? key}) {
     return Padding(
+      key: key,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,12 +434,12 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
           Row(
             children: [
               _InfoPill(
-                icon: Icons.location_on,
-                label: property.ward?.name ?? property.area?.ward?.name ?? 'Không xác định',
+                icon: FontAwesomeIcons.locationDot,
+                label: property.ward?.name ?? property.wardName ?? 'Không xác định',
               ),
               const Gap(8),
               _InfoPill(
-                icon: Icons.category_outlined,
+                icon: FontAwesomeIcons.tag,
                 label: property.categoryName ?? 'Danh mục',
               ),
             ],
@@ -365,17 +466,17 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
 
   Widget _buildQuickStats(PostModel property) {
     final stats = <_QuickStat>[
-      _QuickStat(label: 'Diện tích', value: Formatters.formatArea(property.areaSize), icon: Icons.square_foot),
+      _QuickStat(label: 'Diện tích', value: Formatters.formatArea(property.areaSize), icon: FontAwesomeIcons.ruler),
       if (property.soPhongNgu != null)
-        _QuickStat(label: 'Phòng ngủ', value: '${property.soPhongNgu}', icon: Icons.bed_outlined),
+        _QuickStat(label: 'Phòng ngủ', value: '${property.soPhongNgu}', icon: FontAwesomeIcons.bed),
       if (property.soPhongTam != null)
-        _QuickStat(label: 'Phòng tắm', value: '${property.soPhongTam}', icon: Icons.bathtub_outlined),
+        _QuickStat(label: 'Phòng tắm', value: '${property.soPhongTam}', icon: FontAwesomeIcons.bath),
       if (property.soTang != null)
-        _QuickStat(label: 'Số tầng', value: '${property.soTang}', icon: Icons.landscape_outlined),
+        _QuickStat(label: 'Số tầng', value: '${property.soTang}', icon: FontAwesomeIcons.layerGroup),
       if (property.huongNha != null)
-        _QuickStat(label: 'Hướng nhà', value: property.huongNha!, icon: Icons.explore_outlined),
+        _QuickStat(label: 'Hướng nhà', value: property.huongNha!, icon: FontAwesomeIcons.compass),
       if (property.phapLy != null)
-        _QuickStat(label: 'Pháp lý', value: property.phapLy!, icon: Icons.gavel_outlined),
+        _QuickStat(label: 'Pháp lý', value: property.phapLy!, icon: FontAwesomeIcons.gavel),
     ];
 
     if (stats.isEmpty) return const SizedBox.shrink();
@@ -427,11 +528,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.location_on, color: AppColors.primary),
+                    const FaIcon(FontAwesomeIcons.locationDot, color: AppColors.primary),
                     const Gap(8),
                     Expanded(
                       child: Text(
-                        property.fullAddress,
+                        property.displayAddress,
                         style: AppTextStyles.bodyMedium,
                       ),
                     ),
@@ -442,7 +543,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                   text: 'Xem trên bản đồ',
                   onPressed: _openMap,
                   isOutlined: true,
-                  icon: Icons.map,
+                  icon: FontAwesomeIcons.map,
                 ),
               ],
             ),
@@ -459,7 +560,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Liên hệ', style: AppTextStyles.h5),
+          Text('Thông tin liên hệ', style: AppTextStyles.h5),
           const Gap(12),
           Container(
             padding: const EdgeInsets.all(16),
@@ -473,10 +574,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                 Row(
                   children: [
                     CircleAvatar(
-                      radius: 28,
-                      backgroundImage: user?.avatarUrl != null ? NetworkImage(user!.avatarUrl!) : null,
+                      radius: 30,
+                      backgroundImage: user?.avatarUrl != null 
+                          ? NetworkImage(ImageUrlHelper.resolveImageUrl(user!.avatarUrl!)) 
+                          : null,
                       child: user?.avatarUrl == null
-                          ? Text((user?.name ?? 'U')[0].toUpperCase(), style: AppTextStyles.h5.copyWith(color: Colors.white))
+                          ? Text(
+                              (user?.name ?? 'U')[0].toUpperCase(), 
+                              style: AppTextStyles.h5.copyWith(color: Colors.white),
+                            )
                           : null,
                     ),
                     const Gap(12),
@@ -486,13 +592,17 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                         children: [
                           Text(user?.name ?? 'Chủ tin', style: AppTextStyles.h6),
                           const Gap(4),
-                          Text(user?.email ?? '-', style: AppTextStyles.bodySmall),
+                          Text('Người đăng', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
                         ],
                       ),
                     ),
                     IconButton(
                       onPressed: () => _launchMail(user?.email),
-                      icon: const Icon(Icons.email_outlined),
+                      icon: const FaIcon(FontAwesomeIcons.envelope, color: AppColors.primary),
+                    ),
+                    IconButton(
+                      onPressed: () => _launchPhone(user?.phone),
+                      icon: const FaIcon(FontAwesomeIcons.phone, color: AppColors.primary),
                     ),
                   ],
                 ),
@@ -500,19 +610,34 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: AppButton(
-                        text: 'Gọi điện',
-                        onPressed: () => _launchPhone(user?.phone),
-                        isOutlined: true,
-                        icon: Icons.phone,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _contactOwner(property),
+                        icon: const FaIcon(FontAwesomeIcons.message, size: 18),
+                        label: const Text('Tin nhắn'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                       ),
                     ),
-                    const Gap(12),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: AppButton(
-                        text: 'Nhắn tin',
-                        onPressed: () => _contactOwner(property),
-                        icon: Icons.chat_bubble_outline,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _launchPhone(user?.phone),
+                        icon: const FaIcon(FontAwesomeIcons.phone, size: 18),
+                        label: const Text('Gọi điện'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -525,41 +650,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     );
   }
 
-  Widget _buildBottomBar(PostModel property) {
-    final user = property.user;
-    return Container(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 12,
-        bottom: 12 + MediaQuery.of(context).padding.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        boxShadow: AppShadows.bottomNav,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: AppButton(
-              text: 'Gọi ngay',
-              onPressed: () => _launchPhone(user?.phone),
-              isOutlined: true,
-              icon: Icons.call,
-            ),
-          ),
-          const Gap(12),
-          Expanded(
-            child: AppButton(
-              text: 'Đặt lịch xem',
-              onPressed: () => _contactOwner(property),
-              icon: Icons.calendar_month,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _InfoPill extends StatelessWidget {
@@ -580,7 +670,7 @@ class _InfoPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: AppColors.textSecondary),
+          FaIcon(icon, size: 16, color: AppColors.textSecondary),
           const Gap(6),
           Text(label, style: AppTextStyles.labelSmall),
         ],
@@ -615,7 +705,7 @@ class _QuickStatCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(stat.icon, color: AppColors.primary, size: 20),
+          FaIcon(stat.icon, color: AppColors.primary, size: 20),
           const Gap(8),
           Text(stat.value, style: AppTextStyles.h6),
           const Gap(4),

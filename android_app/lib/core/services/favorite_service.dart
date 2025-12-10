@@ -21,8 +21,13 @@ class FavoriteService {
   /// Load favorites từ backend
   Future<void> loadFavorites(int userId) async {
     try {
-      final favorites = await _repository.getFavoritesByUser(userId);
-      _favoritesNotifier.value = favorites;
+      final favoritesData = await _repository.getFavoritesByUser(userId);
+      // Parse từ Favorite objects (có chứa Post) thành PostModel
+      final posts = favoritesData
+          .where((fav) => fav['post'] != null)
+          .map((fav) => PostModel.fromJson(fav['post'] as Map<String, dynamic>))
+          .toList();
+      _favoritesNotifier.value = posts;
     } catch (e) {
       debugPrint('Error loading favorites: $e');
     }

@@ -1,73 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
+import '../../../core/models/notification_model.dart';
 import '../../../core/repositories/notification_repository.dart';
+import '../../../core/services/auth_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
-import '../property/property_detail_screen.dart';
-import '../chat/chat_screen.dart';
-
-/// Model cho Notification
-class NotificationModel {
-  final int id;
-  final String title;
-  final String message;
-  final DateTime timestamp;
-  final bool isRead;
-  final NotificationType type;
-  final int? postId;
-  final int? senderId;
-
-  NotificationModel({
-    required this.id,
-    required this.title,
-    required this.message,
-    required this.timestamp,
-    this.isRead = false,
-    required this.type,
-    this.postId,
-    this.senderId,
-  });
-
-  factory NotificationModel.fromJson(Map<String, dynamic> json) {
-    return NotificationModel(
-      id: json['id'] as int,
-      title: json['title'] as String,
-      message: json['message'] as String,
-      timestamp: DateTime.parse(json['createdAt'] as String),
-      isRead: json['isRead'] as bool? ?? false,
-      type: _parseType(json['type'] as String),
-      postId: json['postId'] as int?,
-      senderId: json['senderId'] as int?,
-    );
-  }
-
-  static NotificationType _parseType(String type) {
-    switch (type.toLowerCase()) {
-      case 'property':
-      case 'new_property':
-        return NotificationType.property;
-      case 'appointment':
-      case 'expire':
-      case 'expired':
-        return NotificationType.appointment;
-      case 'message':
-        return NotificationType.message;
-      default:
-        return NotificationType.system;
-    }
-  }
-}
-
-enum NotificationType {
-  property,
-  appointment,
-  message,
-  system,
-}
+import 'notification_details_screen.dart';
 
 /// Màn hình Danh sách thông báo
 class NotificationsScreen extends StatefulWidget {
@@ -81,7 +23,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final NotificationRepository _repository = NotificationRepository();
   bool _isLoading = false;
   List<NotificationModel> _notifications = [];
-  int? _currentUserId; // TODO: Lấy từ auth service
+  int? _currentUserId;
 
   @override
   void initState() {
@@ -90,10 +32,30 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _loadNotifications() async {
-    // TODO: Lấy userId từ auth
-    // _currentUserId = await AuthService.getCurrentUserId();
-    // Tạm thời dùng userId = 1
-    _currentUserId ??= 1;
+    // Lấy userId từ AuthStorageService
+    try {
+      _currentUserId = await AuthStorageService.getUserId();
+      if (_currentUserId == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vui lòng đăng nhập để xem thông báo'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+    } catch (e) {
+      debugPrint('Error getting user ID: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi xác thực: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
     
     setState(() => _isLoading = true);
     try {
@@ -108,39 +70,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
+      debugPrint('Error loading notifications: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Lỗi tải thông báo: $e'),
           backgroundColor: AppColors.error,
         ),
       );
-    }
-  }
-
-  Future<void> _markAsRead(NotificationModel notification) async {
-    if (notification.isRead) return;
-    
-    try {
-      await _repository.markAsRead(notification.id);
-      if (!mounted) return;
-      
-      setState(() {
-        final index = _notifications.indexWhere((n) => n.id == notification.id);
-        if (index >= 0) {
-          _notifications[index] = NotificationModel(
-            id: notification.id,
-            title: notification.title,
-            message: notification.message,
-            timestamp: notification.timestamp,
-            isRead: true,
-            type: notification.type,
-            postId: notification.postId,
-            senderId: notification.senderId,
-          );
-        }
-      });
-    } catch (e) {
-      debugPrint('Error marking as read: $e');
     }
   }
 
@@ -164,54 +100,30 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _handleNotificationTap(NotificationModel notification) {
-    _markAsRead(notification);
-
-    switch (notification.type) {
-      case NotificationType.property:
-        if (notification.postId != null) {
+    // Điều hướng đến màn hình chi tiết thông báo
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => PropertyDetailScreen(
-                propertyId: notification.postId.toString(),
+        builder: (context) => NotificationDetailsScreen(
+          notification: notification,
               ),
             ),
-          );
-        }
-        break;
-      case NotificationType.appointment:
-        // TODO: Điều hướng đến màn hình lịch hẹn
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tính năng lịch hẹn đang phát triển')),
-        );
-        break;
-      case NotificationType.message:
-        if (notification.senderId != null && notification.postId != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChatScreen(
-                chatId: '${notification.senderId}_${notification.postId}',
-              ),
-            ),
-          );
-        }
-        break;
-      case NotificationType.system:
-        break;
-    }
+    ).then((_) {
+      // Refresh danh sách khi quay lại
+      _loadNotifications();
+    });
   }
 
   IconData _getNotificationIcon(NotificationType type) {
     switch (type) {
       case NotificationType.property:
-        return Iconsax.home;
+        return FontAwesomeIcons.house;
       case NotificationType.appointment:
-        return Iconsax.calendar;
+        return FontAwesomeIcons.calendar;
       case NotificationType.message:
-        return Iconsax.message;
+        return FontAwesomeIcons.message;
       case NotificationType.system:
-        return Iconsax.notification;
+        return FontAwesomeIcons.bell;
     }
   }
 
@@ -222,7 +134,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case NotificationType.appointment:
         return AppColors.accent;
       case NotificationType.message:
-        return Colors.blue;
+        return AppColors.primary;
       case NotificationType.system:
         return AppColors.textSecondary;
     }
@@ -253,23 +165,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         backgroundColor: AppColors.surface,
         elevation: 0,
         title: Text('Thông báo', style: AppTextStyles.h6),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // TODO: Mở cài đặt thông báo
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Tính năng cài đặt thông báo đang phát triển')),
-              );
-            },
-            child: Text('Cài đặt', style: AppTextStyles.labelMedium),
-          ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: LoadingIndicator())
           : _notifications.isEmpty
               ? EmptyState(
-                  icon: Iconsax.notification_bing,
+                  icon: FontAwesomeIcons.bell,
                   title: 'Chưa có thông báo',
                   message: 'Bạn sẽ nhận được thông báo tại đây',
                 )
@@ -293,7 +194,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             color: AppColors.error,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Iconsax.trash, color: Colors.white),
+                          child: const FaIcon(FontAwesomeIcons.trash, color: Colors.white),
                         ),
                         onDismissed: (direction) {
                           _deleteNotification(notification, index);
@@ -320,10 +221,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     : color.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Icon(
+                              child: Center(
+                                child: FaIcon(
                                 _getNotificationIcon(notification.type),
                                 color: color,
                                 size: 24,
+                                ),
                               ),
                             ),
                             title: Text(

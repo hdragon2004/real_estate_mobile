@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/confirmation_dialog.dart';
+import '../../widgets/common/loading_indicator.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/auth_storage_service.dart';
+import '../../../core/repositories/user_repository.dart';
+import '../../../core/repositories/post_repository.dart';
+import '../../../core/repositories/favorite_repository.dart';
+import '../../../core/models/auth_models.dart';
+import '../../../core/utils/image_url_helper.dart' as image_helper;
 
 /// Màn hình Hồ sơ cá nhân
 class ProfileScreen extends StatefulWidget {
@@ -13,19 +19,94 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // TODO: Load từ API/Provider
-  final String _name = 'Nguyễn Văn A';
-  final String _email = 'nguyenvana@example.com';
-  String? _avatarUrl;
-  final int _favoritesCount = 0;
-  final int _appointmentsCount = 0;
-  final int _postsCount = 0;
+  final UserRepository _userRepository = UserRepository();
+  final PostRepository _postRepository = PostRepository();
+  final FavoriteRepository _favoriteRepository = FavoriteRepository();
+
+  bool _isLoading = true;
+  User? _user;
+  int _favoritesCount = 0;
+  final int _appointmentsCount = 0; // TODO: Tạo API endpoint cho appointments
+  int _postsCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    setState(() => _isLoading = true);
+    try {
+      final userId = await AuthStorageService.getUserId();
+      if (userId == null) {
+        if (!mounted) return;
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+        return;
+      }
+
+      // Load profile
+      final user = await _userRepository.getProfile();
+      
+      // Load posts count
+      final posts = await _postRepository.getPostsByUser(userId);
+      
+      // Load favorites count
+      final favorites = await _favoriteRepository.getFavoritesByUser(userId);
+
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+        _postsCount = posts.length;
+        _favoritesCount = favorites.length;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi tải dữ liệu: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Hồ sơ'),
+          automaticallyImplyLeading: false,
+        ),
+        body: const LoadingIndicator(),
+      );
+    }
+
+    if (_user == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Hồ sơ'),
+          automaticallyImplyLeading: false,
+        ),
+        body: const Center(
+          child: Text('Không thể tải thông tin người dùng'),
+        ),
+      );
+    }
+
+    final avatarUrl = _user!.avatarUrl != null && _user!.avatarUrl!.isNotEmpty
+        ? image_helper.ImageUrlHelper.resolveImageUrl(_user!.avatarUrl!)
+        : null;
+    final name = _user!.name;
+    final email = _user!.email;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Hồ sơ'),
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -36,7 +117,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: RefreshIndicator(
+        onRefresh: _loadProfileData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           children: [
             const SizedBox(height: 32),
@@ -45,13 +129,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 CircleAvatar(
                   radius: 60,
-                  backgroundImage: _avatarUrl != null
-                      ? NetworkImage(_avatarUrl!)
+                    backgroundImage: avatarUrl != null
+                        ? NetworkImage(avatarUrl)
                       : null,
-                  child: _avatarUrl == null
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    child: avatarUrl == null
                       ? Text(
-                          _name[0].toUpperCase(),
-                          style: const TextStyle(fontSize: 48),
+                            name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                            style: const TextStyle(
+                              fontSize: 48,
+                              color: Colors.white,
+                            ),
                         )
                       : null,
                 ),
@@ -75,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              _name,
+                name,
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -83,7 +171,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              _email,
+                email,
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey.shade600,
@@ -164,6 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 32),
           ],
+          ),
         ),
       ),
     );
@@ -220,8 +309,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await AuthStorageService.clearAll();
       
       if (!mounted) return;
-      // Chuyển đến màn hình đăng nhập và xóa tất cả route trước đó
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      // Chuyển đến màn hình welcome và xóa tất cả route trước đó
+      Navigator.pushNamedAndRemoveUntil(context, '/welcome', (route) => false);
     }
   }
 }

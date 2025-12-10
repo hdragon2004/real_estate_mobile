@@ -31,8 +31,10 @@ class PostModel {
   final int userId;
   final int categoryId;
   final String? categoryName;
-  final int wardId; // Thay areaId bằng wardId
-  final String? areaName; // Giữ lại để backward compatibility
+  final int wardId;
+  final String? cityName; // Tên thành phố trực tiếp từ API
+  final String? districtName; // Tên quận/huyện trực tiếp từ API
+  final String? wardName; // Tên phường/xã trực tiếp từ API
   final String? userName;
   final bool isApproved;
   final DateTime? expiryDate;
@@ -48,8 +50,13 @@ class PostModel {
   final String? timeAgo;
   final PostUser? user;
   final PostCategory? category;
-  final PostArea? area; // Giữ lại để backward compatibility
-  final PostWard? ward; // Thêm ward mới
+  final PostWard? ward;
+  // Google Maps integration fields
+  final String? fullAddress; // Địa chỉ đầy đủ từ Google Maps
+  final double? longitude; // Tọa độ kinh độ
+  final double? latitude; // Tọa độ vĩ độ
+  final String? placeId; // Google Place ID
+  final String? panoImageUrl; // URL ảnh panorama
 
   PostModel({
     required this.id,
@@ -66,7 +73,9 @@ class PostModel {
     required this.categoryId,
     this.categoryName,
     required this.wardId,
-    this.areaName,
+    this.cityName,
+    this.districtName,
+    this.wardName,
     this.userName,
     required this.isApproved,
     this.expiryDate,
@@ -82,8 +91,12 @@ class PostModel {
     this.timeAgo,
     this.user,
     this.category,
-    this.area,
     this.ward,
+    this.fullAddress,
+    this.longitude,
+    this.latitude,
+    this.placeId,
+    this.panoImageUrl,
   });
 
   factory PostModel.fromJson(Map<String, dynamic> json) {
@@ -103,8 +116,10 @@ class PostModel {
       userId: json['userId'] ?? 0,
       categoryId: json['categoryId'] ?? 0,
       categoryName: json['categoryName'],
-      wardId: json['wardId'] ?? json['areaId'] ?? 0, // Backward compatibility: đọc areaId nếu không có wardId
-      areaName: json['areaName'],
+      wardId: json['wardId'] ?? 0,
+      cityName: json['cityName'] ?? json['CityName'], // Hỗ trợ cả camelCase và PascalCase
+      districtName: json['districtName'] ?? json['DistrictName'],
+      wardName: json['wardName'] ?? json['WardName'],
       userName: json['userName'],
       isApproved: json['isApproved'] ?? false,
       expiryDate: json['expiryDate'] != null
@@ -127,8 +142,12 @@ class PostModel {
       category: json['category'] != null
           ? PostCategory.fromJson(json['category'])
           : null,
-      area: json['area'] != null ? PostArea.fromJson(json['area']) : null, // Backward compatibility
       ward: json['ward'] != null ? PostWard.fromJson(json['ward']) : null,
+      fullAddress: json['fullAddress'] ?? json['FullAddress'],
+      longitude: json['longitude']?.toDouble() ?? json['Longitude']?.toDouble(),
+      latitude: json['latitude']?.toDouble() ?? json['Latitude']?.toDouble(),
+      placeId: json['placeId'] ?? json['PlaceId'],
+      panoImageUrl: json['panoImageUrl'] ?? json['PanoImageUrl'],
     );
   }
 
@@ -177,13 +196,19 @@ class PostModel {
     return '';
   }
 
-  String get fullAddress {
-    // Ưu tiên dùng ward mới, fallback về area.ward để backward compatibility
-    PostWard? wardObj = ward ?? area?.ward;
-    if (wardObj != null) {
-      final district = wardObj.district;
+  String get displayAddress {
+    // Ưu tiên dùng fullAddress từ Google Maps, sau đó dùng ward nested data
+    if (fullAddress != null && fullAddress!.isNotEmpty) {
+      return fullAddress!;
+    }
+    if (ward != null) {
+      final district = ward!.district;
       final city = district?.city;
-      return '$streetName, ${wardObj.name}, ${district?.name ?? ''}, ${city?.name ?? ''}';
+      return '$streetName, ${ward!.name}, ${district?.name ?? ''}, ${city?.name ?? ''}';
+    }
+    // Fallback: dùng cityName, districtName, wardName trực tiếp
+    if (cityName != null || districtName != null || wardName != null) {
+      return '$streetName, ${wardName ?? ''}, ${districtName ?? ''}, ${cityName ?? ''}';
     }
     return streetName;
   }
@@ -231,32 +256,6 @@ class PostCategory {
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
       isActive: json['isActive'] ?? true,
-    );
-  }
-}
-
-class PostArea {
-  final int id;
-  final int? cityId;
-  final int? districtId;
-  final int? wardId;
-  final PostWard? ward;
-
-  PostArea({
-    required this.id,
-    this.cityId,
-    this.districtId,
-    this.wardId,
-    this.ward,
-  });
-
-  factory PostArea.fromJson(Map<String, dynamic> json) {
-    return PostArea(
-      id: json['id'] ?? 0,
-      cityId: json['cityId'],
-      districtId: json['districtId'],
-      wardId: json['wardId'],
-      ward: json['ward'] != null ? PostWard.fromJson(json['ward']) : null,
     );
   }
 }

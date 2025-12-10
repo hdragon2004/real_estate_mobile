@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../widgets/common/property_card.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
@@ -12,7 +12,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/services/favorite_service.dart';
-import '../property/property_detail_screen.dart';
+import '../post/post_details_screen.dart';
 import '../home/search_results_screen.dart';
 import '../home/filter_screen.dart';
 
@@ -159,7 +159,7 @@ class _SearchScreenState extends State<SearchScreen> {
             decoration: InputDecoration(
               hintText: 'Tìm kiếm địa điểm, loại hình...',
               hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint),
-              prefixIcon: const Icon(Iconsax.search_normal_1, color: AppColors.textSecondary),
+              prefixIcon: const FaIcon(FontAwesomeIcons.magnifyingGlass, color: AppColors.textSecondary),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.close, size: 20),
@@ -188,12 +188,12 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Iconsax.map_1, color: AppColors.textPrimary),
+            icon: const FaIcon(FontAwesomeIcons.map, color: AppColors.textPrimary),
             tooltip: 'Tìm kiếm theo bản đồ',
             onPressed: _handleLocationSearch,
           ),
           IconButton(
-            icon: const Icon(Iconsax.filter, color: AppColors.textPrimary),
+            icon: const FaIcon(FontAwesomeIcons.filter, color: AppColors.textPrimary),
             tooltip: 'Bộ lọc nâng cao',
             onPressed: _handleAdvancedSearch,
           ),
@@ -214,7 +214,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
     if (_results.isEmpty) {
       return EmptyState(
-        icon: Iconsax.search_normal_1,
+        icon: FontAwesomeIcons.magnifyingGlass,
         title: 'Không tìm thấy kết quả',
         message: 'Thử tìm kiếm với từ khóa khác hoặc sử dụng bộ lọc',
       );
@@ -234,7 +234,7 @@ class _SearchScreenState extends State<SearchScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => PropertyDetailScreen(
+                  builder: (context) => PostDetailsScreen(
                     propertyId: property.id.toString(),
                     initialProperty: property,
                   ),
@@ -259,7 +259,7 @@ class _SearchScreenState extends State<SearchScreen> {
             children: [
               Expanded(
                 child: _buildQuickActionCard(
-                  icon: Iconsax.map_1,
+                  icon: FontAwesomeIcons.map,
                   title: 'Tìm theo bản đồ',
                   subtitle: 'Chọn địa điểm',
                   color: AppColors.primary,
@@ -269,7 +269,7 @@ class _SearchScreenState extends State<SearchScreen> {
               const Gap(12),
               Expanded(
                 child: _buildQuickActionCard(
-                  icon: Iconsax.filter,
+                  icon: FontAwesomeIcons.filter,
                   title: 'Bộ lọc nâng cao',
                   subtitle: 'Lọc chi tiết',
                   color: AppColors.accent,
@@ -359,7 +359,7 @@ class _SearchScreenState extends State<SearchScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Iconsax.category, size: 20, color: AppColors.primary),
+            FaIcon(FontAwesomeIcons.tag, size: 20, color: AppColors.primary),
             const Gap(8),
             Text(category.name, style: AppTextStyles.labelMedium),
           ],
@@ -377,9 +377,9 @@ class _SearchScreenState extends State<SearchScreen> {
         border: Border.all(color: AppColors.border),
       ),
       child: ListTile(
-        leading: Icon(Iconsax.clock, color: AppColors.textSecondary),
+        leading: FaIcon(FontAwesomeIcons.clock, color: AppColors.textSecondary),
         title: Text(search, style: AppTextStyles.bodyMedium),
-        trailing: Icon(Iconsax.arrow_right_3, size: 18, color: AppColors.textSecondary),
+        trailing: FaIcon(FontAwesomeIcons.chevronRight, size: 18, color: AppColors.textSecondary),
         onTap: () => _handleRecentSearch(search),
       ),
     );
@@ -400,7 +400,7 @@ class MapSearchScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Iconsax.map_1, size: 80, color: AppColors.textHint),
+            FaIcon(FontAwesomeIcons.map, size: 80, color: AppColors.textHint),
             const Gap(16),
             Text('Tính năng đang phát triển', style: AppTextStyles.h5),
             const Gap(8),

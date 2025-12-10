@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/models/category_model.dart';
 import '../../../core/models/vietnam_address_model.dart';
@@ -312,21 +312,21 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 ),
               ),
               ListTile(
-                leading: Icon(Iconsax.camera, color: AppColors.primary),
+                leading: FaIcon(FontAwesomeIcons.camera, color: AppColors.primary),
                 title: Text('Chụp ảnh', style: AppTextStyles.labelLarge),
                 subtitle: Text('Chụp ảnh mới từ camera', style: AppTextStyles.bodySmall),
                 onTap: () => Navigator.pop(context, 'camera'),
               ),
               const Divider(height: 1),
               ListTile(
-                leading: Icon(Iconsax.gallery, color: AppColors.primary),
+                leading: FaIcon(FontAwesomeIcons.images, color: AppColors.primary),
                 title: Text('Chọn từ thư viện', style: AppTextStyles.labelLarge),
                 subtitle: Text('Chọn nhiều ảnh từ thư viện', style: AppTextStyles.bodySmall),
                 onTap: () => Navigator.pop(context, 'gallery'),
               ),
               const Divider(height: 1),
               ListTile(
-                leading: Icon(Iconsax.close_circle, color: AppColors.textSecondary),
+                leading: FaIcon(FontAwesomeIcons.circleXmark, color: AppColors.textSecondary),
                 title: Text('Hủy', style: AppTextStyles.labelLarge),
                 onTap: () => Navigator.pop(context),
               ),
@@ -640,7 +640,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 Expanded(
                   child: _buildChoiceChip(
                     label: 'Bán',
-                    icon: Iconsax.shop,
+                    icon: FontAwesomeIcons.store,
                     isSelected: _transactionType == TransactionType.sale,
                     onSelected: () => setState(() => _transactionType = TransactionType.sale),
                   ),
@@ -649,7 +649,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 Expanded(
                   child: _buildChoiceChip(
                     label: 'Cho thuê',
-                    icon: Iconsax.calendar,
+                    icon: FontAwesomeIcons.calendar,
                     isSelected: _transactionType == TransactionType.rent,
                     onSelected: () => setState(() => _transactionType = TransactionType.rent),
                   ),
@@ -980,7 +980,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Iconsax.image, size: 48, color: AppColors.textHint),
+            FaIcon(FontAwesomeIcons.image, size: 48, color: AppColors.textHint),
             const Gap(12),
             Text('Thêm hình ảnh', style: AppTextStyles.labelLarge),
             const Gap(4),
@@ -1034,7 +1034,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Iconsax.add, size: 32, color: AppColors.textSecondary),
+            FaIcon(FontAwesomeIcons.plus, size: 32, color: AppColors.textSecondary),
             const Gap(8),
             Text('Thêm', style: AppTextStyles.labelSmall),
           ],

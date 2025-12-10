@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
@@ -10,6 +10,7 @@ class CustomBottomNavBar extends StatelessWidget {
   final ValueChanged<int> onTap;
   final VoidCallback onPostTap;
   final bool isScrolling;
+  final bool hasUnreadMessages;
 
   const CustomBottomNavBar({
     super.key,
@@ -17,6 +18,7 @@ class CustomBottomNavBar extends StatelessWidget {
     required this.onTap,
     required this.onPostTap,
     this.isScrolling = false,
+    this.hasUnreadMessages = false,
   });
 
   @override
@@ -28,37 +30,43 @@ class CustomBottomNavBar extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           boxShadow: AppShadows.bottomNav,
+          border: Border(
+            top: BorderSide(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              width: 1,
+            ),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             _NavItem(
-              icon: Iconsax.home_2,
-              activeIcon: Iconsax.home,
+              icon: FontAwesomeIcons.house,
+              activeIcon: FontAwesomeIcons.solidHouse,
               label: 'Trang chủ',
               isActive: currentIndex == 0,
               onTap: () => onTap(0),
             ),
             _NavItem(
-              icon: Iconsax.heart,
-              activeIcon: Iconsax.heart,
+              icon: FontAwesomeIcons.heart,
+              activeIcon: FontAwesomeIcons.solidHeart,
               label: 'Yêu thích',
               isActive: currentIndex == 1,
               onTap: () => onTap(1),
             ),
             _PostButton(onTap: onPostTap),
             _NavItem(
-              icon: Iconsax.message,
-              activeIcon: Iconsax.message,
+              icon: FontAwesomeIcons.message,
+              activeIcon: FontAwesomeIcons.solidMessage,
               label: 'Tin nhắn',
               isActive: currentIndex == 2,
               onTap: () => onTap(2),
-              badgeCount: 3,
+              hasUnreadDot: hasUnreadMessages,
             ),
             _NavItem(
-              icon: Iconsax.profile_circle,
-              activeIcon: Iconsax.profile_circle,
+              icon: FontAwesomeIcons.user,
+              activeIcon: FontAwesomeIcons.solidUser,
               label: 'Tài khoản',
               isActive: currentIndex == 3,
               onTap: () => onTap(3),
@@ -77,7 +85,7 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool isActive;
   final VoidCallback onTap;
-  final int? badgeCount;
+  final bool hasUnreadDot;
 
   const _NavItem({
     required this.icon,
@@ -85,7 +93,7 @@ class _NavItem extends StatelessWidget {
     required this.label,
     required this.isActive,
     required this.onTap,
-    this.badgeCount,
+    this.hasUnreadDot = false,
   });
 
   @override
@@ -106,28 +114,22 @@ class _NavItem extends StatelessWidget {
                 clipBehavior: Clip.none,
                 children: [
                   Center(
-                    child: Icon(
+                    child: FaIcon(
                       isActive ? activeIcon : icon,
                       size: 24,
                       color: isActive ? AppColors.primary : AppColors.textHint,
                     ),
                   ),
-                  if (badgeCount != null && badgeCount! > 0)
+                  if (hasUnreadDot)
                     Positioned(
-                      right: -6,
-                      top: -4,
+                      right: -2,
+                      top: -2,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        width: 8,
+                        height: 8,
                         decoration: BoxDecoration(
                           color: AppColors.error,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '$badgeCount',
-                          style: AppTextStyles.labelSmall.copyWith(
-                            color: Colors.white,
-                            fontSize: 9,
-                          ),
+                          shape: BoxShape.circle,
                         ),
                       ),
                     ),
@@ -160,17 +162,21 @@ class _PostButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 52,
-        height: 52,
+        width: 48,
+        height: 48,
         decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
           shape: BoxShape.circle,
-          boxShadow: AppShadows.floatingButton,
+          border: Border.all(
+            color: AppColors.primary,
+            width: 2.0,
+          ),
         ),
-        child: const Icon(
-          Iconsax.add,
-          color: Colors.white,
-          size: 26,
+        child: Center(
+          child: FaIcon(
+            FontAwesomeIcons.plus,
+            color: AppColors.primary,
+            size: 24,
+          ),
         ),
       ),
     );

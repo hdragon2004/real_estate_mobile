@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/services/google_places_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -127,7 +127,7 @@ class _GooglePlacesSearchScreenState extends State<GooglePlacesSearchScreen> {
         elevation: 0,
         title: Text('Tìm kiếm địa điểm', style: AppTextStyles.h6),
         leading: IconButton(
-          icon: const Icon(Iconsax.arrow_left),
+          icon: const FaIcon(FontAwesomeIcons.arrowLeft),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -144,7 +144,7 @@ class _GooglePlacesSearchScreenState extends State<GooglePlacesSearchScreen> {
               decoration: InputDecoration(
                 hintText: 'Nhập địa điểm cần tìm...',
                 hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint),
-                prefixIcon: const Icon(Iconsax.search_normal_1, color: AppColors.textSecondary),
+                prefixIcon: const FaIcon(FontAwesomeIcons.magnifyingGlass, color: AppColors.textSecondary),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.close, size: 20),
@@ -179,7 +179,7 @@ class _GooglePlacesSearchScreenState extends State<GooglePlacesSearchScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Iconsax.warning_2, size: 48, color: AppColors.error),
+                            FaIcon(FontAwesomeIcons.triangleExclamation, size: 48, color: AppColors.error),
                             const Gap(16),
                             Text(
                               _errorMessage!,
@@ -200,7 +200,7 @@ class _GooglePlacesSearchScreenState extends State<GooglePlacesSearchScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Iconsax.location, size: 64, color: AppColors.textHint),
+                                FaIcon(FontAwesomeIcons.locationDot, size: 64, color: AppColors.textHint),
                                 const Gap(16),
                                 Text(
                                   'Nhập địa điểm để tìm kiếm',
@@ -240,7 +240,7 @@ class _GooglePlacesSearchScreenState extends State<GooglePlacesSearchScreen> {
             color: AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(Iconsax.location, color: AppColors.primary, size: 20),
+          child: FaIcon(FontAwesomeIcons.locationDot, color: AppColors.primary, size: 20),
         ),
         title: Text(
           prediction.mainText ?? prediction.description,
@@ -252,7 +252,7 @@ class _GooglePlacesSearchScreenState extends State<GooglePlacesSearchScreen> {
                 style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
               )
             : null,
-        trailing: const Icon(Iconsax.arrow_right_3, size: 18, color: AppColors.textSecondary),
+        trailing: const FaIcon(FontAwesomeIcons.chevronRight, size: 18, color: AppColors.textSecondary),
         onTap: () => _selectPlace(prediction),
       ),
     );
