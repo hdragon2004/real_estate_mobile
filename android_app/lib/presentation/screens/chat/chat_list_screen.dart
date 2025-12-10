@@ -3,6 +3,8 @@ import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../../core/repositories/message_repository.dart';
 import '../../../core/services/auth_storage_service.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/image_url_helper.dart' as image_helper;
 import 'chat_screen.dart';
 
@@ -139,12 +141,55 @@ class _ChatListScreenState extends State<ChatListScreen> {
       ),
       body: _isLoading
           ? const LoadingIndicator()
-          : _chats.isEmpty
-              ? const EmptyState(
-                  icon: Icons.chat_bubble_outline,
-                  title: 'Chưa có tin nhắn',
-                  message: 'Bắt đầu trò chuyện với người khác',
-                )
+          : FutureBuilder<int?>(
+              future: AuthStorageService.getUserId(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const LoadingIndicator();
+                }
+                
+                final userId = snapshot.data;
+                if (userId == null) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.chat_bubble_outline,
+                          size: 64,
+                          color: AppColors.textHint,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Yêu cầu đăng nhập',
+                          style: AppTextStyles.h6,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Bạn cần đăng nhập để xem và gửi tin nhắn',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/login');
+                          },
+                          child: const Text('Đăng nhập'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                
+                return _chats.isEmpty
+                    ? const EmptyState(
+                        icon: Icons.chat_bubble_outline,
+                        title: 'Chưa có tin nhắn',
+                        message: 'Bắt đầu trò chuyện với người khác',
+                      )
               : RefreshIndicator(
                   onRefresh: _loadChats,
                   child: ListView.builder(
@@ -247,7 +292,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       );
                     },
                   ),
-                ),
+                );
+              },
+            ),
     );
   }
 }

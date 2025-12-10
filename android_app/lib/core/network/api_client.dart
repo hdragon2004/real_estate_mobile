@@ -23,8 +23,7 @@ class ApiClient {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          // Bypass ngrok browser warning (cho Flutter web)
-          'ngrok-skip-browser-warning': '69420',
+          'ngrok-skip-browser-warning': 'true',
         },
       ),
     );

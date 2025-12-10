@@ -274,7 +274,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
     } else if (source == 'gallery') {
       // Chọn nhiều ảnh từ thư viện
-      newImages = await ImagePickerService.pickMultipleImagesFromGallery(context);
+      final remainingSlots = 10 - _selectedImages.length;
+      if (remainingSlots <= 0) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Chỉ được tối đa 10 ảnh')),
+          );
+        }
+        return;
+      }
+      newImages = await ImagePickerService.pickMultipleImagesFromGallery(
+        context,
+        maxImages: remainingSlots,
+      );
     }
 
     if (newImages.isNotEmpty && mounted) {

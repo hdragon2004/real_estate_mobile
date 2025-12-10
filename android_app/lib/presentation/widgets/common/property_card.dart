@@ -37,12 +37,12 @@ class PropertyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = _getImageUrl();
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: AppShadows.card,
       ),
       child: Material(
@@ -58,7 +58,9 @@ class PropertyCard extends StatelessWidget {
                 children: [
                   // Property Image
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
                     child: imageUrl != null
                         ? Hero(
                             tag: 'property_${property.id}_image_0',
@@ -68,12 +70,13 @@ class PropertyCard extends StatelessWidget {
                               width: double.infinity,
                               fit: BoxFit.cover,
                               placeholder: (context, url) => _buildShimmer(),
-                              errorWidget: (context, url, error) => _buildPlaceholder(),
+                              errorWidget: (context, url, error) =>
+                                  _buildPlaceholder(),
                             ),
                           )
                         : _buildPlaceholder(),
                   ),
-                  
+
                   // Gradient overlay
                   Positioned(
                     bottom: 0,
@@ -93,19 +96,24 @@ class PropertyCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   // Category Badge
                   Positioned(
                     top: 12,
                     left: 12,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primary,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        property.transactionType == TransactionType.sale ? 'Bán' : 'Cho thuê',
+                        property.transactionType == TransactionType.sale
+                            ? 'Bán'
+                            : 'Cho thuê',
                         style: AppTextStyles.labelSmall.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
@@ -113,37 +121,47 @@ class PropertyCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   // Favorite Button
                   Positioned(
                     top: 12,
                     right: 12,
-                    child: _FavoriteButton(
-                      isFavorite: isFavorite,
-                      onTap: onFavoriteTap,
+                    child: Semantics(
+                      label: 'Yêu thích',
+                      button: true,
+                      child: _FavoriteButton(
+                        isFavorite: isFavorite,
+                        onTap: onFavoriteTap,
+                      ),
                     ),
                   ),
-                  
+
                   // Price Badge
                   Positioned(
                     bottom: 12,
                     left: 12,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: AppShadows.small,
                       ),
                       child: Text(
-                        Formatters.formatPriceWithUnit(property.price, property.priceUnit),
+                        Formatters.formatPriceWithUnit(
+                          property.price,
+                          property.priceUnit,
+                        ),
                         style: AppTextStyles.priceMedium.copyWith(fontSize: 16),
                       ),
                     ),
                   ),
                 ],
               ),
-              
+
               // Content Section
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -157,9 +175,9 @@ class PropertyCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     // Location
                     Row(
                       children: [
@@ -179,9 +197,9 @@ class PropertyCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 12),
-                    
+
                     // Property Features
                     Row(
                       children: [
@@ -190,13 +208,15 @@ class PropertyCard extends StatelessWidget {
                             Icons.bed_outlined,
                             '${property.soPhongNgu}',
                           ),
-                        if (property.soPhongNgu != null) const SizedBox(width: 12),
+                        if (property.soPhongNgu != null)
+                          const SizedBox(width: 12),
                         if (property.soPhongTam != null)
                           _buildFeatureChip(
                             Icons.bathroom_outlined,
                             '${property.soPhongTam}',
                           ),
-                        if (property.soPhongTam != null) const SizedBox(width: 12),
+                        if (property.soPhongTam != null)
+                          const SizedBox(width: 12),
                         _buildFeatureChip(
                           FontAwesomeIcons.ruler,
                           '${property.areaSize.toStringAsFixed(0)} m²',
@@ -242,11 +262,7 @@ class PropertyCard extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: AppColors.textSecondary,
-        ),
+        Icon(icon, size: 16, color: AppColors.textSecondary),
         const SizedBox(width: 4),
         Text(
           text,
@@ -264,10 +280,7 @@ class _FavoriteButton extends StatefulWidget {
   final bool isFavorite;
   final VoidCallback? onTap;
 
-  const _FavoriteButton({
-    required this.isFavorite,
-    this.onTap,
-  });
+  const _FavoriteButton({required this.isFavorite, this.onTap});
 
   @override
   State<_FavoriteButton> createState() => _FavoriteButtonState();
@@ -285,9 +298,10 @@ class _FavoriteButtonState extends State<_FavoriteButton>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.3,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
   }
 
   @override
@@ -318,7 +332,9 @@ class _FavoriteButtonState extends State<_FavoriteButton>
           child: Icon(
             widget.isFavorite ? Icons.favorite : Icons.favorite_outline,
             size: 20,
-            color: widget.isFavorite ? AppColors.error : AppColors.textSecondary,
+            color: widget.isFavorite
+                ? AppColors.error
+                : AppColors.textSecondary,
           ),
         ),
       ),
@@ -398,4 +414,3 @@ class PropertyCardShimmer extends StatelessWidget {
     );
   }
 }
-

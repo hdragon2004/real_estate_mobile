@@ -116,6 +116,9 @@ class ImagePickerService {
     if (source == null) return null;
 
     // Sau khi bottom sheet đóng, mới thực hiện hành động tương ứng
+    if (!context.mounted) {
+      return null;
+    }
     if (source == ImageSource.camera) {
       return await takePicture(context);
     } else {

@@ -3,9 +3,19 @@ import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, Tar
 /// Cấu hình kết nối Backend API
 class AppConfig {
   // ============================================
+  // CẤU HÌNH THIẾT BỊ - CHUYỂN ĐỔI DỄ DÀNG
+  // ============================================
+  /// Chọn thiết bị đang chạy app:
+  /// - true: Chạy trên Android Emulator (máy ảo)
+  /// - false: Chạy trên điện thoại thật
+  /// 
+  /// Lưu ý: Chỉ ảnh hưởng khi connectionMode = 'local'
+  /// Khi dùng ngrok, cấu hình này không cần thiết
+  static const bool useEmulator = false; // Đổi thành true nếu chạy trên Emulator
+  
+  // ============================================
   // CẤU HÌNH KẾT NỐI BACKEND
   // ============================================
-  
   /// Chế độ kết nối: 'ngrok' hoặc 'local'
   /// - 'ngrok': Sử dụng ngrok tunnel (không cần đổi IP mỗi lần build)
   /// - 'local': Sử dụng IP local (cần đổi IP khi chuyển mạng)
@@ -24,11 +34,9 @@ class AppConfig {
   // ============================================
   // CẤU HÌNH LOCAL (khi connectionMode = 'local')
   // ============================================
-  /// Sử dụng Emulator hay thiết bị thật (chỉ dùng khi connectionMode = 'local')
-  static const bool useEmulator = false; // true = Emulator, false = Thiết bị thật
-  
   /// IP của máy tính chạy backend (chỉ dùng khi connectionMode = 'local' và useEmulator = false)
   /// Để tìm IP: Windows: ipconfig | Mac/Linux: ifconfig
+  /// Lưu ý: IP này chỉ cần khi chạy trên điện thoại thật
   static const String serverIp = '192.168.1.100';
   
   /// Port của backend API local

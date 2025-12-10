@@ -26,7 +26,7 @@ class _MainLayoutState extends State<MainLayout> {
   bool _isScrolling = false;
   bool _hasUnreadMessages = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  
+
   // Scroll controller để theo dõi trạng thái scroll
   final ScrollController _scrollController = ScrollController();
   final MessageRepository _messageRepository = MessageRepository();
@@ -50,10 +50,12 @@ class _MainLayoutState extends State<MainLayout> {
     try {
       final userId = await AuthStorageService.getUserId();
       if (userId == null) return;
-      
+
       final conversations = await _messageRepository.getConversations(userId);
-      final hasUnread = conversations.any((conv) => (conv['unreadCount'] as int? ?? 0) > 0);
-      
+      final hasUnread = conversations.any(
+        (conv) => (conv['unreadCount'] as int? ?? 0) > 0,
+      );
+
       if (mounted) {
         setState(() {
           _hasUnreadMessages = hasUnread;
@@ -95,13 +97,16 @@ class _MainLayoutState extends State<MainLayout> {
           },
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 1),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              )),
+              position:
+                  Tween<Offset>(
+                    begin: const Offset(0, 1),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    ),
+                  ),
               child: child,
             );
           },
@@ -117,10 +122,7 @@ class _MainLayoutState extends State<MainLayout> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: Text(
-            'Yêu cầu đăng nhập',
-            style: AppTextStyles.h6,
-          ),
+          title: Text('Yêu cầu đăng nhập', style: AppTextStyles.h6),
           content: Text(
             'Bạn cần đăng nhập để đăng tin. Vui lòng đăng nhập để tiếp tục.',
             style: AppTextStyles.bodyMedium,
@@ -128,10 +130,7 @@ class _MainLayoutState extends State<MainLayout> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text(
-                'Hủy',
-                style: AppTextStyles.labelLarge,
-              ),
+              child: Text('Hủy', style: AppTextStyles.labelLarge),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
@@ -169,15 +168,60 @@ class _MainLayoutState extends State<MainLayout> {
           }
         },
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _currentIndex,
         isScrolling: _isScrolling,
         hasUnreadMessages: _hasUnreadMessages,
-        onTap: (index) {
+        onTap: (index) async {
+          // Kiểm tra đăng nhập cho các tab cần thiết
+          if (index == 1 || index == 2 || index == 3) {
+            // Favorites, Chat, Profile
+            final userId = await AuthStorageService.getUserId();
+            if (userId == null) {
+              // Hiển thị dialog yêu cầu đăng nhập
+              if (!mounted || !context.mounted) {
+                return;
+              }
+              final shouldLogin = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  title: Text('Yêu cầu đăng nhập', style: AppTextStyles.h6),
+                  content: Text(
+                    'Bạn cần đăng nhập để sử dụng tính năng này.',
+                    style: AppTextStyles.bodyMedium,
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: Text('Hủy', style: AppTextStyles.labelLarge),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text(
+                        'Đăng nhập',
+                        style: AppTextStyles.labelLarge.copyWith(
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+              if (!mounted || !context.mounted) {
+                return;
+              }
+
+              if (shouldLogin == true) {
+                Navigator.pushNamed(context, '/login');
+              }
+              return;
+            }
+          }
+
           setState(() {
             _currentIndex = index;
           });
@@ -191,4 +235,3 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 }
-

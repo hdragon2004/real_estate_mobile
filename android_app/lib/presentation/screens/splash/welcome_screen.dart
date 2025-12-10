@@ -28,6 +28,10 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 
+  void _navigateToHome(BuildContext context) {
+    Navigator.pushReplacementNamed(context, '/home');
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -157,6 +161,35 @@ class WelcomeScreen extends StatelessWidget {
                             style: AppTextStyles.buttonMedium.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Button bỏ qua đăng ký và vào thẳng home
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: () => _navigateToHome(context),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white.withValues(alpha: 0.8),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const FaIcon(
+                            FontAwesomeIcons.arrowRight,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Tiếp tục không đăng nhập',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              decoration: TextDecoration.underline,
                             ),
                           ),
                         ],

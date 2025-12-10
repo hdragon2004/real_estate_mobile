@@ -40,6 +40,7 @@ class _AppButtonState extends State<AppButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
+  bool _isHovered = false;
 
   @override
   void initState() {
@@ -85,39 +86,47 @@ class _AppButtonState extends State<AppButton>
     final theme = Theme.of(context);
     final isDisabled = widget.onPressed == null || widget.isLoading;
 
-    return GestureDetector(
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      onTap: _onTap,
-      child: AnimatedBuilder(
-        animation: _scaleAnimation,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 150),
-              opacity: isDisabled ? 0.6 : 1.0,
-              child: Container(
-                width: widget.width,
-                height: widget.height,
-                decoration: _buildDecoration(theme),
-                child: Center(child: _buildContent(theme)),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTapDown: _onTapDown,
+        onTapUp: _onTapUp,
+        onTapCancel: _onTapCancel,
+        onTap: _onTap,
+        child: AnimatedBuilder(
+          animation: _scaleAnimation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _scaleAnimation.value,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 150),
+                opacity: isDisabled ? 0.6 : 1.0,
+                child: Container(
+                  width: widget.width,
+                  height: widget.height,
+                  decoration: _buildDecoration(theme),
+                  child: Center(child: _buildContent(theme)),
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 
   BoxDecoration _buildDecoration(ThemeData theme) {
     if (widget.isOutlined) {
+      final baseColor = widget.textColor ?? AppColors.primary;
+      final bg = _isHovered
+          ? (widget.backgroundColor ?? baseColor.withValues(alpha: 0.06))
+          : (widget.backgroundColor ?? Colors.transparent);
       return BoxDecoration(
-        color: widget.backgroundColor ?? Colors.transparent,
+        color: bg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: widget.textColor ?? AppColors.primary,
+          color: baseColor,
           width: 1.5,
         ),
       );
@@ -127,14 +136,18 @@ class _AppButtonState extends State<AppButton>
       return BoxDecoration(
         gradient: AppColors.primaryGradient,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: AppShadows.small,
+        boxShadow: _isHovered ? AppShadows.card : AppShadows.small,
       );
     }
 
+    final base = widget.backgroundColor ?? AppColors.primary;
+    final hover = HSLColor.fromColor(base).withLightness(
+      (HSLColor.fromColor(base).lightness + 0.06).clamp(0.0, 1.0),
+    );
     return BoxDecoration(
-      color: widget.backgroundColor ?? AppColors.primary,
+      color: _isHovered ? hover.toColor() : base,
       borderRadius: BorderRadius.circular(14),
-      boxShadow: AppShadows.small,
+      boxShadow: _isHovered ? AppShadows.card : AppShadows.small,
     );
   }
 

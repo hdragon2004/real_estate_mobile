@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../../../core/services/image_picker_service.dart';
+import '../../widgets/profile/avatar_picker.dart';
+import '../../widgets/common/confirmation_dialog.dart';
 
 /// Màn hình Chỉnh sửa thông tin cá nhân
 class EditProfileScreen extends StatefulWidget {
@@ -55,6 +57,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final confirmed = await ConfirmationDialog.show(
+      context,
+      title: 'Cập nhật hồ sơ',
+      message: 'Xác nhận lưu thay đổi?',
+      confirmText: 'Lưu',
+      cancelText: 'Hủy',
+    );
+    if (confirmed != true) return;
+
     setState(() => _isLoading = true);
 
     // TODO: Gọi API cập nhật profile
@@ -63,18 +74,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Cập nhật thành công')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Cập nhật thành công')));
     Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chỉnh sửa hồ sơ'),
-      ),
+      appBar: AppBar(title: const Text('Chỉnh sửa hồ sơ')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -82,45 +91,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: Column(
             children: [
               const SizedBox(height: 16),
-              // Avatar
-              GestureDetector(
+              AvatarPicker(
+                imageProvider: _selectedImage != null
+                    ? FileImage(_selectedImage!)
+                    : (_avatarUrl != null ? NetworkImage(_avatarUrl!) : null),
+                initials: _nameController.text.isNotEmpty
+                    ? _nameController.text[0].toUpperCase()
+                    : 'U',
                 onTap: _pickImage,
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundImage: _selectedImage != null
-                          ? FileImage(_selectedImage!)
-                          : (_avatarUrl != null
-                              ? NetworkImage(_avatarUrl!)
-                              : null) as ImageProvider?,
-                      child: _selectedImage == null && _avatarUrl == null
-                          ? Text(
-                              _nameController.text.isNotEmpty
-                                  ? _nameController.text[0].toUpperCase()
-                                  : 'U',
-                              style: const TextStyle(fontSize: 48),
-                            )
-                          : null,
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          size: 20,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
               const SizedBox(height: 32),
               // Name
@@ -192,4 +170,3 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 }
-
