@@ -23,6 +23,7 @@ class ApiClient {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'ngrok-skip-browser-warning': 'true', // Bỏ qua warning page của ngrok free tier
         },
       ),
     );
