@@ -1,9 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
+import 'core/theme/app_theme.dart';
+import 'core/network/api_client.dart';
 import 'presentation/screens/splash/splash_screen.dart';
+import 'presentation/screens/splash/welcome_screen.dart';
 import 'presentation/screens/auth/login_screen.dart';
 import 'presentation/layout/main_layout.dart';
 
-void main() {
+Future<void> main() async {
+  // Bắt buộc cho mọi async init trước runApp
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Khởi tạo định dạng ngày cho locale tiếng Việt
+  await initializeDateFormatting('vi_VN', null);
+  Intl.defaultLocale = 'vi_VN';
+
+  // Khởi tạo ApiClient, load token, v.v.
+  await ApiClient.initialize();
+
+  // Cấu hình thanh trạng thái & thanh điều hướng hệ thống
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
+
   runApp(const MyApp());
 }
 
@@ -15,27 +42,14 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Real Estate Hub',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          primary: Colors.blue,
-          secondary: Colors.blueAccent,
-        ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          centerTitle: false,
-          elevation: 0,
-        ),
-        cardTheme: CardThemeData(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-      ),
+      theme: AppTheme.lightTheme,
+
+      // Có thể dùng home hoặc initialRoute, ở đây giữ home như bạn
       home: const SplashScreen(),
+
       routes: {
         '/splash': (context) => const SplashScreen(),
+        '/welcome': (context) => const WelcomeScreen(),
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const MainLayout(),
       },

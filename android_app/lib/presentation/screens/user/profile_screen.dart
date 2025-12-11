@@ -1,6 +1,22 @@
 import 'package:flutter/material.dart';
-import '../../widgets/common/app_button.dart';
 import '../../widgets/common/confirmation_dialog.dart';
+import '../../widgets/common/loading_indicator.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/services/auth_storage_service.dart';
+import '../../../core/repositories/user_repository.dart';
+import '../../../core/repositories/post_repository.dart';
+import '../../../core/repositories/favorite_repository.dart';
+import '../../../core/models/auth_models.dart';
+import '../../../core/models/post_model.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../core/utils/image_url_helper.dart' as image_helper;
+import '../../widgets/profile/profile_header.dart';
+import '../../widgets/profile/stat_pill_grid.dart';
+import '../../widgets/profile/profile_about.dart';
+import '../../widgets/profile/profile_listings.dart';
+import '../../widgets/profile/profile_menu_section.dart';
+import '../../widgets/profile/edit_cta.dart';
 
 /// Màn hình Hồ sơ cá nhân
 class ProfileScreen extends StatefulWidget {
@@ -11,196 +27,242 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // TODO: Load từ API/Provider
-  final String _name = 'Nguyễn Văn A';
-  final String _email = 'nguyenvana@example.com';
-  String? _avatarUrl;
-  final int _favoritesCount = 0;
-  final int _appointmentsCount = 0;
-  final int _postsCount = 0;
+  final UserRepository _userRepository = UserRepository();
+  final PostRepository _postRepository = PostRepository();
+  final FavoriteRepository _favoriteRepository = FavoriteRepository();
+
+  bool _isLoading = true;
+  User? _user;
+  int _favoritesCount = 0;
+  final int _appointmentsCount = 0; // TODO: Tạo API endpoint cho appointments
+  int _postsCount = 0;
+  List<PostModel> _userPosts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    setState(() => _isLoading = true);
+    try {
+      final userId = await AuthStorageService.getUserId();
+      if (userId == null) {
+        // Không redirect về login, chỉ hiển thị trạng thái chưa đăng nhập
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _user = null;
+        });
+        return;
+      }
+
+      // Load profile
+      final user = await _userRepository.getProfile();
+      
+      // Load posts count
+      final posts = await _postRepository.getPostsByUser(userId);
+      
+      // Load favorites count
+      final favorites = await _favoriteRepository.getFavoritesByUser(userId);
+
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+        _userPosts = posts;
+        _postsCount = posts.length;
+        _favoritesCount = favorites.length;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi tải dữ liệu: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Hồ sơ'),
+          automaticallyImplyLeading: false,
+        ),
+        body: const LoadingIndicator(),
+      );
+    }
+
+    if (_user == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Hồ sơ'),
+          automaticallyImplyLeading: false,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.person_outline,
+                size: 64,
+                color: AppColors.textHint,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Yêu cầu đăng nhập',
+                style: AppTextStyles.h6,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Bạn cần đăng nhập để xem hồ sơ cá nhân',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/login');
+                },
+                child: const Text('Đăng nhập'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final avatarUrl = _user!.avatarUrl != null && _user!.avatarUrl!.isNotEmpty
+        ? image_helper.ImageUrlHelper.resolveImageUrl(_user!.avatarUrl!)
+        : null;
+    final name = _user!.name;
+    final email = _user!.email;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Hồ sơ'),
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () {
-              // TODO: Điều hướng đến cài đặt
-              // Navigator.pushNamed(context, '/settings');
-            },
+            tooltip: 'Cài đặt',
+            onPressed: () {},
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            const SizedBox(height: 32),
-            // Avatar
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 60,
-                  backgroundImage: _avatarUrl != null
-                      ? NetworkImage(_avatarUrl!)
-                      : null,
-                  child: _avatarUrl == null
-                      ? Text(
-                          _name[0].toUpperCase(),
-                          style: const TextStyle(fontSize: 48),
-                        )
-                      : null,
+      body: RefreshIndicator(
+        onRefresh: _loadProfileData,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: ProfileHeader(
+                name: name,
+                email: email,
+                avatarUrl: avatarUrl,
+                onEditTap: () {
+                  Navigator.pushNamed(context, '/edit-profile');
+                },
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: StatPillGrid(
+                items: [
+                  StatItem(label: 'Yêu thích', value: _favoritesCount.toString(), icon: Icons.favorite_outline),
+                  StatItem(label: 'Lịch hẹn', value: _appointmentsCount.toString(), icon: Icons.calendar_today),
+                  StatItem(label: 'Bài đăng', value: _postsCount.toString(), icon: Icons.post_add),
+                ],
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: ProfileAbout(
+                title: 'Giới thiệu',
+                description: _buildAboutText(),
+                onReadMore: () => _showAboutSheet(),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: ProfileListings(
+                posts: _userPosts,
+                onSeeAll: () {},
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: ProfileMenuSection(
+                items: [
+                  ProfileMenuItem(icon: Icons.favorite, title: 'Yêu thích', onTap: () {}),
+                  ProfileMenuItem(icon: Icons.calendar_today, title: 'Lịch hẹn', onTap: () {}),
+                  ProfileMenuItem(icon: Icons.post_add, title: 'Quản lý bài đăng', onTap: () {}),
+                  ProfileMenuItem(icon: Icons.notifications, title: 'Thông báo', onTap: () {}),
+                  ProfileMenuItem(icon: Icons.settings, title: 'Cài đặt', onTap: () {}),
+                ],
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: EditCTA(
+                  onEdit: () {
+                    Navigator.pushNamed(context, '/edit-profile');
+                  },
+                  onLogout: _handleLogout,
                 ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt,
-                      size: 20,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _name,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              _email,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 32),
-            // Stats
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildStatItem('Yêu thích', _favoritesCount.toString()),
-                _buildStatItem('Lịch hẹn', _appointmentsCount.toString()),
-                _buildStatItem('Bài đăng', _postsCount.toString()),
-              ],
-            ),
-            const SizedBox(height: 32),
-            // Menu items
-            _buildMenuItem(
-              icon: Icons.edit,
-              title: 'Chỉnh sửa thông tin',
-              onTap: () {
-                // TODO: Điều hướng đến edit profile
-                // Navigator.pushNamed(context, '/edit-profile');
-              },
-            ),
-            _buildMenuItem(
-              icon: Icons.favorite,
-              title: 'Yêu thích',
-              onTap: () {
-                // TODO: Điều hướng đến favorites
-                // Navigator.pushNamed(context, '/favorites');
-              },
-            ),
-            _buildMenuItem(
-              icon: Icons.calendar_today,
-              title: 'Lịch hẹn',
-              onTap: () {
-                // TODO: Điều hướng đến appointments
-                // Navigator.pushNamed(context, '/appointments');
-              },
-            ),
-            _buildMenuItem(
-              icon: Icons.post_add,
-              title: 'Quản lý bài đăng',
-              onTap: () {
-                // TODO: Điều hướng đến post management
-                // Navigator.pushNamed(context, '/post-management');
-              },
-            ),
-            _buildMenuItem(
-              icon: Icons.notifications,
-              title: 'Thông báo',
-              onTap: () {
-                // TODO: Điều hướng đến notifications
-                // Navigator.pushNamed(context, '/notifications');
-              },
-            ),
-            _buildMenuItem(
-              icon: Icons.settings,
-              title: 'Cài đặt',
-              onTap: () {
-                // TODO: Điều hướng đến settings
-                // Navigator.pushNamed(context, '/settings');
-              },
-            ),
-            const SizedBox(height: 16),
-            // Logout button
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: AppButton(
-                text: 'Đăng xuất',
-                onPressed: _handleLogout,
-                isOutlined: true,
-                backgroundColor: Colors.red,
-                textColor: Colors.red,
-                icon: Icons.logout,
-              ),
-            ),
-            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatItem(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
+  String _buildAboutText() {
+    final phone = _user!.phone ?? '';
+    final role = _user!.role;
+    final created = _user!.create;
+    final createdStr = created != null ? '${created.day}/${created.month}/${created.year}' : '';
+    final parts = [
+      'Tài khoản $role',
+      if (phone.isNotEmpty) 'SĐT $phone',
+      if (createdStr.isNotEmpty) 'Tạo ngày $createdStr',
+    ];
+    return parts.join(' • ');
+  }
+
+  void _showAboutSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Thông tin chi tiết', style: AppTextStyles.h6),
+              const SizedBox(height: 12),
+              _DetailRow(label: 'Họ và tên', value: _user!.name),
+              _DetailRow(label: 'Email', value: _user!.email),
+              if (_user!.phone != null) _DetailRow(label: 'Số điện thoại', value: _user!.phone!),
+            ],
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildMenuItem({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-      onTap: onTap,
-    );
-  }
+  
 
   Future<void> _handleLogout() async {
     final confirmed = await ConfirmationDialog.show(
@@ -213,9 +275,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (confirmed == true) {
-      // TODO: Xử lý đăng xuất
-      // Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      // Xóa token và dữ liệu đăng nhập
+      await ApiClient().clearAuthToken();
+      await AuthStorageService.clearAll();
+      
+      if (!mounted) return;
+      // Chuyển đến màn hình welcome và xóa tất cả route trước đó
+      Navigator.pushNamedAndRemoveUntil(context, '/welcome', (route) => false);
     }
   }
 }
 
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _DetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary))),
+          Text(value, style: AppTextStyles.bodyMedium),
+        ],
+      ),
+    );
+  }
+}
