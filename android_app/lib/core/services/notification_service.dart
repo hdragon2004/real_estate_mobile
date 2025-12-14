@@ -92,9 +92,8 @@ class NotificationService {
   /// Xử lý tin nhắn nhận được từ SignalR
   void _handleMessageReceived(Map<String, dynamic> messageData) {
     try {
-      // Tạo thông báo cho tin nhắn mới
       final notification = NotificationModel(
-        id: DateTime.now().millisecondsSinceEpoch, // Temporary ID
+        id: DateTime.now().millisecondsSinceEpoch,
         userId: int.tryParse(messageData['fromUserId']?.toString() ?? '0') ?? 0,
         title: 'Tin nhắn mới',
         message: messageData['message']?.toString() ?? '',
@@ -114,6 +113,37 @@ class NotificationService {
       debugPrint('[NotificationService] New message received from ${messageData['fromUserId']}');
     } catch (e) {
       debugPrint('[NotificationService] Error handling message: $e');
+    }
+  }
+
+  Future<void> addLocalNotification({
+    required String title,
+    required String message,
+    NotificationType type = NotificationType.system,
+    int? postId,
+    int? senderId,
+    int? savedSearchId,
+    int? appointmentId,
+  }) async {
+    try {
+      final userId = await AuthStorageService.getUserId() ?? 0;
+      final notification = NotificationModel(
+        id: DateTime.now().millisecondsSinceEpoch,
+        userId: userId,
+        title: title,
+        message: message,
+        timestamp: DateTime.now(),
+        isRead: false,
+        type: type,
+        postId: postId,
+        senderId: senderId,
+        savedSearchId: savedSearchId,
+        appointmentId: appointmentId,
+      );
+      _notifications.insert(0, notification);
+      _notificationController.add(notification);
+    } catch (e) {
+      debugPrint('[NotificationService] Error adding local notification: $e');
     }
   }
 

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import '../models/post_model.dart';
+import '../models/notification_model.dart';
 import '../repositories/favorite_repository.dart';
+import 'notification_service.dart';
 
 class FavoriteService {
   FavoriteService._();
@@ -8,9 +10,12 @@ class FavoriteService {
   factory FavoriteService() => _instance;
 
   final FavoriteRepository _repository = FavoriteRepository();
-  final ValueNotifier<List<PostModel>> _favoritesNotifier = ValueNotifier<List<PostModel>>([]);
+  final NotificationService _notificationService = NotificationService();
+  final ValueNotifier<List<PostModel>> _favoritesNotifier =
+      ValueNotifier<List<PostModel>>([]);
 
-  ValueListenable<List<PostModel>> get favoritesListenable => _favoritesNotifier;
+  ValueListenable<List<PostModel>> get favoritesListenable =>
+      _favoritesNotifier;
 
   List<PostModel> get favorites => List.unmodifiable(_favoritesNotifier.value);
 
@@ -36,8 +41,7 @@ class FavoriteService {
   /// Toggle favorite - đồng bộ với backend (nếu có userId) hoặc chỉ local
   Future<void> toggleFavorite(PostModel property, [int? userId]) async {
     final isCurrentlyFavorite = isFavorite(property.id);
-    
-    // Nếu có userId, đồng bộ với backend
+
     if (userId != null) {
       try {
         if (isCurrentlyFavorite) {
@@ -50,8 +54,7 @@ class FavoriteService {
         // Fallback về local nếu lỗi
       }
     }
-    
-    // Update local state
+
     final favorites = List<PostModel>.from(_favoritesNotifier.value);
     if (isCurrentlyFavorite) {
       favorites.removeWhere((item) => item.id == property.id);
@@ -59,6 +62,17 @@ class FavoriteService {
       favorites.insert(0, property);
     }
     _favoritesNotifier.value = favorites;
+
+    final title = isCurrentlyFavorite
+        ? 'Đã xóa khỏi danh sách yêu thích'
+        : 'Đã thêm bất động sản vào yêu thích';
+    final message = property.title;
+    await _notificationService.addLocalNotification(
+      title: title,
+      message: message,
+      type: NotificationType.system,
+      postId: property.id,
+    );
   }
 
   /// Remove favorite - đồng bộ với backend (nếu có userId) hoặc chỉ local
@@ -72,7 +86,7 @@ class FavoriteService {
         // Fallback về local nếu lỗi
       }
     }
-    
+
     // Update local state
     final favorites = List<PostModel>.from(_favoritesNotifier.value)
       ..removeWhere((item) => item.id == postId);

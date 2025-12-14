@@ -27,15 +27,17 @@ class SearchScreenState extends State<SearchScreen> {
   final FocusNode _searchFocusNode = FocusNode();
   final PostRepository _postRepository = PostRepository();
   final FavoriteService _favoriteService = FavoriteService();
-  
+
   bool _isLoading = false;
-  List<PostModel> _allPosts = []; // Tất cả posts từ server (để lấy categories đầy đủ)
+  List<PostModel> _allPosts =
+      []; // Tất cả posts từ server (để lấy categories đầy đủ)
   List<PostModel> _results = []; // Posts đã được lọc
-  final String _sortBy = 'Mới nhất'; // Sort option hiện tại (có thể mở rộng để user chọn trong tương lai)
+  final String _sortBy =
+      'Mới nhất'; // Sort option hiện tại (có thể mở rộng để user chọn trong tương lai)
   bool _isGridView = false; // Không thể final vì được thay đổi trong setState
   Map<String, dynamic>? _currentFilters; // Lưu filters hiện tại
   bool _isRadiusSearch = false; // Đánh dấu đang tìm kiếm theo bán kính
-  
+
   // Selected filters cho filter chips
   String? _selectedTransactionType; // 'Sale' hoặc 'Rent'
   String? _selectedCategory; // Category name
@@ -53,7 +55,7 @@ class SearchScreenState extends State<SearchScreen> {
     _searchFocusNode.requestFocus();
     _loadAllPosts(); // Tự động load tất cả posts khi vào trang
   }
-  
+
   /// Load tất cả posts từ server
   Future<void> _loadAllPosts() async {
     setState(() => _isLoading = true);
@@ -83,17 +85,19 @@ class SearchScreenState extends State<SearchScreen> {
       );
     }
   }
-  
+
   /// Lọc posts từ _allPosts hoặc _results dựa trên filters hiện tại
   void _applyFiltersToResults() {
     // Nếu đang ở chế độ radius search, filter từ _results
     // Nếu không, filter từ _allPosts
-    List<PostModel> sourceList = _isRadiusSearch ? List.from(_results) : List.from(_allPosts);
-    
+    List<PostModel> sourceList = _isRadiusSearch
+        ? List.from(_results)
+        : List.from(_allPosts);
+
     // Nếu không có filter nào, hiển thị tất cả posts từ source
-    if (_selectedTransactionType == null && 
-        _selectedCategory == null && 
-        _selectedLocation == null && 
+    if (_selectedTransactionType == null &&
+        _selectedCategory == null &&
+        _selectedLocation == null &&
         _currentFilters == null) {
       setState(() {
         _results = sourceList;
@@ -101,17 +105,19 @@ class SearchScreenState extends State<SearchScreen> {
       _sortResults();
       return;
     }
-    
+
     List<PostModel> filtered = sourceList;
-    
+
     // Lọc theo transaction type
     if (_selectedTransactionType != null) {
       filtered = filtered.where((post) {
-        final postType = post.transactionType == TransactionType.sale ? 'Sale' : 'Rent';
+        final postType = post.transactionType == TransactionType.sale
+            ? 'Sale'
+            : 'Rent';
         return postType == _selectedTransactionType;
       }).toList();
     }
-    
+
     // Lọc theo category
     if (_selectedCategory != null) {
       filtered = filtered.where((post) {
@@ -120,75 +126,85 @@ class SearchScreenState extends State<SearchScreen> {
         return categoryName == _selectedCategory;
       }).toList();
     }
-    
+
     // Lọc theo location (city)
     if (_selectedLocation != null) {
       filtered = filtered.where((post) {
         return post.cityName == _selectedLocation;
       }).toList();
     }
-    
+
     // Lọc theo _currentFilters (từ advanced filter)
     if (_currentFilters != null) {
       if (_currentFilters!.containsKey('status')) {
         final status = _currentFilters!['status'] as String;
         filtered = filtered.where((post) {
-          final postType = post.transactionType == TransactionType.sale ? 'Sale' : 'Rent';
+          final postType = post.transactionType == TransactionType.sale
+              ? 'Sale'
+              : 'Rent';
           return postType == status;
         }).toList();
       }
-      
+
       if (_currentFilters!.containsKey('categoryId')) {
         final categoryId = _currentFilters!['categoryId'] as int;
-        filtered = filtered.where((post) => post.categoryId == categoryId).toList();
+        filtered = filtered
+            .where((post) => post.categoryId == categoryId)
+            .toList();
       }
-      
+
       if (_currentFilters!.containsKey('cityName')) {
         final cityName = _currentFilters!['cityName'] as String;
         filtered = filtered.where((post) => post.cityName == cityName).toList();
       }
-      
+
       if (_currentFilters!.containsKey('districtName')) {
         final districtName = _currentFilters!['districtName'] as String;
-        filtered = filtered.where((post) => post.districtName == districtName).toList();
+        filtered = filtered
+            .where((post) => post.districtName == districtName)
+            .toList();
       }
-      
+
       if (_currentFilters!.containsKey('wardName')) {
         final wardName = _currentFilters!['wardName'] as String;
         filtered = filtered.where((post) => post.wardName == wardName).toList();
       }
-      
+
       if (_currentFilters!.containsKey('soPhongNgu')) {
         final soPhongNgu = _currentFilters!['soPhongNgu'] as int;
-        filtered = filtered.where((post) => (post.soPhongNgu ?? 0) >= soPhongNgu).toList();
+        filtered = filtered
+            .where((post) => (post.soPhongNgu ?? 0) >= soPhongNgu)
+            .toList();
       }
-      
+
       if (_currentFilters!.containsKey('soPhongTam')) {
         final soPhongTam = _currentFilters!['soPhongTam'] as int;
-        filtered = filtered.where((post) => (post.soPhongTam ?? 0) >= soPhongTam).toList();
+        filtered = filtered
+            .where((post) => (post.soPhongTam ?? 0) >= soPhongTam)
+            .toList();
       }
-      
+
       if (_currentFilters!.containsKey('minPrice')) {
         final minPrice = _currentFilters!['minPrice'] as double;
         filtered = filtered.where((post) => post.price >= minPrice).toList();
       }
-      
+
       if (_currentFilters!.containsKey('maxPrice')) {
         final maxPrice = _currentFilters!['maxPrice'] as double;
         filtered = filtered.where((post) => post.price <= maxPrice).toList();
       }
-      
+
       if (_currentFilters!.containsKey('minArea')) {
         final minArea = _currentFilters!['minArea'] as double;
         filtered = filtered.where((post) => post.areaSize >= minArea).toList();
       }
-      
+
       if (_currentFilters!.containsKey('maxArea')) {
         final maxArea = _currentFilters!['maxArea'] as double;
         filtered = filtered.where((post) => post.areaSize <= maxArea).toList();
       }
     }
-    
+
     setState(() {
       _results = filtered;
     });
@@ -201,7 +217,6 @@ class SearchScreenState extends State<SearchScreen> {
     _searchFocusNode.dispose();
     super.dispose();
   }
-
 
   Future<void> _handleSearch(String query) async {
     if (query.trim().isEmpty) {
@@ -217,7 +232,7 @@ class SearchScreenState extends State<SearchScreen> {
     try {
       final results = await _postRepository.searchPosts(query: query.trim());
       if (!mounted) return;
-      
+
       setState(() {
         _results = results;
         _currentFilters = null; // Reset filters khi search bằng query
@@ -235,12 +250,11 @@ class SearchScreenState extends State<SearchScreen> {
     }
   }
 
-
   Future<void> _handleSearchWithFilters(Map<String, dynamic> filters) async {
     setState(() {
       _isLoading = true;
       _currentFilters = filters;
-      
+
       // Cập nhật selected filters từ advanced filter
       if (filters.containsKey('status')) {
         _selectedTransactionType = filters['status'] as String;
@@ -258,10 +272,10 @@ class SearchScreenState extends State<SearchScreen> {
         _selectedLocation = filters['cityName'] as String;
       }
     });
-    
+
     try {
       List<PostModel> results;
-      
+
       // Kiểm tra nếu có radius search (tìm kiếm theo bản đồ)
       if (filters.containsKey('centerLat') &&
           filters.containsKey('centerLng') &&
@@ -280,7 +294,8 @@ class SearchScreenState extends State<SearchScreen> {
         });
       } else {
         // Kiểm tra xem có filters quan trọng không (location, price, area)
-        final hasImportantFilters = filters.containsKey('cityName') ||
+        final hasImportantFilters =
+            filters.containsKey('cityName') ||
             filters.containsKey('districtName') ||
             filters.containsKey('wardName') ||
             filters.containsKey('minPrice') ||
@@ -288,7 +303,7 @@ class SearchScreenState extends State<SearchScreen> {
             filters.containsKey('minArea') ||
             filters.containsKey('maxArea') ||
             filters.containsKey('categoryId');
-        
+
         if (hasImportantFilters && _allPosts.isNotEmpty) {
           // Nếu có filters quan trọng và đã có _allPosts, filter local thay vì gọi API
           // Điều này tránh lỗi 400 khi thiếu q và status
@@ -322,7 +337,7 @@ class SearchScreenState extends State<SearchScreen> {
           _applyFiltersToResults();
         }
       }
-      
+
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -343,14 +358,13 @@ class SearchScreenState extends State<SearchScreen> {
     // Mở màn hình tìm kiếm theo bản đồ
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const MapSearchScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const MapSearchScreen()),
     );
-    
+
     // Nhận kết quả từ MapSearchScreen và hiển thị
     if (result != null && result is Map<String, dynamic>) {
-      _searchController.text = 'Tìm kiếm trong bán kính ${result['radiusInKm']}km';
+      _searchController.text =
+          'Tìm kiếm trong bán kính ${result['radiusInKm']}km';
       _handleSearchWithFilters(result);
     }
   }
@@ -369,14 +383,14 @@ class SearchScreenState extends State<SearchScreen> {
       filterModel.wardName = _currentFilters!['wardName'] as String?;
       filterModel.status = _currentFilters!['status'] as String?;
     }
-    
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => FilterScreen(initialFilters: filterModel),
       ),
     );
-    
+
     if (result != null && result is Map<String, dynamic>) {
       _searchController.text = 'Kết quả tìm kiếm';
       _handleSearchWithFilters(result);
@@ -400,16 +414,10 @@ class SearchScreenState extends State<SearchScreen> {
           child: TextField(
             controller: _searchController,
             focusNode: _searchFocusNode,
-            style: TextStyle(
-              color: Colors.grey.shade800,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Colors.grey.shade800, fontSize: 14),
             decoration: InputDecoration(
               hintText: 'Tìm kiếm',
-              hintStyle: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 14,
-              ),
+              hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
               prefixIcon: Container(
                 alignment: Alignment.center,
                 width: 50,
@@ -462,7 +470,10 @@ class SearchScreenState extends State<SearchScreen> {
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide.none,
               ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 0),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 15,
+                horizontal: 0,
+              ),
             ),
             onChanged: (value) {
               if (value.isNotEmpty) {
@@ -489,7 +500,6 @@ class SearchScreenState extends State<SearchScreen> {
           : _buildResultsView(),
     );
   }
-
 
   void _sortResults() {
     final sorted = List<PostModel>.from(_results);
@@ -618,14 +628,18 @@ class SearchScreenState extends State<SearchScreen> {
                   IconButton(
                     icon: Icon(
                       Icons.grid_view,
-                      color: _isGridView ? AppColors.primary : AppColors.textSecondary,
+                      color: _isGridView
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
                     ),
                     onPressed: () => setState(() => _isGridView = true),
                   ),
                   IconButton(
                     icon: Icon(
                       Icons.view_list,
-                      color: !_isGridView ? AppColors.primary : AppColors.textSecondary,
+                      color: !_isGridView
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
                     ),
                     onPressed: () => setState(() => _isGridView = false),
                   ),
@@ -644,18 +658,25 @@ class SearchScreenState extends State<SearchScreen> {
             color: AppColors.primary,
             child: _results.isEmpty
                 ? SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(), // Cho phép pull-to-refresh ngay cả khi empty
+                    physics:
+                        const AlwaysScrollableScrollPhysics(), // Cho phép pull-to-refresh ngay cả khi empty
                     child: SizedBox(
-                      height: MediaQuery.of(context).size.height * 0.6, // Chiều cao đủ để pull-to-refresh
+                      height:
+                          MediaQuery.of(context).size.height *
+                          0.6, // Chiều cao đủ để pull-to-refresh
                       child: EmptyState(
                         icon: FontAwesomeIcons.magnifyingGlass,
                         title: 'Không tìm thấy kết quả',
-                        message: 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm\n\nKéo xuống để làm mới',
+                        message:
+                            'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm\n\nKéo xuống để làm mới',
                       ),
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     itemCount: _results.length,
                     itemBuilder: (context, index) {
                       final property = _results[index];
@@ -673,7 +694,8 @@ class SearchScreenState extends State<SearchScreen> {
                             ),
                           );
                         },
-                        onFavoriteTap: () => _favoriteService.toggleFavorite(property),
+                        onFavoriteTap: () =>
+                            _favoriteService.toggleFavorite(property),
                       );
                     },
                   ),
@@ -686,7 +708,7 @@ class SearchScreenState extends State<SearchScreen> {
   /// Lấy danh sách unique categories từ _allPosts
   List<String> _getUniqueCategories() {
     final categories = <String>{};
-    
+
     for (final post in _allPosts) {
       // Ưu tiên dùng categoryName, nếu null thì dùng category?.name
       final categoryName = post.categoryName ?? post.category?.name;
@@ -694,11 +716,10 @@ class SearchScreenState extends State<SearchScreen> {
         categories.add(categoryName);
       }
     }
-    
+
     final sortedCategories = categories.toList()..sort();
     return sortedCategories;
   }
-  
 
   Widget _buildFilterChip({
     required String label,
@@ -711,7 +732,9 @@ class SearchScreenState extends State<SearchScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.grey[100],
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : Colors.grey[100],
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? AppColors.primary : Colors.transparent,

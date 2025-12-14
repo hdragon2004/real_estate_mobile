@@ -1,11 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../../core/models/notification_model.dart';
-import '../../../core/repositories/notification_repository.dart';
 import '../../../core/services/auth_storage_service.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
@@ -20,10 +21,11 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final NotificationRepository _repository = NotificationRepository();
+  final NotificationService _notificationService = NotificationService();
   bool _isLoading = false;
   List<NotificationModel> _notifications = [];
   int? _currentUserId;
+  StreamSubscription<NotificationModel>? _subscription;
 
   @override
   void initState() {
@@ -59,13 +61,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     
     setState(() => _isLoading = true);
     try {
-      final data = await _repository.getNotifications(_currentUserId!);
+      await _notificationService.refresh();
       if (!mounted) return;
       
       setState(() {
-        _notifications = data.map((json) => NotificationModel.fromJson(json)).toList()
+        _notifications = _notificationService.notifications.toList()
           ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
         _isLoading = false;
+      });
+
+      _subscription ??= _notificationService.notificationStream.listen((notification) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _notifications = _notificationService.notifications.toList()
+            ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        });
       });
     } catch (e) {
       if (!mounted) return;
@@ -80,13 +92,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
   Future<void> _deleteNotification(NotificationModel notification, int index) async {
     try {
-      await _repository.deleteNotification(notification.id);
+      await _notificationService.deleteNotification(notification.id);
       if (!mounted) return;
       
       setState(() {
-        _notifications.removeAt(index);
+        _notifications = _notificationService.notifications.toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
       });
     } catch (e) {
       if (!mounted) return;

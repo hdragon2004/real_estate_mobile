@@ -25,12 +25,14 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     final confirmed = await ConfirmationDialog.show(
       context,
       title: 'Xóa khỏi yêu thích',
-      message: 'Bạn có chắc chắn muốn xóa bất động sản này khỏi danh sách yêu thích?',
+      message:
+          'Bạn có chắc chắn muốn xóa bất động sản này khỏi danh sách yêu thích?',
       confirmText: 'Xóa',
       cancelText: 'Hủy',
     );
 
     if (confirmed == true) {
+      if (!mounted) return;
       _favoriteService.removeFavorite(property.id);
     }
   }
@@ -48,7 +50,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          
+
           final userId = snapshot.data;
           if (userId == null) {
             return Center(
@@ -61,10 +63,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     color: AppColors.textHint,
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Yêu cầu đăng nhập',
-                    style: AppTextStyles.h6,
-                  ),
+                  Text('Yêu cầu đăng nhập', style: AppTextStyles.h6),
                   const SizedBox(height: 8),
                   Text(
                     'Bạn cần đăng nhập để xem danh sách yêu thích',
@@ -84,7 +83,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               ),
             );
           }
-          
+
           return ValueListenableBuilder<List<PostModel>>(
             valueListenable: _favoriteService.favoritesListenable,
             builder: (context, favorites, _) {
@@ -104,7 +103,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   return PostCard(
                     property: property,
                     isFavorite: true,
-                    margin: EdgeInsets.only(bottom: index < favorites.length - 1 ? 16 : 0),
+                    margin: EdgeInsets.only(
+                      bottom: index < favorites.length - 1 ? 16 : 0,
+                    ),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -127,4 +128,3 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
   }
 }
-
