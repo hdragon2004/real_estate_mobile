@@ -358,42 +358,47 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _loadProperties,
-          color: AppColors.primary,
-          child: CustomScrollView(
-            slivers: [
-              // Header với location
-              SliverToBoxAdapter(
-                child: _buildHeader(),
+        child: Column(
+          children: [
+            // Header cố định - không scroll
+            _buildHeader(),
+            
+            // Phần nội dung có thể scroll (bao gồm search bar)
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _loadProperties,
+                color: AppColors.primary,
+                child: CustomScrollView(
+                  slivers: [
+                    // Search Bar - nằm trong phần scroll
+                    SliverToBoxAdapter(
+                      child: _buildSearchBar(),
+                    ),
+                    
+                    // Categories - "Bạn đang tìm gì?"
+                    SliverToBoxAdapter(
+                      child: _buildCategories(),
+                    ),
+                    
+                    // Featured Properties Section
+                    SliverToBoxAdapter(
+                      child: _buildFeaturedSection(),
+                    ),
+                    
+                    // Latest Properties Section
+                    SliverToBoxAdapter(
+                      child: _buildLatestSection(),
+                    ),
+                    
+                    // Bottom padding - Giảm khoảng cách với lề dưới
+                    const SliverToBoxAdapter(
+                      child: SizedBox(height: 4),
+                    ),
+                  ],
+                ),
               ),
-              
-              // Search Bar
-              SliverToBoxAdapter(
-                child: _buildSearchBar(),
-              ),
-              
-              // Categories - "Bạn đang tìm gì?"
-              SliverToBoxAdapter(
-                child: _buildCategories(),
-              ),
-              
-              // Featured Properties Section
-              SliverToBoxAdapter(
-                child: _buildFeaturedSection(),
-                          ),
-              
-              // Latest Properties Section
-              SliverToBoxAdapter(
-                child: _buildLatestSection(),
-                        ),
-              
-              // Bottom padding - Giảm khoảng cách với lề dưới
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 4),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

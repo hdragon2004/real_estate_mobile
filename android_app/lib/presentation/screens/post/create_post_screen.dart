@@ -56,7 +56,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   // Form Data
   TransactionType _transactionType = TransactionType.sale;
   PriceUnit _priceUnit = PriceUnit.total;
-  final String _status = 'available';
+  // Status không được gửi lên - backend sẽ tự động set "Pending" khi tạo mới
   CategoryModel? _selectedCategory;
   VietnamProvince? _selectedProvince;
   VietnamDistrict? _selectedDistrict;
@@ -473,7 +473,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         MapEntry('Price', _priceController.text),
         MapEntry('PriceUnit', apiPriceUnit.toString()),
         MapEntry('TransactionType', _transactionType.name),
-        MapEntry('Status', _status),
+        // Status không được gửi lên - backend sẽ tự động set "Pending" khi tạo mới
         MapEntry('Street_Name', _streetController.text.trim()),
         MapEntry('Area_Size', _areaController.text),
         MapEntry('CategoryId', _selectedCategory!.id.toString()),
@@ -960,6 +960,49 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
+  /// Lấy tọa độ mặc định dựa trên tên thành phố
+  /// Fallback khi geocoding thất bại
+  LatLng _getDefaultLocationByCity(String cityName) {
+    // Normalize city name để so sánh
+    final normalizedName = cityName.toLowerCase().trim();
+    
+    // Tọa độ các thành phố lớn ở Việt Nam
+    if (normalizedName.contains('hồ chí minh') || 
+        normalizedName.contains('ho chi minh') ||
+        normalizedName.contains('tp. hồ chí minh') ||
+        normalizedName.contains('tp hồ chí minh') ||
+        normalizedName == 'hcm' ||
+        normalizedName == 'sài gòn' ||
+        normalizedName.contains('sai gon')) {
+      return const LatLng(10.7769, 106.7009); // TP. Hồ Chí Minh
+    }
+    
+    if (normalizedName.contains('hà nội') || 
+        normalizedName.contains('ha noi') ||
+        normalizedName.contains('hanoi')) {
+      return const LatLng(21.0285, 105.8542); // Hà Nội
+    }
+    
+    if (normalizedName.contains('đà nẵng') || 
+        normalizedName.contains('da nang') ||
+        normalizedName.contains('danang')) {
+      return const LatLng(16.0544, 108.2022); // Đà Nẵng
+    }
+    
+    if (normalizedName.contains('hải phòng') || 
+        normalizedName.contains('hai phong')) {
+      return const LatLng(20.8449, 106.6881); // Hải Phòng
+    }
+    
+    if (normalizedName.contains('cần thơ') || 
+        normalizedName.contains('can tho')) {
+      return const LatLng(10.0452, 105.7469); // Cần Thơ
+    }
+    
+    // Mặc định: Trung tâm Việt Nam (nếu không nhận diện được)
+    return const LatLng(16.0544, 108.2022); // Đà Nẵng (trung tâm địa lý)
+  }
+
   /// Mở bottom sheet để chọn vị trí trên map
   Future<void> _openMapSelector() async {
     if (_selectedProvince == null || 
@@ -975,23 +1018,38 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       return;
     }
 
-    // Tạo địa chỉ để tìm tọa độ ban đầu
-    final addressString = '${_streetController.text.trim()}, ${_selectedWard!.name}, ${_selectedDistrict!.name}, ${_selectedProvince!.name}';
-    
-    // Tìm tọa độ ban đầu từ địa chỉ (optional - để center map)
+    // Tìm tọa độ ban đầu từ địa chỉ đã nhập (ưu tiên sử dụng thông tin đã nhập)
     LatLng? initialCenter;
-    try {
-      final result = await NominatimService.geocodeAddress(addressString);
-      if (result != null && result.containsKey('lat') && result.containsKey('lon')) {
-        initialCenter = LatLng(result['lat']!, result['lon']!);
+    
+    // Thử geocode với các mức độ khác nhau (từ chi tiết đến tổng quát)
+    final geocodeAttempts = [
+      // 1. Địa chỉ đầy đủ (nếu có street)
+      if (_streetController.text.trim().isNotEmpty)
+        '${_streetController.text.trim()}, ${_selectedWard!.name}, ${_selectedDistrict!.name}, ${_selectedProvince!.name}',
+      // 2. Quận + Thành phố
+      '${_selectedDistrict!.name}, ${_selectedProvince!.name}',
+      // 3. Chỉ Thành phố
+      _selectedProvince!.name,
+    ];
+    
+    // Thử từng mức độ cho đến khi tìm được
+    for (final addressString in geocodeAttempts) {
+      try {
+        final result = await NominatimService.geocodeAddress(addressString);
+        if (result != null && result.containsKey('lat') && result.containsKey('lon')) {
+          initialCenter = LatLng(result['lat']!, result['lon']!);
+          break; // Tìm được rồi, dừng lại
+        }
+      } catch (e) {
+        // Tiếp tục thử mức độ tiếp theo
+        continue;
       }
-    } catch (e) {
-      // Nếu không tìm được, dùng tọa độ mặc định (Hà Nội)
-      initialCenter = const LatLng(21.0285, 105.8542);
     }
     
-    // Nếu vẫn null, dùng tọa độ mặc định
-    initialCenter ??= const LatLng(21.0285, 105.8542);
+    // Nếu vẫn không tìm được, dùng fallback dựa trên tên thành phố
+    if (initialCenter == null) {
+      initialCenter = _getDefaultLocationByCity(_selectedProvince!.name);
+    }
 
     if (!mounted) return;
 

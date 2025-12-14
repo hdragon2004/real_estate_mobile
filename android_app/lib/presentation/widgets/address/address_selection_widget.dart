@@ -172,9 +172,8 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
 
   /// Center map dựa trên địa chỉ đã chọn
   /// CHỈ dùng để center map, KHÔNG dùng để lấy tọa độ
-  // ignore: unused_element
   Future<void> _centerMapOnAddress() async {
-    if (_selectedWard == null && _selectedDistrict == null) {
+    if (_selectedProvince == null) {
       // Default center: Việt Nam
       _mapCenter = const LatLng(16.0544, 108.2022);
       _mapController.move(_mapCenter!, 10.0);
@@ -185,52 +184,96 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
       _isLoadingMapCenter = true;
     });
 
-    try {
-      // Tạo địa chỉ để geocode
-      final addressParts = <String>[];
-      if (_selectedWard != null) {
-        addressParts.add(_selectedWard!.name);
-      }
-      if (_selectedDistrict != null) {
-        addressParts.add(_selectedDistrict!.name);
-      }
-      if (_selectedProvince != null) {
-        addressParts.add(_selectedProvince!.name);
-      }
-      
-      final address = addressParts.join(', ');
-      
-      // Dùng Nominatim để center map (FREE, không cần Google API)
-      final coordinates = await NominatimService.geocodeAddress(address);
-      
-      if (!mounted) return;
-      
-      if (coordinates != null) {
-        final center = LatLng(coordinates['lat']!, coordinates['lon']!);
-        setState(() {
-          _mapCenter = center;
-          _isLoadingMapCenter = false;
-        });
-        
-        // Move map to center
-        _mapController.move(center, 15.0);
-      } else {
-        // Fallback: center on Vietnam
-        setState(() {
-          _mapCenter = const LatLng(16.0544, 108.2022);
-          _isLoadingMapCenter = false;
-        });
-        _mapController.move(_mapCenter!, 10.0);
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingMapCenter = false;
-      });
-      // Fallback: center on Vietnam
-      _mapCenter = const LatLng(16.0544, 108.2022);
-      _mapController.move(_mapCenter!, 10.0);
+    // Thử geocode với các mức độ khác nhau (từ chi tiết đến tổng quát)
+    final geocodeAttempts = <String>[];
+    
+    // 1. Địa chỉ đầy đủ (nếu có đủ thông tin)
+    if (_selectedWard != null && _selectedDistrict != null) {
+      geocodeAttempts.add('${_selectedWard!.name}, ${_selectedDistrict!.name}, ${_selectedProvince!.name}');
     }
+    
+    // 2. Quận + Thành phố
+    if (_selectedDistrict != null) {
+      geocodeAttempts.add('${_selectedDistrict!.name}, ${_selectedProvince!.name}');
+    }
+    
+    // 3. Chỉ Thành phố
+    geocodeAttempts.add(_selectedProvince!.name);
+
+    LatLng? center;
+    
+    // Thử từng mức độ cho đến khi tìm được
+    for (final address in geocodeAttempts) {
+      try {
+        final coordinates = await NominatimService.geocodeAddress(address);
+        if (coordinates != null && coordinates.containsKey('lat') && coordinates.containsKey('lon')) {
+          center = LatLng(coordinates['lat']!, coordinates['lon']!);
+          break; // Tìm được rồi, dừng lại
+        }
+      } catch (e) {
+        // Tiếp tục thử mức độ tiếp theo
+        continue;
+      }
+    }
+    
+    if (!mounted) return;
+    
+    // Nếu vẫn không tìm được, dùng fallback dựa trên tên thành phố
+    if (center == null) {
+      center = _getDefaultLocationByCity(_selectedProvince!.name);
+    }
+    
+    setState(() {
+      _mapCenter = center;
+      _isLoadingMapCenter = false;
+    });
+    
+    // Move map to center với zoom phù hợp
+    final zoom = _selectedWard != null ? 15.0 : (_selectedDistrict != null ? 13.0 : 11.0);
+    _mapController.move(center, zoom);
+  }
+
+  /// Lấy tọa độ mặc định dựa trên tên thành phố
+  /// Fallback khi geocoding thất bại
+  LatLng _getDefaultLocationByCity(String cityName) {
+    // Normalize city name để so sánh
+    final normalizedName = cityName.toLowerCase().trim();
+    
+    // Tọa độ các thành phố lớn ở Việt Nam
+    if (normalizedName.contains('hồ chí minh') || 
+        normalizedName.contains('ho chi minh') ||
+        normalizedName.contains('tp. hồ chí minh') ||
+        normalizedName.contains('tp hồ chí minh') ||
+        normalizedName == 'hcm' ||
+        normalizedName == 'sài gòn' ||
+        normalizedName.contains('sai gon')) {
+      return const LatLng(10.7769, 106.7009); // TP. Hồ Chí Minh
+    }
+    
+    if (normalizedName.contains('hà nội') || 
+        normalizedName.contains('ha noi') ||
+        normalizedName.contains('hanoi')) {
+      return const LatLng(21.0285, 105.8542); // Hà Nội
+    }
+    
+    if (normalizedName.contains('đà nẵng') || 
+        normalizedName.contains('da nang') ||
+        normalizedName.contains('danang')) {
+      return const LatLng(16.0544, 108.2022); // Đà Nẵng
+    }
+    
+    if (normalizedName.contains('hải phòng') || 
+        normalizedName.contains('hai phong')) {
+      return const LatLng(20.8449, 106.6881); // Hải Phòng
+    }
+    
+    if (normalizedName.contains('cần thơ') || 
+        normalizedName.contains('can tho')) {
+      return const LatLng(10.0452, 105.7469); // Cần Thơ
+    }
+    
+    // Mặc định: Trung tâm Việt Nam (nếu không nhận diện được)
+    return const LatLng(16.0544, 108.2022); // Đà Nẵng (trung tâm địa lý)
   }
 
   /// Mở bottom sheet để chọn vị trí trên map
