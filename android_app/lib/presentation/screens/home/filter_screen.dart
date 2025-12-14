@@ -8,7 +8,6 @@ import '../../../core/repositories/category_repository.dart';
 import '../../../core/services/vietnam_address_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../home/search_results_screen.dart';
 
 /// Model cho Filter
 class FilterModel {
@@ -19,9 +18,9 @@ class FilterModel {
   double? maxArea;
   int? soPhongNgu;
   int? soPhongTam;
-  int? cityId;
-  int? districtId;
-  int? wardId;
+  String? cityName; 
+  String? districtName; 
+  String? wardName; 
   String? status;
   String? transactionType;
 
@@ -33,9 +32,9 @@ class FilterModel {
     this.maxArea,
     this.soPhongNgu,
     this.soPhongTam,
-    this.cityId,
-    this.districtId,
-    this.wardId,
+    this.cityName,
+    this.districtName,
+    this.wardName,
     this.status,
     this.transactionType,
   });
@@ -48,9 +47,9 @@ class FilterModel {
     if (minArea != null) params['minArea'] = minArea;
     if (maxArea != null) params['maxArea'] = maxArea;
     if (soPhongNgu != null) params['soPhongNgu'] = soPhongNgu;
-    if (cityId != null) params['cityId'] = cityId;
-    if (districtId != null) params['districtId'] = districtId;
-    if (wardId != null) params['wardId'] = wardId;
+    if (cityName != null && cityName!.isNotEmpty) params['cityName'] = cityName;
+    if (districtName != null && districtName!.isNotEmpty) params['districtName'] = districtName;
+    if (wardName != null && wardName!.isNotEmpty) params['wardName'] = wardName;
     if (status != null) params['status'] = status;
     if (transactionType != null) params['transactionType'] = transactionType;
     return params;
@@ -164,11 +163,21 @@ class _FilterScreenState extends State<FilterScreen> {
     _filters.minArea = _areaRange.start > 0 ? _areaRange.start : null;
     _filters.maxArea = _areaRange.end < 500 ? _areaRange.end : null;
     
-    // Update location filters từ VietnamAddressService
+    // Update location filters từ VietnamAddressService - dùng name thay vì ID
     if (_selectedProvince != null) {
-      _filters.cityId = _selectedProvince!.code.hashCode; // Dùng hashCode của code
+      _filters.cityName = _selectedProvince!.name;
     } else {
-      _filters.cityId = null;
+      _filters.cityName = null;
+    }
+    if (_selectedDistrict != null) {
+      _filters.districtName = _selectedDistrict!.name;
+    } else {
+      _filters.districtName = null;
+    }
+    if (_selectedWard != null) {
+      _filters.wardName = _selectedWard!.name;
+    } else {
+      _filters.wardName = null;
     }
   }
 
@@ -245,59 +254,67 @@ class _FilterScreenState extends State<FilterScreen> {
                 _buildSection(
                   icon: FontAwesomeIcons.locationDot,
                   title: 'Địa điểm',
-                  child: Column(
-                    children: [
-                      // Tỉnh/Thành phố
-                      _buildDropdown<VietnamProvince>(
-                        label: 'Thành phố',
-                        value: _selectedProvince,
-                        items: _provinces,
-                        displayText: (province) => province.name,
-                        onChanged: (province) {
-                          setState(() {
-                            _selectedProvince = province;
-                            _selectedDistrict = null;
-                            _selectedWard = null;
-                            _districts = [];
-                            _wards = [];
-                          });
-                          if (province != null) {
-                            _loadDistricts(province.code);
-                          }
-                        },
-                      ),
-                      if (_selectedProvince != null && _districts.isNotEmpty) ...[
-                        const Gap(12),
-                        // Quận/Huyện
-                        _buildDropdown<VietnamDistrict>(
-                          label: 'Quận/Huyện',
-                          value: _selectedDistrict,
-                          items: _districts,
-                          displayText: (district) => district.name,
-                          onChanged: (district) {
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: [
+                        // Tỉnh/Thành phố
+                        _buildDropdown<VietnamProvince>(
+                          label: 'Thành phố',
+                          value: _selectedProvince,
+                          items: _provinces,
+                          displayText: (province) => province.name,
+                          onChanged: (province) {
                             setState(() {
-                              _selectedDistrict = district;
+                              _selectedProvince = province;
+                              _selectedDistrict = null;
                               _selectedWard = null;
+                              _districts = [];
                               _wards = [];
                             });
-                            if (district != null) {
-                              _loadWards(district.code);
+                            if (province != null) {
+                              _loadDistricts(province.code);
                             }
                           },
                         ),
+                        if (_selectedProvince != null && _districts.isNotEmpty) ...[
+                          const Gap(12),
+                          // Quận/Huyện
+                          _buildDropdown<VietnamDistrict>(
+                            label: 'Quận/Huyện',
+                            value: _selectedDistrict,
+                            items: _districts,
+                            displayText: (district) => district.name,
+                            onChanged: (district) {
+                              setState(() {
+                                _selectedDistrict = district;
+                                _selectedWard = null;
+                                _wards = [];
+                              });
+                              if (district != null) {
+                                _loadWards(district.code);
+                              }
+                            },
+                          ),
+                        ],
+                        if (_selectedDistrict != null && _wards.isNotEmpty) ...[
+                          const Gap(12),
+                          // Phường/Xã
+                          _buildDropdown<VietnamWard>(
+                            label: 'Phường/Xã',
+                            value: _selectedWard,
+                            items: _wards,
+                            displayText: (ward) => ward.name,
+                            onChanged: (ward) => setState(() => _selectedWard = ward),
+                          ),
+                        ],
                       ],
-                      if (_selectedDistrict != null && _wards.isNotEmpty) ...[
-                        const Gap(12),
-                        // Phường/Xã
-                        _buildDropdown<VietnamWard>(
-                          label: 'Phường/Xã',
-                          value: _selectedWard,
-                          items: _wards,
-                          displayText: (ward) => ward.name,
-                          onChanged: (ward) => setState(() => _selectedWard = ward),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
                 const Gap(28),
@@ -305,22 +322,54 @@ class _FilterScreenState extends State<FilterScreen> {
                 // Khoảng giá
                 _buildSection(
                   icon: FontAwesomeIcons.dollarSign,
-                  title: 'Khoảng giá (triệu VNĐ)',
-                  child: _buildRangeSlider(
-                    values: _priceRange,
-                    min: 0.0,
-                    max: 10000.0,
-                    onChanged: (SfRangeValues newValues) {
-                      setState(() {
-                        _priceRange = newValues;
-                      });
-                    },
-                    formatValue: (double value) {
-                      if (value >= 1000) {
-                        return '${(value / 1000).toStringAsFixed(1)} tỷ';
-                      }
-                      return '${value.toStringAsFixed(0)} triệu';
-                    },
+                  title: 'Khoảng giá',
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: [
+                        // Hiển thị giá trị đã chọn
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: _buildPriceDisplay(
+                                label: 'Từ',
+                                value: _priceRange.start,
+                              ),
+                            ),
+                            const Gap(16),
+                            Expanded(
+                              child: _buildPriceDisplay(
+                                label: 'Đến',
+                                value: _priceRange.end,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Gap(20),
+                        _buildRangeSlider(
+                          values: _priceRange,
+                          min: 0.0,
+                          max: 10000.0,
+                          onChanged: (SfRangeValues newValues) {
+                            setState(() {
+                              _priceRange = newValues;
+                            });
+                          },
+                          formatValue: (double value) {
+                            if (value >= 1000) {
+                              return '${(value / 1000).toStringAsFixed(1)} tỷ';
+                            }
+                            return '${value.toStringAsFixed(0)} triệu';
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const Gap(28),
@@ -328,19 +377,51 @@ class _FilterScreenState extends State<FilterScreen> {
                 // Diện tích
                 _buildSection(
                   icon: FontAwesomeIcons.ruler,
-                  title: 'Diện tích (m²)',
-                  child: _buildRangeSlider(
-                    values: _areaRange,
-                    min: 0.0,
-                    max: 500.0,
-                    onChanged: (SfRangeValues newValues) {
-                      setState(() {
-                        _areaRange = newValues;
-                      });
-                    },
-                    formatValue: (double value) {
-                      return '${value.toStringAsFixed(0)} m²';
-                    },
+                  title: 'Diện tích',
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: [
+                        // Hiển thị giá trị đã chọn
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: _buildAreaDisplay(
+                                label: 'Từ',
+                                value: _areaRange.start,
+                              ),
+                            ),
+                            const Gap(16),
+                            Expanded(
+                              child: _buildAreaDisplay(
+                                label: 'Đến',
+                                value: _areaRange.end,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Gap(20),
+                        _buildRangeSlider(
+                          values: _areaRange,
+                          min: 0.0,
+                          max: 500.0,
+                          onChanged: (SfRangeValues newValues) {
+                            setState(() {
+                              _areaRange = newValues;
+                            });
+                          },
+                          formatValue: (double value) {
+                            return '${value.toStringAsFixed(0)} m²';
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const Gap(28),
@@ -427,15 +508,8 @@ class _FilterScreenState extends State<FilterScreen> {
                       onPressed: () {
                         _applyFilters();
                         final filters = _filters.toQueryParams();
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => SearchResultsScreen(
-                              query: 'Kết quả tìm kiếm',
-                              filters: filters,
-                            ),
-                          ),
-                        );
+                        // Luôn trả về filters (kể cả khi rỗng) để đảm bảo chuyển đến SearchScreen
+                        Navigator.pop(context, filters);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
@@ -604,6 +678,83 @@ class _FilterScreenState extends State<FilterScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Widget hiển thị giá trị giá đã chọn
+  Widget _buildPriceDisplay({
+    required String label,
+    required double value,
+  }) {
+    String displayText;
+    if (value >= 1000) {
+      displayText = '${(value / 1000).toStringAsFixed(1)} tỷ';
+    } else if (value == 0) {
+      displayText = '0 triệu';
+    } else {
+      displayText = '${value.toStringAsFixed(0)} triệu';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            displayText,
+            style: AppTextStyles.bodyLarge.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Widget hiển thị giá trị diện tích đã chọn
+  Widget _buildAreaDisplay({
+    required String label,
+    required double value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${value.toStringAsFixed(0)} m²',
+            style: AppTextStyles.bodyLarge.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

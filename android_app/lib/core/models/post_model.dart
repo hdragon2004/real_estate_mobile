@@ -31,10 +31,9 @@ class PostModel {
   final int userId;
   final int categoryId;
   final String? categoryName;
-  final int wardId;
-  final String? cityName; // Tên thành phố trực tiếp từ API
-  final String? districtName; // Tên quận/huyện trực tiếp từ API
-  final String? wardName; // Tên phường/xã trực tiếp từ API
+  final String? cityName; // Tên thành phố trực tiếp từ API (required)
+  final String? districtName; // Tên quận/huyện trực tiếp từ API (required)
+  final String? wardName; // Tên phường/xã trực tiếp từ API (required)
   final String? userName;
   final bool isApproved;
   final DateTime? expiryDate;
@@ -56,7 +55,8 @@ class PostModel {
   final double? longitude; // Tọa độ kinh độ
   final double? latitude; // Tọa độ vĩ độ
   final String? placeId; // Google Place ID
-  final String? panoImageUrl; // URL ảnh panorama
+  // Image fields
+  final String? imageURL; // Ảnh chính (để hiển thị trên post card)
 
   PostModel({
     required this.id,
@@ -72,7 +72,6 @@ class PostModel {
     required this.userId,
     required this.categoryId,
     this.categoryName,
-    required this.wardId,
     this.cityName,
     this.districtName,
     this.wardName,
@@ -96,7 +95,7 @@ class PostModel {
     this.longitude,
     this.latitude,
     this.placeId,
-    this.panoImageUrl,
+    this.imageURL,
   });
 
   factory PostModel.fromJson(Map<String, dynamic> json) {
@@ -107,7 +106,7 @@ class PostModel {
       price: (json['price'] ?? 0).toDouble(),
       priceUnit: _parsePriceUnit(json['priceUnit']),
       transactionType: _parseTransactionType(json['transactionType']),
-      status: json['status'] ?? '',
+      status: json['status'] ?? json['Status'] ?? 'Pending', // Hỗ trợ cả camelCase và PascalCase, mặc định là Pending
       created: json['created'] != null
           ? DateTime.parse(json['created'])
           : DateTime.now(),
@@ -116,7 +115,6 @@ class PostModel {
       userId: json['userId'] ?? 0,
       categoryId: json['categoryId'] ?? 0,
       categoryName: json['categoryName'],
-      wardId: json['wardId'] ?? 0,
       cityName: json['cityName'] ?? json['CityName'], // Hỗ trợ cả camelCase và PascalCase
       districtName: json['districtName'] ?? json['DistrictName'],
       wardName: json['wardName'] ?? json['WardName'],
@@ -147,7 +145,7 @@ class PostModel {
       longitude: json['longitude']?.toDouble() ?? json['Longitude']?.toDouble(),
       latitude: json['latitude']?.toDouble() ?? json['Latitude']?.toDouble(),
       placeId: json['placeId'] ?? json['PlaceId'],
-      panoImageUrl: json['panoImageUrl'] ?? json['PanoImageUrl'],
+      imageURL: json['imageURL'] ?? json['ImageURL'],
     );
   }
 
@@ -190,6 +188,11 @@ class PostModel {
   }
 
   String get firstImageUrl {
+    // Ưu tiên dùng ImageURL (ảnh chính) từ backend
+    if (imageURL != null && imageURL!.isNotEmpty) {
+      return imageURL!;
+    }
+    // Fallback: dùng ảnh đầu tiên trong danh sách
     if (images.isNotEmpty) {
       return images.first.url;
     }
@@ -220,6 +223,7 @@ class PostUser {
   final String email;
   final String? phone;
   final String? avatarUrl;
+  final String? role;
 
   PostUser({
     required this.id,
@@ -227,6 +231,7 @@ class PostUser {
     required this.email,
     this.phone,
     this.avatarUrl,
+    this.role,
   });
 
   factory PostUser.fromJson(Map<String, dynamic> json) {
@@ -236,6 +241,7 @@ class PostUser {
       email: json['email'] ?? '',
       phone: json['phone'],
       avatarUrl: json['avatarUrl'],
+      role: json['role'],
     );
   }
 }

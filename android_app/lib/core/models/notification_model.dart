@@ -9,6 +9,8 @@ class NotificationModel {
   final NotificationType type;
   final int? postId;
   final int? senderId;
+  final int? savedSearchId; // ID của khu vực tìm kiếm yêu thích
+  final int? appointmentId; // ID của lịch hẹn
   final NotificationUser? user;
 
   NotificationModel({
@@ -21,6 +23,8 @@ class NotificationModel {
     required this.type,
     this.postId,
     this.senderId,
+    this.savedSearchId,
+    this.appointmentId,
     this.user,
   });
 
@@ -47,6 +51,8 @@ class NotificationModel {
       type: _parseType(json['type'] as String? ?? 'system'),
       postId: json['postId'] as int?,
       senderId: json['senderId'] as int?,
+      savedSearchId: json['savedSearchId'] as int?,
+      appointmentId: json['appointmentId'] as int?,
       user: json['user'] != null ? NotificationUser.fromJson(json['user']) : null,
     );
   }
@@ -55,13 +61,20 @@ class NotificationModel {
     switch (type.toLowerCase()) {
       case 'property':
       case 'new_property':
+      case 'savedsearch': // Thông báo tin mới theo khu vực yêu thích
         return NotificationType.property;
       case 'appointment':
+      case 'reminder': // Nhắc lịch hẹn
       case 'expire':
       case 'expired':
         return NotificationType.appointment;
-      case 'message':
+      case 'message': // Tin nhắn mới
         return NotificationType.message;
+      case 'approved':
+      case 'postapproved': // Bài đăng được duyệt
+      case 'postpending': // Bài đăng đang chờ duyệt
+      case 'favorite': // Bài đăng được thêm vào yêu thích
+      case 'welcome': // Thông báo chào mừng
       default:
         return NotificationType.system;
     }

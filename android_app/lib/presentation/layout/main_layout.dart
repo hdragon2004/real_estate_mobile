@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/favorite/favorites_screen.dart';
 import '../screens/chat/chat_list_screen.dart';
-import '../screens/user/profile_screen.dart';
+import '../screens/home/search_screen.dart';
 import '../screens/post/create_post_screen.dart';
 import '../widgets/navigation/custom_bottom_nav_bar.dart';
 import '../widgets/navigation/app_drawer.dart';
 import '../../core/repositories/user_repository.dart';
 import '../../core/repositories/message_repository.dart';
 import '../../core/services/auth_storage_service.dart';
+import '../../core/services/notification_service.dart';
+import '../../core/models/notification_model.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 
@@ -30,20 +32,132 @@ class _MainLayoutState extends State<MainLayout> {
   // Scroll controller để theo dõi trạng thái scroll
   final ScrollController _scrollController = ScrollController();
   final MessageRepository _messageRepository = MessageRepository();
+  final NotificationService _notificationService = NotificationService();
+
+  // Key để truy cập SearchScreen state
+  final GlobalKey<SearchScreenState> _searchScreenKey = GlobalKey<SearchScreenState>();
 
   // 4 màn hình chính (không bao gồm Đăng tin - sẽ mở dạng modal)
   List<Widget> get _screens => [
-    HomeScreen(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
-    const FavoritesScreen(),
+    HomeScreen(
+      onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+      onSearchTap: _switchToSearchTab,
+    ),
+    SearchScreen(key: _searchScreenKey),
     const ChatListScreen(),
-    const ProfileScreen(),
+    const FavoritesScreen(),
   ];
+  
+  // Method để chuyển sang tab Search và có thể truyền filters
+  void _switchToSearchTab({Map<String, dynamic>? filters}) {
+    setState(() {
+      _currentIndex = 1;
+    });
+    // Nếu có filters, truyền vào SearchScreen
+    if (filters != null && _searchScreenKey.currentState != null) {
+      _searchScreenKey.currentState!.applyFilters(filters);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
     _checkUnreadMessages();
+    _initializeNotifications();
+  }
+
+  /// Khởi tạo NotificationService và kết nối SignalR
+  Future<void> _initializeNotifications() async {
+    try {
+      // Khởi tạo NotificationService (sẽ tự động kết nối SignalR nếu user đã đăng nhập)
+      await _notificationService.initialize();
+      
+      // Lắng nghe thông báo real-time
+      _notificationService.notificationStream.listen((notification) {
+        _showNotificationSnackBar(notification);
+      });
+      
+      // Lắng nghe tin nhắn real-time
+      _notificationService.messageStream.listen((messageData) {
+        // Có thể cập nhật badge tin nhắn ở đây
+        _checkUnreadMessages();
+      });
+    } catch (e) {
+      debugPrint('[MainLayout] Error initializing notifications: $e');
+    }
+  }
+
+  /// Hiển thị thông báo dưới dạng SnackBar
+  void _showNotificationSnackBar(NotificationModel notification) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              _getNotificationIcon(notification.type),
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    notification.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (notification.message.isNotEmpty)
+                    Text(
+                      notification.message,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white70,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.primary,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Xem',
+          textColor: Colors.white,
+          onPressed: () {
+            // TODO: Navigate to notification details or related screen
+            // Ví dụ: nếu có postId, navigate đến post details
+            if (notification.postId != null) {
+              // Navigator.push(...)
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Lấy icon tương ứng với loại thông báo
+  IconData _getNotificationIcon(NotificationType type) {
+    switch (type) {
+      case NotificationType.appointment:
+        return Icons.calendar_today;
+      case NotificationType.property:
+        return Icons.home;
+      case NotificationType.message:
+        return Icons.message;
+      default:
+        return Icons.notifications;
+    }
   }
 
   Future<void> _checkUnreadMessages() async {
@@ -67,9 +181,12 @@ class _MainLayoutState extends State<MainLayout> {
   }
 
   @override
+  @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    // Ngắt kết nối SignalR khi dispose (nhưng không dispose NotificationService vì nó là singleton)
+    // NotificationService sẽ tự quản lý lifecycle
     super.dispose();
   }
 
@@ -175,8 +292,8 @@ class _MainLayoutState extends State<MainLayout> {
         hasUnreadMessages: _hasUnreadMessages,
         onTap: (index) async {
           // Kiểm tra đăng nhập cho các tab cần thiết
-          if (index == 1 || index == 2 || index == 3) {
-            // Favorites, Chat, Profile
+          if (index == 2 || index == 3) {
+            // Chat, Favorites (Search không cần đăng nhập)
             final userId = await AuthStorageService.getUserId();
             if (userId == null) {
               // Hiển thị dialog yêu cầu đăng nhập

@@ -5,7 +5,8 @@ import '../../../core/services/auth_storage_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../../core/utils/image_url_helper.dart';
+import '../../screens/user/profile_screen.dart';
+import '../common/user_avatar.dart';
 
 /// App Drawer - Sidebar Navigation
 class AppDrawer extends StatefulWidget {
@@ -40,7 +41,8 @@ class _AppDrawerState extends State<AppDrawer> {
           _userInfo = {
             'name': user.name,
             'email': user.email,
-            'avatarUrl': user.avatarUrl,
+            // Backend đã trả về avatar mặc định nếu user không có avatar
+            'avatarUrl': user.avatarUrl ?? '/uploads/avatars/avatar.jpg',
           };
         });
       }
@@ -126,9 +128,8 @@ class _AppDrawerState extends State<AppDrawer> {
                   isSelected: widget.currentIndex == 0,
                 ),
                 _buildMenuItem(
-                  icon: FontAwesomeIcons.heart,
-                  activeIcon: FontAwesomeIcons.solidHeart,
-                  title: 'Yêu thích',
+                  icon: FontAwesomeIcons.magnifyingGlass,
+                  title: 'Tìm kiếm',
                   onTap: () => _navigateTo(1),
                   isSelected: widget.currentIndex == 1,
                 ),
@@ -140,11 +141,26 @@ class _AppDrawerState extends State<AppDrawer> {
                   isSelected: widget.currentIndex == 2,
                 ),
                 _buildMenuItem(
+                  icon: FontAwesomeIcons.heart,
+                  activeIcon: FontAwesomeIcons.solidHeart,
+                  title: 'Yêu thích',
+                  onTap: () => _navigateTo(3),
+                  isSelected: widget.currentIndex == 3,
+                ),
+                const Divider(height: 1),
+                _buildMenuItem(
                   icon: FontAwesomeIcons.user,
                   activeIcon: FontAwesomeIcons.solidUser,
                   title: 'Tài khoản',
-                  onTap: () => _navigateTo(3),
-                  isSelected: widget.currentIndex == 3,
+                  onTap: () {
+                    Navigator.pop(context); // Đóng drawer
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ProfileScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const Divider(height: 1),
                 _buildMenuItem(
@@ -225,23 +241,12 @@ class _AppDrawerState extends State<AppDrawer> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Avatar
-                  CircleAvatar(
+                  UserAvatarWithFallback(
+                    avatarUrl: _userInfo?['avatarUrl']?.toString(),
+                    name: _userInfo?['name']?.toString() ?? 'User',
                     radius: 26,
                   backgroundColor: Colors.white,
-                  backgroundImage: _userInfo?['avatarUrl'] != null && _userInfo!['avatarUrl'].toString().isNotEmpty
-                      ? NetworkImage(
-                          ImageUrlHelper.resolveImageUrl(_userInfo!['avatarUrl']),
-                        )
-                      : null,
-                  child: _userInfo?['avatarUrl'] == null || _userInfo!['avatarUrl'].toString().isEmpty
-                      ? Text(
-                          (_userInfo?['name']?.toString().substring(0, 1) ?? 'U').toUpperCase(),
-                          style: AppTextStyles.h5.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
+                    fontSize: 18,
                 ),
                 const SizedBox(height: 4),
                 // Name

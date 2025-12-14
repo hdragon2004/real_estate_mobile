@@ -13,6 +13,7 @@ class ApiConstants {
   // Post Endpoints (Bất động sản)
   static const String posts = '/posts';
   static const String postSearch = '/posts/search';
+  static const String postSearchByRadius = '/posts/map-radius-search';
   static const String postsByUser = '/posts/user'; // + /{userId}
 
   // Category Endpoints

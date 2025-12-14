@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Cấu hình kết nối Backend API
+/// Đọc từ file .env
 class AppConfig {
   // ============================================
   // CẤU HÌNH THIẾT BỊ - CHUYỂN ĐỔI DỄ DÀNG
@@ -11,7 +13,7 @@ class AppConfig {
   /// 
   /// Lưu ý: Chỉ ảnh hưởng khi connectionMode = 'local'
   /// Khi dùng ngrok, cấu hình này không cần thiết
-  static const bool useEmulator = false; // Đổi thành true nếu chạy trên Emulator
+  static bool get useEmulator => dotenv.get('USE_EMULATOR', fallback: 'false') == 'true';
   
   // ============================================
   // CẤU HÌNH KẾT NỐI BACKEND
@@ -19,17 +21,17 @@ class AppConfig {
   /// Chế độ kết nối: 'ngrok' hoặc 'local'
   /// - 'ngrok': Sử dụng ngrok tunnel (không cần đổi IP mỗi lần build)
   /// - 'local': Sử dụng IP local (cần đổi IP khi chuyển mạng)
-  static const String connectionMode = 'ngrok'; // 'ngrok' hoặc 'local'
+  static String get connectionMode => dotenv.get('CONNECTION_MODE', fallback: 'ngrok');
   
   // ============================================
   // CẤU HÌNH NGROK (khi connectionMode = 'ngrok')
   // ============================================
   /// Ngrok domain từ file ngrok.yml
   /// Domain này tương ứng với tunnel có addr: 5134 (android-api)
-  static const String ngrokDomain = 'expressless-dorla-destructively.ngrok-free.dev';
+  static String get ngrokDomain => dotenv.get('NGROK_DOMAIN', fallback: 'colourful-carina-syringeful.ngrok-free.dev');
   
   /// Protocol cho ngrok (http hoặc https)
-  static const String ngrokProtocol = 'https'; // ngrok mặc định dùng https
+  static String get ngrokProtocol => dotenv.get('NGROK_PROTOCOL', fallback: 'https');
   
   // ============================================
   // CẤU HÌNH LOCAL (khi connectionMode = 'local')
@@ -37,10 +39,10 @@ class AppConfig {
   /// IP của máy tính chạy backend (chỉ dùng khi connectionMode = 'local' và useEmulator = false)
   /// Để tìm IP: Windows: ipconfig | Mac/Linux: ifconfig
   /// Lưu ý: IP này chỉ cần khi chạy trên điện thoại thật
-  static const String serverIp = '192.168.1.100';
+  static String get serverIp => dotenv.get('SERVER_IP', fallback: '192.168.1.100');
   
   /// Port của backend API local
-  static const int serverPort = 5134;
+  static int get serverPort => int.tryParse(dotenv.get('SERVER_PORT', fallback: '5134')) ?? 5134;
   
   // ============================================
   // BASE URL - Tự động chọn dựa trên cấu hình
@@ -71,19 +73,19 @@ class AppConfig {
     }
   }
   
-         // ============================================
-         // TIMEOUT
-         // ============================================
-         /// Timeout cho các request (giây)
-         static const int connectTimeout = 30; // Tăng timeout cho ngrok
-         static const int receiveTimeout = 30;
+  // ============================================
+  // TIMEOUT
+  // ============================================
+  /// Timeout cho các request (giây)
+  static int get connectTimeout => int.tryParse(dotenv.get('CONNECT_TIMEOUT', fallback: '30')) ?? 30;
+  static int get receiveTimeout => int.tryParse(dotenv.get('RECEIVE_TIMEOUT', fallback: '30')) ?? 30;
 
-         // ============================================
-         // GOOGLE MAPS / PLACES API
-         // ============================================
-         /// Google Places API Key
-         /// Lấy từ: https://console.cloud.google.com/apis/credentials
-         /// Cần bật: Places API, Geocoding API
-         static const String googlePlacesApiKey = 'YOUR_GOOGLE_PLACES_API_KEY_HERE';
-       }
+  // ============================================
+  // GOOGLE MAPS / PLACES API
+  // ============================================
+  /// Google Places API Key
+  /// Lấy từ: https://console.cloud.google.com/apis/credentials
+  /// Cần bật: Places API, Geocoding API
+  static String get googlePlacesApiKey => dotenv.get('GOOGLE_PLACES_API_KEY', fallback: 'YOUR_GOOGLE_PLACES_API_KEY_HERE');
+}
 

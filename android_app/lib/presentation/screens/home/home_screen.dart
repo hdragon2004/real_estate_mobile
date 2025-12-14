@@ -4,10 +4,10 @@ import '../../widgets/common/post_card.dart';
 import '../../widgets/carousel/property_carousel.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import 'search_screen.dart';
 import 'filter_screen.dart';
 import '../post/post_details_screen.dart';
 import '../notification/notifications_screen.dart';
+import '../splash/splash_screen.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/models/vietnam_address_model.dart';
 import '../../../core/repositories/post_repository.dart';
@@ -21,8 +21,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Màn hình Home / Dashboard - Thiết kế theo mẫu
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onMenuTap;
+  final void Function({Map<String, dynamic>? filters})? onSearchTap;
   
-  const HomeScreen({super.key, this.onMenuTap});
+  const HomeScreen({super.key, this.onMenuTap, this.onSearchTap});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -223,10 +224,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleSearch() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SearchScreen()),
-    );
+    // Gọi callback từ MainLayout để chuyển sang tab Search
+    widget.onSearchTap?.call();
   }
 
   void _handleFilter() async {
@@ -463,6 +462,26 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           // Spacer để đẩy icon thông báo sang bên phải
           const Spacer(),
+          // Button tạm để mở splash screen (để test design)
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SplashScreen(),
+                ),
+              );
+            },
+            icon: const FaIcon(
+              FontAwesomeIcons.image,
+              size: 18,
+              color: AppColors.primary,
+            ),
+            tooltip: 'Xem Splash Screen',
+          ),
+          const SizedBox(width: 8),
           // Notification icon - chỉ hiển thị chấm đỏ khi có thông báo chưa đọc
           IconButton(
             padding: EdgeInsets.zero,

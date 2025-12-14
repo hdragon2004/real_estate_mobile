@@ -24,9 +24,10 @@ class PostCard extends StatelessWidget {
   });
 
   String? _getImageUrl() {
-    if (property.images.isNotEmpty) {
-      final imageUrl = property.images.first.url;
-      return ImageUrlHelper.resolveImageUrl(imageUrl);
+    // CHỈ hiển thị ImageURL (ảnh chính) trên post card
+    // Các ảnh khác chỉ hiển thị ở chi tiết post
+    if (property.imageURL != null && property.imageURL!.isNotEmpty) {
+      return ImageUrlHelper.resolveImageUrl(property.imageURL!);
     }
     return null;
   }
