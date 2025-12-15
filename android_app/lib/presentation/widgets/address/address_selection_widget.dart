@@ -219,9 +219,7 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
     if (!mounted) return;
     
     // Nếu vẫn không tìm được, dùng fallback dựa trên tên thành phố
-    if (center == null) {
-      center = _getDefaultLocationByCity(_selectedProvince!.name);
-    }
+    center ??= _getDefaultLocationByCity(_selectedProvince!.name);
     
     setState(() {
       _mapCenter = center;

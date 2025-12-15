@@ -204,7 +204,9 @@ namespace RealEstateHubAPI.Services
                         {
                             UserId = savedSearch.UserId,
                             PostId = postId,
-                            SavedSearchId = savedSearch.Id, // Lưu SavedSearchId để biết SavedSearch nào trigger và tránh duplicate
+                            SavedSearchId = savedSearch.Id, // Metadata để biết SavedSearch nào trigger và tránh duplicate
+                            AppointmentId = null,
+                            MessageId = null,
                             Title = "Bài đăng mới trong khu vực quan tâm",
                             Message = $"Có bài đăng mới phù hợp với khu vực tìm kiếm của bạn: {post.Title}",
                             Type = "SavedSearch",

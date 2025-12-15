@@ -179,8 +179,9 @@ namespace RealEstateHubAPI.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("Pending");
 
                     b.Property<string>("Street_Name")
                         .IsRequired()
@@ -315,8 +316,14 @@ namespace RealEstateHubAPI.Migrations
                     b.Property<bool>("IsCanceled")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsConfirmed")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsNotified")
                         .HasColumnType("bit");
+
+                    b.Property<int>("PostId")
+                        .HasColumnType("int");
 
                     b.Property<int>("ReminderMinutes")
                         .HasColumnType("int");
@@ -330,6 +337,8 @@ namespace RealEstateHubAPI.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PostId");
 
                     b.HasIndex("UserId");
 
@@ -411,6 +420,9 @@ namespace RealEstateHubAPI.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("MessageId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("PostId")
                         .HasColumnType("int");
 
@@ -435,9 +447,9 @@ namespace RealEstateHubAPI.Migrations
 
                     b.HasIndex("AppointmentId");
 
-                    b.HasIndex("PostId");
+                    b.HasIndex("MessageId");
 
-                    b.HasIndex("SavedSearchId");
+                    b.HasIndex("PostId");
 
                     b.HasIndex("UserId");
 
@@ -610,11 +622,19 @@ namespace RealEstateHubAPI.Migrations
 
             modelBuilder.Entity("RealEstateHubAPI.Models.Appointment", b =>
                 {
+                    b.HasOne("RealEstateHubAPI.Model.Post", "Post")
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("RealEstateHubAPI.Model.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Post");
 
                     b.Navigation("User");
                 });
@@ -642,16 +662,17 @@ namespace RealEstateHubAPI.Migrations
                 {
                     b.HasOne("RealEstateHubAPI.Models.Appointment", "Appointment")
                         .WithMany()
-                        .HasForeignKey("AppointmentId");
+                        .HasForeignKey("AppointmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RealEstateHubAPI.Model.Message", "MessageEntity")
+                        .WithMany()
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("RealEstateHubAPI.Model.Post", "Post")
                         .WithMany()
                         .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("RealEstateHubAPI.Models.SavedSearch", "SavedSearch")
-                        .WithMany()
-                        .HasForeignKey("SavedSearchId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("RealEstateHubAPI.Model.User", "User")
@@ -662,9 +683,9 @@ namespace RealEstateHubAPI.Migrations
 
                     b.Navigation("Appointment");
 
-                    b.Navigation("Post");
+                    b.Navigation("MessageEntity");
 
-                    b.Navigation("SavedSearch");
+                    b.Navigation("Post");
 
                     b.Navigation("User");
                 });

@@ -38,4 +38,10 @@ class ApiConstants {
 
   // Payment Endpoints
   static const String payment = '/payment';
+
+  // Saved Search Endpoints
+  static const String savedSearches = '/saved-searches';
+
+  // Appointment Endpoints
+  static const String appointments = '/appointments';
 }

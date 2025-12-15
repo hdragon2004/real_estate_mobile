@@ -124,10 +124,18 @@ namespace RealEstateHubAPI.Model
                 .HasForeignKey(n => n.PostId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // SavedSearchId trong Notification là metadata, không phải FK
+
             modelBuilder.Entity<Notification>()
-                .HasOne(n => n.SavedSearch)
+                .HasOne(n => n.Appointment)
                 .WithMany()
-                .HasForeignKey(n => n.SavedSearchId)
+                .HasForeignKey(n => n.AppointmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.MessageEntity)
+                .WithMany()
+                .HasForeignKey(n => n.MessageId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<SavedSearch>()
@@ -152,6 +160,12 @@ namespace RealEstateHubAPI.Model
                 .HasOne(a => a.User)
                 .WithMany()
                 .HasForeignKey(a => a.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Appointment>()
+                .HasOne(a => a.Post)
+                .WithMany()
+                .HasForeignKey(a => a.PostId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<District>()

@@ -1047,9 +1047,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
     
     // Nếu vẫn không tìm được, dùng fallback dựa trên tên thành phố
-    if (initialCenter == null) {
-      initialCenter = _getDefaultLocationByCity(_selectedProvince!.name);
-    }
+    initialCenter ??= _getDefaultLocationByCity(_selectedProvince!.name);
 
     if (!mounted) return;
 

@@ -5,8 +5,10 @@ import 'package:gap/gap.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/repositories/post_repository.dart';
+import '../../../core/repositories/appointment_repository.dart';
 import '../../../core/services/favorite_service.dart';
 import '../../../core/services/auth_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -35,6 +37,7 @@ class PostDetailsScreen extends StatefulWidget {
 
 class _PostDetailsScreenState extends State<PostDetailsScreen> {
   final PostRepository _postRepository = PostRepository();
+  final AppointmentRepository _appointmentRepository = AppointmentRepository();
   final FavoriteService _favoriteService = FavoriteService();
   final PageController _imageController = PageController();
   final ScrollController _scrollController = ScrollController();
@@ -378,6 +381,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                 SliverToBoxAdapter(child: _buildDescription(property)),
                 SliverToBoxAdapter(child: _buildAddressAndMap(property)),
                 SliverToBoxAdapter(child: _buildFloorPlanSection(property)),
+                SliverToBoxAdapter(child: _buildAppointmentSection(property)),
                 SliverToBoxAdapter(child: _buildContactCard(property)),
                 const SliverToBoxAdapter(child: Gap(100)),
               ],
@@ -1058,6 +1062,389 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     );
   }
 
+
+  Widget _buildAppointmentSection(PostModel property) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Schedule Appointment', style: AppTextStyles.h5),
+          const Gap(12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const FaIcon(
+                        FontAwesomeIcons.calendarCheck,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                    ),
+                    const Gap(12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Đặt lịch xem bất động sản',
+                            style: AppTextStyles.h6.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Gap(4),
+                          Text(
+                            'Chọn thời gian phù hợp để xem trực tiếp',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Gap(16),
+                AppButton(
+                  text: 'Tạo lịch hẹn',
+                  onPressed: () => _showCreateAppointmentDialog(property),
+                  icon: FontAwesomeIcons.calendarPlus,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showCreateAppointmentDialog(PostModel property) async {
+    // Kiểm tra đăng nhập
+    final userId = await AuthStorageService.getUserId();
+    if (userId == null) {
+      if (!mounted) return;
+      _showLoginRequiredDialog(
+        'Bạn cần đăng nhập để tạo lịch hẹn.',
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    // Lưu context từ widget state để dùng sau khi đóng dialog
+    final widgetContextForDialog = context;
+
+    final titleController = TextEditingController(text: 'Xem ${property.title}');
+    final descriptionController = TextEditingController();
+    DateTime? selectedDate;
+    TimeOfDay? selectedTime;
+    int reminderMinutes = 30; // Mặc định nhắc nhở 30 phút trước
+
+    if (!mounted) return;
+    final dialogContextForShow = context; // Lưu ngay trước await
+    await showDialog(
+      context: dialogContextForShow,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text('Tạo lịch hẹn', style: AppTextStyles.h5),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: InputDecoration(
+                    labelText: 'Tiêu đề',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const Gap(16),
+                TextField(
+                  controller: descriptionController,
+                  decoration: InputDecoration(
+                    labelText: 'Ghi chú (tùy chọn)',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  maxLines: 3,
+                ),
+                const Gap(16),
+                // Chọn ngày
+                InkWell(
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now().add(const Duration(days: 1)),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (date != null) {
+                      setDialogState(() {
+                        selectedDate = date;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.border),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const FaIcon(
+                          FontAwesomeIcons.calendar,
+                          color: AppColors.primary,
+                          size: 18,
+                        ),
+                        const Gap(12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Ngày',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const Gap(4),
+                              Text(
+                                selectedDate != null
+                                    ? DateFormat('dd/MM/yyyy').format(selectedDate!)
+                                    : 'Chọn ngày',
+                                style: AppTextStyles.bodyMedium,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Gap(12),
+                // Chọn giờ
+                InkWell(
+                  onTap: () async {
+                    final time = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.now(),
+                    );
+                    if (time != null) {
+                      setDialogState(() {
+                        selectedTime = time;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.border),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const FaIcon(
+                          FontAwesomeIcons.clock,
+                          color: AppColors.primary,
+                          size: 18,
+                        ),
+                        const Gap(12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Giờ',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const Gap(4),
+                              Text(
+                                selectedTime != null
+                                    ? selectedTime!.format(context)
+                                    : 'Chọn giờ',
+                                style: AppTextStyles.bodyMedium,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Gap(16),
+                // Chọn thời gian nhắc nhở
+                Text(
+                  'Nhắc nhở trước',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Gap(8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ChoiceChip(
+                        label: const Text('15 phút'),
+                        selected: reminderMinutes == 15,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setDialogState(() => reminderMinutes = 15);
+                          }
+                        },
+                      ),
+                    ),
+                    const Gap(8),
+                    Expanded(
+                      child: ChoiceChip(
+                        label: const Text('30 phút'),
+                        selected: reminderMinutes == 30,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setDialogState(() => reminderMinutes = 30);
+                          }
+                        },
+                      ),
+                    ),
+                    const Gap(8),
+                    Expanded(
+                      child: ChoiceChip(
+                        label: const Text('1 giờ'),
+                        selected: reminderMinutes == 60,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setDialogState(() => reminderMinutes = 60);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Hủy', style: AppTextStyles.labelLarge),
+            ),
+            AppButton(
+              text: 'Tạo lịch hẹn',
+              onPressed: () async {
+                // Lưu context từ builder để sử dụng trong dialog
+                final builderContext = context;
+                // Lưu widgetContext từ widget state (đã được lưu ở hàm cha) để dùng sau khi đóng dialog
+                final currentWidgetContext = widgetContextForDialog;
+                
+                if (selectedDate == null || selectedTime == null) {
+                  ScaffoldMessenger.of(builderContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('Vui lòng chọn ngày và giờ'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                  return;
+                }
+
+                // Kết hợp ngày và giờ
+                final appointmentDateTime = DateTime(
+                  selectedDate!.year,
+                  selectedDate!.month,
+                  selectedDate!.day,
+                  selectedTime!.hour,
+                  selectedTime!.minute,
+                );
+
+                // Kiểm tra thời gian phải trong tương lai
+                if (appointmentDateTime.isBefore(DateTime.now())) {
+                  ScaffoldMessenger.of(builderContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('Thời gian phải trong tương lai'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.pop(builderContext);
+
+                // Hiển thị loading - lưu context ngay trước khi sử dụng
+                if (!mounted) return;
+                final loadingDialogContext = currentWidgetContext;
+                showDialog(
+                  context: loadingDialogContext,
+                  barrierDismissible: false,
+                  builder: (context) => const Center(
+                    child: LoadingIndicator(),
+                  ),
+                );
+
+                try {
+                  await _appointmentRepository.createAppointment(
+                    postId: property.id,
+                    title: titleController.text.trim(),
+                    description: descriptionController.text.trim().isEmpty
+                        ? null
+                        : descriptionController.text.trim(),
+                    appointmentTime: appointmentDateTime,
+                    reminderMinutes: reminderMinutes,
+                  );
+
+                  // Lưu context ngay trước khi sử dụng sau async
+                  if (!mounted) return;
+                  final successContext = currentWidgetContext;
+                  Navigator.pop(successContext); // Đóng loading
+
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(successContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('Đã tạo lịch hẹn thành công'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                } catch (e) {
+                  // Lưu context ngay trước khi sử dụng sau async
+                  if (!mounted) return;
+                  final errorContext = currentWidgetContext;
+                  Navigator.pop(errorContext); // Đóng loading
+
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(errorContext).showSnackBar(
+                    SnackBar(
+                      content: Text('Lỗi tạo lịch hẹn: $e'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildContactCard(PostModel property) {
     final user = property.user;

@@ -144,6 +144,9 @@ namespace RealEstateHubAPI.Controllers
                 {
                     UserId = receiver.Id,
                     PostId = dto.PostId,
+                    MessageId = message.Id, // FK đến Message
+                    AppointmentId = null,
+                    SavedSearchId = null,
                     Title = "Tin nhắn mới",
                     Message = post != null 
                         ? $"{sender.Name} đã gửi tin nhắn về bài đăng '{post.Title}'"
@@ -162,6 +165,9 @@ namespace RealEstateHubAPI.Controllers
                     Id = notification.Id,
                     UserId = notification.UserId,
                     PostId = notification.PostId,
+                    SavedSearchId = notification.SavedSearchId,
+                    AppointmentId = notification.AppointmentId,
+                    MessageId = notification.MessageId,
                     Title = notification.Title,
                     Message = notification.Message,
                     Type = notification.Type,

@@ -71,8 +71,10 @@ namespace RealEstateHubAPI.Services
                         var notification = new Notification
                         {
                             UserId = appointment.UserId,
-                            PostId = null, // Appointment không liên quan đến Post
+                            PostId = appointment.PostId, // Appointment liên quan đến Post
+                            AppointmentId = appointment.Id, // FK đến Appointment
                             SavedSearchId = null,
+                            MessageId = null,
                             Title = "Nhắc lịch hẹn",
                             Message = $"Bạn có lịch hẹn '{appointment.Title}' vào lúc {appointment.AppointmentTime:dd/MM/yyyy HH:mm}",
                             Type = "Reminder", // Loại thông báo: Nhắc lịch hẹn
@@ -97,6 +99,8 @@ namespace RealEstateHubAPI.Services
                             UserId = notification.UserId,
                             PostId = notification.PostId,
                             SavedSearchId = notification.SavedSearchId,
+                            AppointmentId = notification.AppointmentId,
+                            MessageId = notification.MessageId,
                             Title = notification.Title,
                             Message = notification.Message,
                             Type = notification.Type,

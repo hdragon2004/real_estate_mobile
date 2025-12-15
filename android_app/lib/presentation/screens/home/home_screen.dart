@@ -7,7 +7,7 @@ import '../../../core/theme/app_text_styles.dart';
 import 'filter_screen.dart';
 import '../post/post_details_screen.dart';
 import '../notification/notifications_screen.dart';
-import '../splash/splash_screen.dart';
+import 'saved_search_screen.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/models/vietnam_address_model.dart';
 import '../../../core/repositories/post_repository.dart';
@@ -467,7 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           // Spacer để đẩy icon thông báo sang bên phải
           const Spacer(),
-          // Button tạm để mở splash screen (để test design)
+          // Button để quản lý khu vực quan tâm
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -475,16 +475,16 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const SplashScreen(),
+                  builder: (context) => const SavedSearchScreen(),
                 ),
               );
             },
             icon: const FaIcon(
-              FontAwesomeIcons.image,
+              FontAwesomeIcons.mapLocationDot,
               size: 18,
               color: AppColors.primary,
             ),
-            tooltip: 'Xem Splash Screen',
+            tooltip: 'Khu vực quan tâm',
           ),
           const SizedBox(width: 8),
           // Notification icon - chỉ hiển thị chấm đỏ khi có thông báo chưa đọc

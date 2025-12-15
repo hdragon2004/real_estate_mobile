@@ -64,6 +64,9 @@ class NotificationModel {
       case 'savedsearch': // Thông báo tin mới theo khu vực yêu thích
         return NotificationType.property;
       case 'appointment':
+      case 'appointmentrequest': // Yêu cầu lịch hẹn mới
+      case 'appointmentconfirmed': // Lịch hẹn đã được chấp nhận
+      case 'appointmentrejected': // Lịch hẹn đã bị từ chối
       case 'reminder': // Nhắc lịch hẹn
       case 'expire':
       case 'expired':

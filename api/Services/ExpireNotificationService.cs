@@ -47,6 +47,9 @@ public class ExpireNotificationService : BackgroundService
                         {
                             UserId = post.UserId,
                             PostId = post.Id,
+                            AppointmentId = null,
+                            MessageId = null,
+                            SavedSearchId = null,
                             Title = "Bài đăng sắp hết hạn",
                             Message = $"Bài đăng '{post.Title}' của bạn sẽ hết hạn vào {post.ExpiryDate:dd/MM/yyyy}.",
                             Type = "expire",
@@ -78,6 +81,9 @@ public class ExpireNotificationService : BackgroundService
                         {
                             UserId = post.UserId,
                             PostId = post.Id,
+                            AppointmentId = null,
+                            MessageId = null,
+                            SavedSearchId = null,
                             Title = "Bài đăng đã hết hạn",
                             Message = $"Bài đăng '{post.Title}' của bạn đã hết hạn.",
                             Type = "expired",
