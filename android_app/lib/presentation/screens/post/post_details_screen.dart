@@ -16,6 +16,7 @@ import '../../../core/utils/image_url_helper.dart';
 import '../../widgets/common/user_avatar.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/loading_indicator.dart';
+import '../../widgets/appointment/appointment_booking_section.dart';
 import 'image_gallery_screen.dart';
 
 /// Màn hình Chi tiết bất động sản
@@ -43,7 +44,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   PostModel? _property;
   bool _isLoading = false;
   int _currentImageIndex = 0;
-  
+
   // UI state
   bool _isDetailsExpanded = false;
   bool _isDescriptionExpanded = false;
@@ -209,7 +210,8 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
 
     // Ưu tiên 1: Sử dụng tọa độ nếu có (chính xác nhất)
     if (property.latitude != null && property.longitude != null) {
-      googleMapsUrl = 'https://maps.google.com/?q=${property.latitude},${property.longitude}';
+      googleMapsUrl =
+          'https://maps.google.com/?q=${property.latitude},${property.longitude}';
     } else {
       // Ưu tiên 2: Sử dụng fullAddress nếu có
       String address = '';
@@ -226,7 +228,8 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         if (property.wardName != null && property.wardName!.isNotEmpty) {
           parts.add(property.wardName!);
         }
-        if (property.districtName != null && property.districtName!.isNotEmpty) {
+        if (property.districtName != null &&
+            property.districtName!.isNotEmpty) {
           parts.add(property.districtName!);
         }
         if (property.cityName != null && property.cityName!.isNotEmpty) {
@@ -246,17 +249,20 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         return;
       }
       // Mở với địa chỉ - dùng format đơn giản
-      googleMapsUrl = 'https://maps.google.com/?q=${Uri.encodeComponent(address)}';
+      googleMapsUrl =
+          'https://maps.google.com/?q=${Uri.encodeComponent(address)}';
     }
 
     // Mở Google Maps
     try {
       Uri uri;
-      
+
       // Nếu có tọa độ, thử dùng geo: URI scheme cho Android (ưu tiên mở Google Maps app)
       if (property.latitude != null && property.longitude != null) {
         try {
-          uri = Uri.parse('geo:${property.latitude},${property.longitude}?q=${property.latitude},${property.longitude}');
+          uri = Uri.parse(
+            'geo:${property.latitude},${property.longitude}?q=${property.latitude},${property.longitude}',
+          );
           if (await canLaunchUrl(uri)) {
             await launchUrl(uri, mode: LaunchMode.externalApplication);
             return;
@@ -265,17 +271,17 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
           // Nếu geo: không hoạt động, fallback về https
         }
       }
-      
+
       // Dùng https URL
       uri = Uri.parse(googleMapsUrl);
-      
+
       // Thử mở với externalApplication (ưu tiên mở app)
       if (await canLaunchUrl(uri)) {
         final launched = await launchUrl(
           uri,
           mode: LaunchMode.externalApplication,
         );
-        
+
         if (!launched && mounted) {
           // Nếu không mở được app, thử mở trong browser
           await launchUrl(uri, mode: LaunchMode.platformDefault);
@@ -292,7 +298,9 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: const Text('Không thể mở Google Maps. Vui lòng cài đặt Google Maps app.'),
+                content: const Text(
+                  'Không thể mở Google Maps. Vui lòng cài đặt Google Maps app.',
+                ),
                 backgroundColor: AppColors.error,
               ),
             );
@@ -379,6 +387,15 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                 SliverToBoxAdapter(child: _buildAddressAndMap(property)),
                 SliverToBoxAdapter(child: _buildFloorPlanSection(property)),
                 SliverToBoxAdapter(child: _buildContactCard(property)),
+                SliverToBoxAdapter(
+                  child: AppointmentBookingSection(
+                    propertyId: property.id,
+                    propertyTitle: property.title,
+                    ownerName: property.user?.name,
+                    ownerPhone: property.user?.phone,
+                    ownerEmail: property.user?.email,
+                  ),
+                ),
                 const SliverToBoxAdapter(child: Gap(100)),
               ],
             ),
@@ -388,7 +405,6 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
       ),
     );
   }
-
 
   SliverAppBar _buildImageAppBar(
     PostModel property,
@@ -412,7 +428,11 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
             shape: BoxShape.circle,
           ),
           child: IconButton(
-            icon: const FaIcon(FontAwesomeIcons.arrowLeft, color: Colors.white, size: 18),
+            icon: const FaIcon(
+              FontAwesomeIcons.arrowLeft,
+              color: Colors.white,
+              size: 18,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -511,7 +531,9 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
             ),
             child: IconButton(
               icon: FaIcon(
-                isFavorite ? FontAwesomeIcons.solidHeart : FontAwesomeIcons.heart,
+                isFavorite
+                    ? FontAwesomeIcons.solidHeart
+                    : FontAwesomeIcons.heart,
                 color: isFavorite ? AppColors.error : Colors.white,
                 size: 18,
               ),
@@ -529,7 +551,11 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: const FaIcon(FontAwesomeIcons.share, color: Colors.white, size: 18),
+              icon: const FaIcon(
+                FontAwesomeIcons.share,
+                color: Colors.white,
+                size: 18,
+              ),
               tooltip: 'Chia sẻ',
               onPressed: () {
                 // TODO: Implement share functionality
@@ -559,100 +585,106 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(12),
             ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title
-              Text(
-                property.title,
-                style: AppTextStyles.h4.copyWith(
-                  fontWeight: FontWeight.bold,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                Text(
+                  property.title,
+                  style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.bold),
                 ),
-              ),
-              const Gap(8),
-              // Category và Status
-              Row(
-                children: [
-                  if ((property.categoryName != null && property.categoryName!.isNotEmpty) ||
-                      (property.category != null && property.category!.name.isNotEmpty))
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        property.categoryName ?? property.category?.name ?? '',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
+                const Gap(8),
+                // Category và Status
+                Row(
+                  children: [
+                    if ((property.categoryName != null &&
+                            property.categoryName!.isNotEmpty) ||
+                        (property.category != null &&
+                            property.category!.name.isNotEmpty))
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          property.categoryName ??
+                              property.category?.name ??
+                              '',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                  if ((property.categoryName != null && property.categoryName!.isNotEmpty) ||
-                      (property.category != null && property.category!.name.isNotEmpty))
-                    const SizedBox(width: 8),
-                  Text(
-                    property.transactionType == TransactionType.sale
-                        ? 'For Sale'
-                        : 'For Rent',
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              const Gap(16),
-              // Price
-              Text(
-                Formatters.formatPriceWithUnit(
-                  property.price,
-                  property.priceUnit,
-                ),
-                style: AppTextStyles.priceLarge.copyWith(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Gap(16),
-              // Key Stats: Bed, Bath, Garage
-              Row(
-                children: [
-                  if (property.soPhongNgu != null)
-                    Expanded(
-                      child: _KeyStatItem(
-                        icon: FontAwesomeIcons.bed,
-                        label: '${property.soPhongNgu} Bedrooms',
+                    if ((property.categoryName != null &&
+                            property.categoryName!.isNotEmpty) ||
+                        (property.category != null &&
+                            property.category!.name.isNotEmpty))
+                      const SizedBox(width: 8),
+                    Text(
+                      property.transactionType == TransactionType.sale
+                          ? 'For Sale'
+                          : 'For Rent',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  if (property.soPhongNgu != null && property.soPhongTam != null)
-                    const SizedBox(width: 12),
-                  if (property.soPhongTam != null)
+                  ],
+                ),
+                const Gap(16),
+                // Price
+                Text(
+                  Formatters.formatPriceWithUnit(
+                    property.price,
+                    property.priceUnit,
+                  ),
+                  style: AppTextStyles.priceLarge.copyWith(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Gap(16),
+                // Key Stats: Bed, Bath, Garage
+                Row(
+                  children: [
+                    if (property.soPhongNgu != null)
+                      Expanded(
+                        child: _KeyStatItem(
+                          icon: FontAwesomeIcons.bed,
+                          label: '${property.soPhongNgu} Bedrooms',
+                        ),
+                      ),
+                    if (property.soPhongNgu != null &&
+                        property.soPhongTam != null)
+                      const SizedBox(width: 12),
+                    if (property.soPhongTam != null)
+                      Expanded(
+                        child: _KeyStatItem(
+                          icon: FontAwesomeIcons.bath,
+                          label: '${property.soPhongTam} Bathrooms',
+                        ),
+                      ),
+                    if (property.soPhongTam != null) const SizedBox(width: 12),
                     Expanded(
                       child: _KeyStatItem(
-                        icon: FontAwesomeIcons.bath,
-                        label: '${property.soPhongTam} Bathrooms',
+                        icon: FontAwesomeIcons.car,
+                        label: '1 Garages', // TODO: Get from property data
                       ),
                     ),
-                  if (property.soPhongTam != null)
-                    const SizedBox(width: 12),
-                  Expanded(
-                    child: _KeyStatItem(
-                      icon: FontAwesomeIcons.car,
-                      label: '1 Garages', // TODO: Get from property data
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-
 
   Widget _buildDescription(PostModel property) {
     return Padding(
@@ -662,7 +694,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         children: [
           Row(
             children: [
-              Text('Description', style: AppTextStyles.h5),
+              Text('Mô tả', style: AppTextStyles.h5),
               const Spacer(),
               if (!_isDescriptionExpanded)
                 TextButton(
@@ -672,7 +704,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                     });
                   },
                   child: Text(
-                    'Read More',
+                    'Xem thêm',
                     style: AppTextStyles.labelLarge.copyWith(
                       color: AppColors.primary,
                     ),
@@ -709,7 +741,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         children: [
           Row(
             children: [
-              Text('Address', style: AppTextStyles.h5),
+              Text('Địa chỉ', style: AppTextStyles.h5),
               const Spacer(),
               // Nút mở Google Maps
               TextButton.icon(
@@ -720,7 +752,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                   color: Colors.white,
                 ),
                 label: Text(
-                  'Google Maps',
+                  'Mở Google Maps',
                   style: AppTextStyles.labelLarge.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -728,7 +760,10 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                 ),
                 style: TextButton.styleFrom(
                   backgroundColor: const Color(0xFF4285F4), // Google Maps blue
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -761,7 +796,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         children: [
           Row(
             children: [
-              Text('Floor Plans', style: AppTextStyles.h5),
+              Text('Mặt bằng', style: AppTextStyles.h5),
               const Spacer(),
               TextButton(
                 onPressed: () => _showFloorPlanSheet(property),
@@ -769,7 +804,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'View Floor Plan',
+                      'Xem mặt bằng',
                       style: AppTextStyles.labelLarge.copyWith(
                         color: AppColors.primary,
                       ),
@@ -800,10 +835,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                           color: AppColors.textSecondary,
                         ),
                         const Gap(8),
-                        Text(
-                          '670 Sqft',
-                          style: AppTextStyles.bodyMedium,
-                        ),
+                        Text('670 Sqft', style: AppTextStyles.bodyMedium),
                       ],
                     ),
                     const Gap(12),
@@ -815,10 +847,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                           color: AppColors.textSecondary,
                         ),
                         const Gap(8),
-                        Text(
-                          '\$1,600',
-                          style: AppTextStyles.bodyMedium,
-                        ),
+                        Text('\$1,600', style: AppTextStyles.bodyMedium),
                       ],
                     ),
                   ],
@@ -837,10 +866,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                           color: AppColors.textSecondary,
                         ),
                         const Gap(8),
-                        Text(
-                          '530 Sqft',
-                          style: AppTextStyles.bodyMedium,
-                        ),
+                        Text('530 Sqft', style: AppTextStyles.bodyMedium),
                       ],
                     ),
                     const Gap(12),
@@ -852,10 +878,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                           color: AppColors.textSecondary,
                         ),
                         const Gap(8),
-                        Text(
-                          '1345 Sqft',
-                          style: AppTextStyles.bodyMedium,
-                        ),
+                        Text('1345 Sqft', style: AppTextStyles.bodyMedium),
                       ],
                     ),
                   ],
@@ -898,10 +921,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                 // Title
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'Floor Plans',
-                    style: AppTextStyles.h5,
-                  ),
+                  child: Text('Floor Plans', style: AppTextStyles.h5),
                 ),
                 const Gap(16),
                 // Content
@@ -910,10 +930,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                     controller: scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     children: [
-                      Text(
-                        'First Floor',
-                        style: AppTextStyles.h6,
-                      ),
+                      Text('First Floor', style: AppTextStyles.h6),
                       const Gap(12),
                       Container(
                         height: 200,
@@ -948,7 +965,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     final pricePerSqft = property.areaSize > 0
         ? property.price / property.areaSize
         : 0.0;
-    
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
       child: Column(
@@ -956,7 +973,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         children: [
           Row(
             children: [
-              Text('Details', style: AppTextStyles.h5),
+              Text('Chi tiết', style: AppTextStyles.h5),
               const Spacer(),
               TextButton(
                 onPressed: () {
@@ -968,7 +985,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'More Details',
+                      'Xem chi tiết',
                       style: AppTextStyles.labelLarge.copyWith(
                         color: AppColors.primary,
                       ),
@@ -991,10 +1008,13 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
           const Gap(12),
           Column(
             children: [
-              _DetailRow(label: 'Property ID:', value: property.id.toString()),
+              _DetailRow(
+                label: 'Mã bất động sản:',
+                value: property.id.toString(),
+              ),
               const Gap(12),
               _DetailRow(
-                label: 'First Price:',
+                label: 'Giá chính:',
                 value: Formatters.formatPriceWithUnit(
                   property.price,
                   property.priceUnit,
@@ -1003,14 +1023,15 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
               if (hasPerM2 || pricePerSqft > 0) ...[
                 const Gap(12),
                 _DetailRow(
-                  label: 'Second Price:',
+                  label: 'Đơn giá theo diện tích:',
                   value: '\$${pricePerSqft.toStringAsFixed(0)}/sq ft',
                 ),
               ],
               const Gap(12),
               _DetailRow(
-                label: 'Property Type:',
-                value: property.categoryName ?? property.category?.name ?? 'N/A',
+                label: 'Loại bất động sản:',
+                value:
+                    property.categoryName ?? property.category?.name ?? 'N/A',
               ),
               AnimatedSize(
                 duration: const Duration(milliseconds: 300),
@@ -1025,27 +1046,48 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                           ),
                           if (property.soTang != null) ...[
                             const Gap(12),
-                            _DetailRow(label: 'Số tầng', value: '${property.soTang}'),
+                            _DetailRow(
+                              label: 'Số tầng',
+                              value: '${property.soTang}',
+                            ),
                           ],
                           if (property.duongVao != null) ...[
                             const Gap(12),
-                            _DetailRow(label: 'Đường vào', value: '${property.duongVao} m'),
+                            _DetailRow(
+                              label: 'Đường vào',
+                              value: '${property.duongVao} m',
+                            ),
                           ],
-                          if (property.huongNha != null && property.huongNha!.isNotEmpty) ...[
+                          if (property.huongNha != null &&
+                              property.huongNha!.isNotEmpty) ...[
                             const Gap(12),
-                            _DetailRow(label: 'Hướng nhà', value: property.huongNha!),
+                            _DetailRow(
+                              label: 'Hướng nhà',
+                              value: property.huongNha!,
+                            ),
                           ],
-                          if (property.huongBanCong != null && property.huongBanCong!.isNotEmpty) ...[
+                          if (property.huongBanCong != null &&
+                              property.huongBanCong!.isNotEmpty) ...[
                             const Gap(12),
-                            _DetailRow(label: 'Hướng ban công', value: property.huongBanCong!),
+                            _DetailRow(
+                              label: 'Hướng ban công',
+                              value: property.huongBanCong!,
+                            ),
                           ],
                           if (property.matTien != null) ...[
                             const Gap(12),
-                            _DetailRow(label: 'Mặt tiền', value: '${property.matTien} m'),
+                            _DetailRow(
+                              label: 'Mặt tiền',
+                              value: '${property.matTien} m',
+                            ),
                           ],
-                          if (property.phapLy != null && property.phapLy!.isNotEmpty) ...[
+                          if (property.phapLy != null &&
+                              property.phapLy!.isNotEmpty) ...[
                             const Gap(12),
-                            _DetailRow(label: 'Pháp lý', value: property.phapLy!),
+                            _DetailRow(
+                              label: 'Pháp lý',
+                              value: property.phapLy!,
+                            ),
                           ],
                         ],
                       )
@@ -1058,7 +1100,6 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     );
   }
 
-
   Widget _buildContactCard(PostModel property) {
     final user = property.user;
     return Padding(
@@ -1066,69 +1107,69 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Contact Information', style: AppTextStyles.h5),
+          Text('Thông tin liên hệ', style: AppTextStyles.h5),
           const Gap(16),
           Row(
-              children: [
-                UserAvatarWithFallback(
-                  avatarUrl: user?.avatarUrl,
-                  name: user?.name ?? 'User',
-                  radius: 32,
-                  fontSize: 20,
-                ),
-                const Gap(16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user?.name ?? 'Agent',
-                        style: AppTextStyles.h6.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+            children: [
+              UserAvatarWithFallback(
+                avatarUrl: user?.avatarUrl,
+                name: user?.name ?? 'Người dùng',
+                radius: 32,
+                fontSize: 20,
+              ),
+              const Gap(16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user?.name ?? 'Môi giới',
+                      style: AppTextStyles.h6.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                      const Gap(4),
-                      Text(
-                        user?.role ?? 'Agent',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                    ),
+                    const Gap(4),
+                    Text(
+                      user?.role ?? 'Môi giới',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () => _launchMail(user?.email),
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const FaIcon(
+                    FontAwesomeIcons.envelope,
+                    color: AppColors.primary,
+                    size: 18,
                   ),
                 ),
-                IconButton(
-                  onPressed: () => _launchMail(user?.email),
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const FaIcon(
-                      FontAwesomeIcons.envelope,
-                      color: AppColors.primary,
-                      size: 18,
-                    ),
+              ),
+              IconButton(
+                onPressed: () => _launchPhone(user?.phone),
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const FaIcon(
+                    FontAwesomeIcons.phone,
+                    color: AppColors.success,
+                    size: 18,
                   ),
                 ),
-                IconButton(
-                  onPressed: () => _launchPhone(user?.phone),
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const FaIcon(
-                      FontAwesomeIcons.phone,
-                      color: AppColors.success,
-                      size: 18,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1155,9 +1196,7 @@ class _DetailRow extends StatelessWidget {
         ),
         Text(
           value,
-          style: AppTextStyles.bodyMedium.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
+          style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w500),
         ),
       ],
     );
@@ -1168,10 +1207,7 @@ class _KeyStatItem extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const _KeyStatItem({
-    required this.icon,
-    required this.label,
-  });
+  const _KeyStatItem({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -1184,11 +1220,7 @@ class _KeyStatItem extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          FaIcon(
-            icon,
-            size: 16,
-            color: AppColors.textSecondary,
-          ),
+          FaIcon(icon, size: 16, color: AppColors.textSecondary),
           const Gap(8),
           Flexible(
             child: Text(
@@ -1205,4 +1237,3 @@ class _KeyStatItem extends StatelessWidget {
     );
   }
 }
-

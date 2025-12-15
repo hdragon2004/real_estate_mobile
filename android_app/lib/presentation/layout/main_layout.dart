@@ -15,7 +15,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 
 /// Layout chính với Custom Bottom Navigation Bar
-/// Thiết kế: 5 tabs - Trang chủ, Yêu thích, Đăng tin (FAB), Tin nhắn, Tài khoản
+/// Thiết kế: 4 tabs - Trang chủ, Tìm kiếm, Tin nhắn, Yêu thích + Nút đăng tin (FAB)
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
 
@@ -35,9 +35,10 @@ class _MainLayoutState extends State<MainLayout> {
   final NotificationService _notificationService = NotificationService();
 
   // Key để truy cập SearchScreen state
-  final GlobalKey<SearchScreenState> _searchScreenKey = GlobalKey<SearchScreenState>();
+  final GlobalKey<SearchScreenState> _searchScreenKey =
+      GlobalKey<SearchScreenState>();
 
-  // 4 màn hình chính (không bao gồm Đăng tin - sẽ mở dạng modal)
+  // 5 tabs: Trang chủ, Tìm kiếm, Tin nhắn, Yêu thích + nút đăng tin (FAB mở modal)
   List<Widget> get _screens => [
     HomeScreen(
       onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
@@ -47,7 +48,7 @@ class _MainLayoutState extends State<MainLayout> {
     const ChatListScreen(),
     const FavoritesScreen(),
   ];
-  
+
   // Method để chuyển sang tab Search và có thể truyền filters
   void _switchToSearchTab({Map<String, dynamic>? filters}) {
     setState(() {
@@ -72,12 +73,12 @@ class _MainLayoutState extends State<MainLayout> {
     try {
       // Khởi tạo NotificationService (sẽ tự động kết nối SignalR nếu user đã đăng nhập)
       await _notificationService.initialize();
-      
+
       // Lắng nghe thông báo real-time
       _notificationService.notificationStream.listen((notification) {
         _showNotificationSnackBar(notification);
       });
-      
+
       // Lắng nghe tin nhắn real-time
       _notificationService.messageStream.listen((messageData) {
         // Có thể cập nhật badge tin nhắn ở đây
@@ -91,7 +92,7 @@ class _MainLayoutState extends State<MainLayout> {
   /// Hiển thị thông báo dưới dạng SnackBar
   void _showNotificationSnackBar(NotificationModel notification) {
     if (!mounted) return;
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(

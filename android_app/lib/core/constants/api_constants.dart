@@ -36,6 +36,8 @@ class ApiConstants {
   // Notification Endpoints
   static const String notifications = '/notifications';
 
+  static const String appointments = '/appointments';
+
   // Payment Endpoints
   static const String payment = '/payment';
 }
