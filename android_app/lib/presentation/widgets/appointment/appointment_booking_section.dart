@@ -4,7 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../screens/appointment/create_appointment_screen.dart';
+import 'appointment_create_dialog.dart';
 
 
 /// Widget hiển thị phần đặt lịch hẹn trong màn hình chi tiết bài viết

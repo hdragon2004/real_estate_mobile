@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
-import '../../screens/post/post_details_screen.dart';
 
 /// Widget card hiển thị thông tin lịch hẹn
 /// Tái sử dụng để tránh lặp code
@@ -101,11 +100,14 @@ class AppointmentCard extends StatelessWidget {
   }
 
   /// Format datetime
+  /// Backend trả về UTC time, cần convert về local time để hiển thị đúng
   String _formatDateTime(String? dateTimeStr) {
     if (dateTimeStr == null) return 'N/A';
     try {
-      final dateTime = DateTime.parse(dateTimeStr);
-      return DateFormat('dd/MM/yyyy HH:mm').format(dateTime.toLocal());
+      final parsed = DateTime.parse(dateTimeStr);
+      // Nếu là UTC time, convert về local; nếu đã là local thì giữ nguyên
+      final localTime = parsed.isUtc ? parsed.toLocal() : parsed;
+      return DateFormat('dd/MM/yyyy HH:mm').format(localTime);
     } catch (e) {
       return dateTimeStr;
     }

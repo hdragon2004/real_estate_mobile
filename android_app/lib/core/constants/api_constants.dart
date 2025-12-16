@@ -38,6 +38,8 @@ class ApiConstants {
 
   // Appointment Endpoints
   static const String appointments = '/appointments';
+  static const String appointmentsMe = '/appointments/me';
+  static const String appointmentsForMyPosts = '/appointments/for-my-posts';
 
   // Payment Endpoints
   static const String payment = '/payment';

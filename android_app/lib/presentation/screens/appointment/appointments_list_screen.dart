@@ -58,9 +58,7 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
 
     try {
       // Load current user ID nếu chưa có
-      if (_currentUserId == null) {
-        _currentUserId = await AuthStorageService.getUserId();
-      }
+      _currentUserId ??= await AuthStorageService.getUserId();
       
       // Load cả 2 loại appointments:
       // 1. Appointments mà user đã tạo (user đặt lịch hẹn)
@@ -484,7 +482,9 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
       if (!mounted) return;
       Navigator.pop(context); // Đóng loading dialog
 
-      if (otherUserId == null) {
+      // Kiểm tra otherUserId có giá trị hợp lệ không
+      final finalOtherUserId = otherUserId;
+      if (finalOtherUserId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Không thể xác định người nhận tin nhắn'),
@@ -499,8 +499,8 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
         context,
         MaterialPageRoute(
           builder: (context) => ChatScreen(
-            chatId: '${otherUserId}_$postIdInt',
-            otherUserId: otherUserId,
+            chatId: '${finalOtherUserId}_$postIdInt',
+            otherUserId: finalOtherUserId,
             postId: postIdInt,
             userName: userName,
             userAvatar: userAvatar,

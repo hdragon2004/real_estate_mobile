@@ -182,9 +182,11 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
       return;
     }
 
-    setState(() {
-      _isLoadingMapCenter = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoadingMapCenter = true;
+      });
+    }
 
     // Thử geocode với các mức độ khác nhau (từ chi tiết đến tổng quát)
     final geocodeAttempts = <String>[];
@@ -228,14 +230,13 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
 
     // Nếu vẫn không tìm được, dùng fallback dựa trên tên thành phố
     center ??= _getDefaultLocationByCity(_selectedProvince!.name);
-<<<<<<< HEAD
-=======
-
->>>>>>> 0da2ee6bd5ecda35da33cee30388a45e96185811
-    setState(() {
-      _mapCenter = center;
-      _isLoadingMapCenter = false;
-    });
+    
+    if (mounted) {
+      setState(() {
+        _mapCenter = center;
+        _isLoadingMapCenter = false;
+      });
+    }
 
     // Move map to center với zoom phù hợp
     final zoom = _selectedWard != null

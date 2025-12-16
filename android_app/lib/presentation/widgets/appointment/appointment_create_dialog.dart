@@ -94,6 +94,7 @@ class _AppointmentCreateDialogState extends State<AppointmentCreateDialog> {
     }
 
     setState(() {
+      // Tạo DateTime local (không phải UTC) để giữ nguyên thời gian user chọn
       _startDateTime = DateTime(
         date.year,
         date.month,
@@ -101,6 +102,8 @@ class _AppointmentCreateDialogState extends State<AppointmentCreateDialog> {
         time.hour,
         time.minute,
       );
+      // Đảm bảo là local time (không phải UTC)
+      // DateTime constructor mặc định tạo local time nếu không chỉ định isUtc
     });
   }
 
@@ -136,10 +139,10 @@ class _AppointmentCreateDialogState extends State<AppointmentCreateDialog> {
 
     try {
       await _repository.createAppointment(
-        postId: widget.propertyId,
         title: _titleController.text.trim(),
-        appointmentTime: _startDateTime!.toUtc(),
+        startTime: _startDateTime!,
         reminderMinutes: _reminderMinutes,
+        propertyId: widget.propertyId,
         description: _descriptionController.text.trim().isEmpty
             ? null
             : _descriptionController.text.trim(),
