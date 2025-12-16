@@ -53,7 +53,8 @@ namespace RealEstateHubAPI.Controllers
                 }
 
                 // Validate: AppointmentTime phải trong tương lai
-                if (dto.AppointmentTime <= DateTime.UtcNow)
+                // Frontend gửi local time, cần so sánh với local time hiện tại
+                if (dto.AppointmentTime <= DateTime.Now)
                 {
                     return BadRequest(new { error = "AppointmentTime must be in the future" });
                 }

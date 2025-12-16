@@ -27,7 +27,9 @@ namespace RealEstateHubAPI.Services
         public async Task<AppointmentDto> CreateAppointmentAsync(int userId, CreateAppointmentDto dto)
         {
             // Validate: AppointmentTime phải trong tương lai
-            if (dto.AppointmentTime <= DateTime.UtcNow)
+            // Frontend gửi local time, cần so sánh với local time hiện tại
+            var now = DateTime.Now; // Local time để so sánh với local time từ frontend
+            if (dto.AppointmentTime <= now)
             {
                 throw new ArgumentException("AppointmentTime must be in the future");
             }
