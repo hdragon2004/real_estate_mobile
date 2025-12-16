@@ -4,7 +4,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import 'appointment_create_dialog.dart';
+import '../../screens/appointment/create_appointment_screen.dart';
+
 
 /// Widget hiển thị phần đặt lịch hẹn trong màn hình chi tiết bài viết
 class AppointmentBookingSection extends StatelessWidget {
@@ -277,13 +278,14 @@ class AppointmentBookingSection extends StatelessWidget {
   }
 
   void _navigateToCreateAppointment(BuildContext context) async {
+    // Nếu tạo lịch hẹn thành công, hiển thị thông báo
     final result = await AppointmentCreateDialog.show(
       context,
       propertyId: propertyId,
       propertyTitle: propertyTitle,
     );
 
-    // Nếu tạo lịch hẹn thành công, hiển thị thông báo
+    // Nếu tạo lịch hẹn thành công, có thể hiển thị thông báo hoặc cập nhật UI
     if (result == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
