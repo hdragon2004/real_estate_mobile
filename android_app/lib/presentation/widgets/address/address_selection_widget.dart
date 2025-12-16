@@ -13,12 +13,12 @@ import '../../../core/theme/app_shadows.dart';
 import '../../widgets/common/app_dropdown.dart';
 
 /// Widget chọn địa chỉ với bản đồ OpenStreetMap (FREE)
-/// 
+///
 /// TẠI SAO DÙNG OpenStreetMap thay vì Google Maps?
 /// - Google Maps API có phí và cần API key
 /// - OpenStreetMap hoàn toàn FREE, không cần API key
 /// - Đủ tốt cho việc hiển thị bản đồ và chọn vị trí
-/// 
+///
 /// TẠI SAO TỌA ĐỘ LẤY TỪ MAP TAP thay vì tự động?
 /// - Độ chính xác: User biết chính xác vị trí của bất động sản
 /// - Tránh lỗi: Geocoding có thể sai, đặc biệt với địa chỉ Việt Nam
@@ -26,7 +26,7 @@ import '../../widgets/common/app_dropdown.dart';
 class AddressSelectionWidget extends StatefulWidget {
   /// Callback khi user chọn địa chỉ xong
   final Function(AddressData)? onAddressSelected;
-  
+
   /// Địa chỉ ban đầu (nếu có)
   final AddressData? initialAddress;
 
@@ -43,23 +43,23 @@ class AddressSelectionWidget extends StatefulWidget {
 class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
   // Form controllers
   final _streetController = TextEditingController();
-  
+
   // Selected values
   VietnamProvince? _selectedProvince;
   VietnamDistrict? _selectedDistrict;
   VietnamWard? _selectedWard;
-  
+
   // Data lists
   List<VietnamProvince> _provinces = [];
   List<VietnamDistrict> _districts = [];
   List<VietnamWard> _wards = [];
-  
+
   // Map state
   final MapController _mapController = MapController();
   LatLng? _selectedLocation;
   LatLng? _mapCenter;
   bool _isLoadingMapCenter = false;
-  
+
   // UI state
   bool _isLoading = false;
   String? _errorMessage;
@@ -85,8 +85,8 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
       _selectedProvince = widget.initialAddress!.province;
       _selectedDistrict = widget.initialAddress!.district;
       _selectedWard = widget.initialAddress!.ward;
-      
-      if (widget.initialAddress!.latitude != 0 && 
+
+      if (widget.initialAddress!.latitude != 0 &&
           widget.initialAddress!.longitude != 0) {
         _selectedLocation = LatLng(
           widget.initialAddress!.latitude,
@@ -94,7 +94,7 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
         );
         _mapCenter = _selectedLocation;
       }
-      
+
       // Load districts và wards nếu có initial data
       if (_selectedProvince != null) {
         _loadDistricts(_selectedProvince!.code);
@@ -130,7 +130,9 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
 
   Future<void> _loadDistricts(String provinceCode) async {
     try {
-      final districts = await VietnamAddressService.fetchDistricts(provinceCode);
+      final districts = await VietnamAddressService.fetchDistricts(
+        provinceCode,
+      );
       if (!mounted) return;
 
       setState(() {
@@ -186,27 +188,33 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
 
     // Thử geocode với các mức độ khác nhau (từ chi tiết đến tổng quát)
     final geocodeAttempts = <String>[];
-    
+
     // 1. Địa chỉ đầy đủ (nếu có đủ thông tin)
     if (_selectedWard != null && _selectedDistrict != null) {
-      geocodeAttempts.add('${_selectedWard!.name}, ${_selectedDistrict!.name}, ${_selectedProvince!.name}');
+      geocodeAttempts.add(
+        '${_selectedWard!.name}, ${_selectedDistrict!.name}, ${_selectedProvince!.name}',
+      );
     }
-    
+
     // 2. Quận + Thành phố
     if (_selectedDistrict != null) {
-      geocodeAttempts.add('${_selectedDistrict!.name}, ${_selectedProvince!.name}');
+      geocodeAttempts.add(
+        '${_selectedDistrict!.name}, ${_selectedProvince!.name}',
+      );
     }
-    
+
     // 3. Chỉ Thành phố
     geocodeAttempts.add(_selectedProvince!.name);
 
     LatLng? center;
-    
+
     // Thử từng mức độ cho đến khi tìm được
     for (final address in geocodeAttempts) {
       try {
         final coordinates = await NominatimService.geocodeAddress(address);
-        if (coordinates != null && coordinates.containsKey('lat') && coordinates.containsKey('lon')) {
+        if (coordinates != null &&
+            coordinates.containsKey('lat') &&
+            coordinates.containsKey('lon')) {
           center = LatLng(coordinates['lat']!, coordinates['lon']!);
           break; // Tìm được rồi, dừng lại
         }
@@ -215,9 +223,9 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
         continue;
       }
     }
-    
+
     if (!mounted) return;
-    
+
     // Nếu vẫn không tìm được, dùng fallback dựa trên tên thành phố
     center ??= _getDefaultLocationByCity(_selectedProvince!.name);
     
@@ -225,9 +233,11 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
       _mapCenter = center;
       _isLoadingMapCenter = false;
     });
-    
+
     // Move map to center với zoom phù hợp
-    final zoom = _selectedWard != null ? 15.0 : (_selectedDistrict != null ? 13.0 : 11.0);
+    final zoom = _selectedWard != null
+        ? 15.0
+        : (_selectedDistrict != null ? 13.0 : 11.0);
     _mapController.move(center, zoom);
   }
 
@@ -236,9 +246,9 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
   LatLng _getDefaultLocationByCity(String cityName) {
     // Normalize city name để so sánh
     final normalizedName = cityName.toLowerCase().trim();
-    
+
     // Tọa độ các thành phố lớn ở Việt Nam
-    if (normalizedName.contains('hồ chí minh') || 
+    if (normalizedName.contains('hồ chí minh') ||
         normalizedName.contains('ho chi minh') ||
         normalizedName.contains('tp. hồ chí minh') ||
         normalizedName.contains('tp hồ chí minh') ||
@@ -247,29 +257,29 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
         normalizedName.contains('sai gon')) {
       return const LatLng(10.7769, 106.7009); // TP. Hồ Chí Minh
     }
-    
-    if (normalizedName.contains('hà nội') || 
+
+    if (normalizedName.contains('hà nội') ||
         normalizedName.contains('ha noi') ||
         normalizedName.contains('hanoi')) {
       return const LatLng(21.0285, 105.8542); // Hà Nội
     }
-    
-    if (normalizedName.contains('đà nẵng') || 
+
+    if (normalizedName.contains('đà nẵng') ||
         normalizedName.contains('da nang') ||
         normalizedName.contains('danang')) {
       return const LatLng(16.0544, 108.2022); // Đà Nẵng
     }
-    
-    if (normalizedName.contains('hải phòng') || 
+
+    if (normalizedName.contains('hải phòng') ||
         normalizedName.contains('hai phong')) {
       return const LatLng(20.8449, 106.6881); // Hải Phòng
     }
-    
-    if (normalizedName.contains('cần thơ') || 
+
+    if (normalizedName.contains('cần thơ') ||
         normalizedName.contains('can tho')) {
       return const LatLng(10.0452, 105.7469); // Cần Thơ
     }
-    
+
     // Mặc định: Trung tâm Việt Nam (nếu không nhận diện được)
     return const LatLng(16.0544, 108.2022); // Đà Nẵng (trung tâm địa lý)
   }
@@ -278,9 +288,9 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
   Future<void> _openMapSelector() async {
     // Center map trước khi mở
     await _centerMapOnAddress();
-    
+
     if (!mounted) return;
-    
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -377,9 +387,7 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
           // Title
           Text(
             'Địa chỉ bất động sản',
-            style: AppTextStyles.h5.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTextStyles.h5.copyWith(fontWeight: FontWeight.bold),
           ),
           const Gap(8),
           Text(
@@ -491,10 +499,7 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
             decoration: InputDecoration(
               labelText: 'Tên đường/Số nhà *',
               hintText: 'Ví dụ: 123 Nguyễn Văn A',
-              prefixIcon: const FaIcon(
-                FontAwesomeIcons.road,
-                size: 18,
-              ),
+              prefixIcon: const FaIcon(FontAwesomeIcons.road, size: 18),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -564,7 +569,7 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
                     ],
                   ),
                 ),
-                
+
                 // Map preview (small)
                 GestureDetector(
                   onTap: _openMapSelector,
@@ -586,7 +591,8 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
                           child: FlutterMap(
                             mapController: _mapController,
                             options: MapOptions(
-                              initialCenter: _mapCenter ?? const LatLng(16.0544, 108.2022),
+                              initialCenter:
+                                  _mapCenter ?? const LatLng(16.0544, 108.2022),
                               initialZoom: _mapCenter != null ? 15.0 : 10.0,
                               interactionOptions: const InteractionOptions(
                                 flags: InteractiveFlag.none,
@@ -594,7 +600,8 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
                             ),
                             children: [
                               TileLayer(
-                                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                urlTemplate:
+                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                                 userAgentPackageName: 'com.example.android_app',
                               ),
                               if (_selectedLocation != null)
@@ -615,7 +622,7 @@ class _AddressSelectionWidgetState extends State<AddressSelectionWidget> {
                             ],
                           ),
                         ),
-                        
+
                         // Overlay
                         Container(
                           decoration: BoxDecoration(
@@ -707,7 +714,8 @@ class _MapSelectorBottomSheet extends StatefulWidget {
   });
 
   @override
-  State<_MapSelectorBottomSheet> createState() => _MapSelectorBottomSheetState();
+  State<_MapSelectorBottomSheet> createState() =>
+      _MapSelectorBottomSheetState();
 }
 
 class _MapSelectorBottomSheetState extends State<_MapSelectorBottomSheet> {
@@ -743,7 +751,7 @@ class _MapSelectorBottomSheetState extends State<_MapSelectorBottomSheet> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              
+
               // Header
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -780,16 +788,13 @@ class _MapSelectorBottomSheetState extends State<_MapSelectorBottomSheet> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const FaIcon(
-                        FontAwesomeIcons.xmark,
-                        size: 20,
-                      ),
+                      icon: const FaIcon(FontAwesomeIcons.xmark, size: 20),
                     ),
                   ],
                 ),
               ),
               const Gap(16),
-              
+
               // Map
               Expanded(
                 child: FlutterMap(
@@ -805,7 +810,8 @@ class _MapSelectorBottomSheetState extends State<_MapSelectorBottomSheet> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.android_app',
                     ),
                     if (_currentSelection != null)
@@ -826,7 +832,7 @@ class _MapSelectorBottomSheetState extends State<_MapSelectorBottomSheet> {
                   ],
                 ),
               ),
-              
+
               // Confirm button
               Container(
                 padding: const EdgeInsets.all(20),
@@ -878,4 +884,3 @@ class _MapSelectorBottomSheetState extends State<_MapSelectorBottomSheet> {
     );
   }
 }
-

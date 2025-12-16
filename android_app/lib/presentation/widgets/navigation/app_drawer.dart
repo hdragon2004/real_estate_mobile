@@ -6,6 +6,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../screens/user/profile_screen.dart';
+import '../../screens/appointment/appointments_list_screen.dart';
 import '../common/user_avatar.dart';
 
 /// App Drawer - Sidebar Navigation
@@ -158,6 +159,20 @@ class _AppDrawerState extends State<AppDrawer> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const ProfileScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuItem(
+                  icon: FontAwesomeIcons.calendarDays,
+                  activeIcon: FontAwesomeIcons.calendarCheck,
+                  title: 'Lịch hẹn',
+                  onTap: () {
+                    Navigator.pop(context); // Đóng drawer
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AppointmentsListScreen(),
                       ),
                     );
                   },

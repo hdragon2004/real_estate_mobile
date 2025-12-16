@@ -5,7 +5,7 @@ import '../models/vietnam_address_model.dart';
 class VietnamAddressService {
   static final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: 'https://provinces.open-api.vn/apihttps://provinces.open-api.vn/api',
+      baseUrl: 'https://provinces.open-api.vn/api',
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       headers: {

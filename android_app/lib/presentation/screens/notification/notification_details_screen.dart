@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/repositories/notification_repository.dart';
-import '../../../core/repositories/appointment_repository.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/models/notification_model.dart';
-import '../../widgets/common/app_button.dart';
 import '../post/post_details_screen.dart';
 import '../chat/chat_screen.dart';
+import '../appointment/appointments_list_screen.dart';
 
 /// Màn hình Chi tiết thông báo
 class NotificationDetailsScreen extends StatefulWidget {
@@ -26,9 +25,7 @@ class NotificationDetailsScreen extends StatefulWidget {
 
 class _NotificationDetailsScreenState extends State<NotificationDetailsScreen> {
   final NotificationRepository _repository = NotificationRepository();
-  final AppointmentRepository _appointmentRepository = AppointmentRepository();
   bool _isMarkingAsRead = false;
-  bool _isProcessing = false;
 
   @override
   void initState() {
@@ -38,6 +35,7 @@ class _NotificationDetailsScreenState extends State<NotificationDetailsScreen> {
       _markAsRead();
     }
   }
+
 
   Future<void> _markAsRead() async {
     if (widget.notification.isRead || _isMarkingAsRead) return;
@@ -112,9 +110,15 @@ class _NotificationDetailsScreenState extends State<NotificationDetailsScreen> {
         }
         break;
       case NotificationType.appointment:
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tính năng lịch hẹn đang phát triển')),
-        );
+        // Navigate đến màn hình lịch hẹn nếu có appointmentId
+        if (widget.notification.appointmentId != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AppointmentsListScreen(),
+            ),
+          );
+        }
         break;
       case NotificationType.message:
         if (widget.notification.senderId != null && widget.notification.postId != null) {
@@ -153,109 +157,6 @@ class _NotificationDetailsScreenState extends State<NotificationDetailsScreen> {
         (widget.notification.postId != null || widget.notification.senderId != null);
   }
 
-  bool _isAppointmentRequest() {
-    // Kiểm tra xem có phải là yêu cầu lịch hẹn cần chấp nhận không
-    return widget.notification.type == NotificationType.appointment &&
-           widget.notification.appointmentId != null &&
-           widget.notification.title.contains('Yêu cầu lịch hẹn');
-  }
-
-  Future<void> _confirmAppointment() async {
-    if (widget.notification.appointmentId == null || _isProcessing) return;
-
-    setState(() => _isProcessing = true);
-
-    try {
-      await _appointmentRepository.confirmAppointment(widget.notification.appointmentId!);
-      
-      if (!mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đã chấp nhận lịch hẹn'),
-          backgroundColor: AppColors.success,
-        ),
-      );
-      
-      Navigator.pop(context); // Quay lại màn hình trước
-    } catch (e) {
-      if (!mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi chấp nhận lịch hẹn: $e'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
-    }
-  }
-
-  Future<void> _rejectAppointment() async {
-    if (widget.notification.appointmentId == null || _isProcessing) return;
-
-    // Xác nhận trước khi từ chối
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Xác nhận', style: AppTextStyles.h6),
-        content: Text(
-          'Bạn có chắc chắn muốn từ chối lịch hẹn này?',
-          style: AppTextStyles.bodyMedium,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Hủy', style: AppTextStyles.labelLarge),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              'Từ chối',
-              style: AppTextStyles.labelLarge.copyWith(
-                color: AppColors.error,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    setState(() => _isProcessing = true);
-
-    try {
-      await _appointmentRepository.rejectAppointment(widget.notification.appointmentId!);
-      
-      if (!mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đã từ chối lịch hẹn'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      
-      Navigator.pop(context); // Quay lại màn hình trước
-    } catch (e) {
-      if (!mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi từ chối lịch hẹn: $e'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -357,99 +258,47 @@ class _NotificationDetailsScreenState extends State<NotificationDetailsScreen> {
                       ),
                     ),
                   ),
-                  const Gap(24),
-                  // Nút chấp nhận/từ chối cho appointment request
-                  if (_isAppointmentRequest())
-                    Column(
-                      children: [
-                        // Nút nhắn tin với user tạo appointment
-                        if (widget.notification.senderId != null && widget.notification.postId != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: AppButton(
-                                text: 'Nhắn tin với người đặt lịch',
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ChatScreen(
-                                        chatId: '${widget.notification.senderId}_${widget.notification.postId}',
-                                        otherUserId: widget.notification.senderId,
-                                        postId: widget.notification.postId,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                icon: FontAwesomeIcons.message,
-                                isOutlined: true,
-                                textColor: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: AppButton(
-                                text: 'Chấp nhận',
-                                onPressed: _isProcessing ? null : _confirmAppointment,
-                                isLoading: _isProcessing,
-                                backgroundColor: AppColors.success,
-                              ),
-                            ),
-                            const Gap(12),
-                            Expanded(
-                              child: AppButton(
-                                text: 'Từ chối',
-                                onPressed: _isProcessing ? null : _rejectAppointment,
-                                isOutlined: true,
-                                textColor: AppColors.error,
-                                backgroundColor: Colors.transparent,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Gap(16),
-                      ],
-                    ),
-                  // Action button nếu có (cho các loại notification khác)
-                  if (!_isAppointmentRequest() && _hasAction() && _getActionButtonText().isNotEmpty)
+                  // Action button nếu có (cho các loại notification khác, không bao gồm appointment)
+                  if (widget.notification.type != NotificationType.appointment && 
+                      _hasAction() && 
+                      _getActionButtonText().isNotEmpty) ...[
+                    const Gap(24),
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
+                      child: OutlinedButton.icon(
                         onPressed: _handleAction,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: color,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        icon: FaIcon(
+                          widget.notification.type == NotificationType.property
+                              ? FontAwesomeIcons.arrowRight
+                              : widget.notification.type == NotificationType.message
+                                  ? FontAwesomeIcons.message
+                                  : FontAwesomeIcons.calendarDays,
+                          size: 16,
+                          color: color,
+                        ),
+                        label: Text(
+                          _getActionButtonText(),
+                          style: AppTextStyles.labelLarge.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
                           ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            FaIcon(
-                              widget.notification.type == NotificationType.property
-                                  ? FontAwesomeIcons.arrowRight
-                                  : widget.notification.type == NotificationType.message
-                                      ? FontAwesomeIcons.message
-                                      : FontAwesomeIcons.calendarDays,
-                              size: 16,
-                            ),
-                            const Gap(8),
-                            Text(
-                              _getActionButtonText(),
-                              style: AppTextStyles.labelLarge.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: color,
+                          side: BorderSide(
+                            color: color,
+                            width: 1.5,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                       ),
                     ),
+                  ],
                 ],
               ),
             ),

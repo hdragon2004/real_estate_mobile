@@ -134,6 +134,24 @@ class _SavedSearchScreenState extends State<SavedSearchScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: AppColors.textPrimary,
+        actions: [
+          IconButton(
+            onPressed: _showAddSavedSearchDialog,
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+                boxShadow: AppShadows.floatingButton,
+              ),
+              child: const FaIcon(
+                FontAwesomeIcons.plus,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
+        ],
       ),
       backgroundColor: Colors.white,
       body: _isLoading
@@ -160,16 +178,7 @@ class _SavedSearchScreenState extends State<SavedSearchScreen> {
                     },
                   ),
                 ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddSavedSearchDialog,
-        backgroundColor: AppColors.primary,
-        icon: const FaIcon(FontAwesomeIcons.plus, color: Colors.white),
-        label: const Text(
-          'Thêm khu vực',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
+   );
   }
 }
 

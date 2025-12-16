@@ -832,7 +832,7 @@ namespace RealEstateHubAPI.Controllers
                         a.AppointmentTime,
                         a.ReminderMinutes,
                         a.IsNotified,
-                        a.IsCanceled,
+                        Status = a.Status,
                         a.CreatedAt
                     })
                     .ToListAsync();

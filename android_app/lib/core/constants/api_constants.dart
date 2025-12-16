@@ -36,12 +36,12 @@ class ApiConstants {
   // Notification Endpoints
   static const String notifications = '/notifications';
 
+  // Appointment Endpoints
+  static const String appointments = '/appointments';
+
   // Payment Endpoints
   static const String payment = '/payment';
 
   // Saved Search Endpoints
   static const String savedSearches = '/saved-searches';
-
-  // Appointment Endpoints
-  static const String appointments = '/appointments';
 }

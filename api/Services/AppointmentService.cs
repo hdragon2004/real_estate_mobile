@@ -58,8 +58,7 @@ namespace RealEstateHubAPI.Services
                 AppointmentTime = dto.AppointmentTime,
                 ReminderMinutes = dto.ReminderMinutes,
                 IsNotified = false,
-                IsCanceled = false,
-                IsConfirmed = false, // Chưa được chấp nhận
+                Status = AppointmentStatus.PENDING, // Mặc định là PENDING khi tạo mới
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -113,8 +112,10 @@ namespace RealEstateHubAPI.Services
 
         public async Task<IEnumerable<AppointmentDto>> GetUserAppointmentsAsync(int userId)
         {
+            // Trả về TẤT CẢ appointments của user, bao gồm cả những cái bị hủy/từ chối
+            // để có thể hiển thị trong tab "Bị từ chối"
             var appointments = await _context.Appointments
-                .Where(a => a.UserId == userId && !a.IsCanceled)
+                .Where(a => a.UserId == userId)
                 .OrderBy(a => a.AppointmentTime)
                 .ToListAsync();
 
@@ -123,14 +124,26 @@ namespace RealEstateHubAPI.Services
 
         public async Task<IEnumerable<AppointmentDto>> GetPendingAppointmentsForPostOwnerAsync(int postOwnerId)
         {
-            // Lấy các appointments chưa được chấp nhận cho các bài post của user này
+            // Lấy các appointments chưa được chấp nhận (PENDING) cho các bài post của user này
             var appointments = await _context.Appointments
                 .Include(a => a.Post)
                 .Where(a => a.Post != null && 
                            a.Post.UserId == postOwnerId && 
-                           !a.IsCanceled && 
-                           !a.IsConfirmed)
+                           a.Status == AppointmentStatus.PENDING)
                 .OrderBy(a => a.CreatedAt)
+                .ToListAsync();
+
+            return appointments.Select(MapToDto);
+        }
+
+        public async Task<IEnumerable<AppointmentDto>> GetAllAppointmentsForPostOwnerAsync(int postOwnerId)
+        {
+            // Lấy TẤT CẢ appointments (PENDING, ACCEPTED, REJECTED) cho các bài post của user này
+            var appointments = await _context.Appointments
+                .Include(a => a.Post)
+                .Where(a => a.Post != null && 
+                           a.Post.UserId == postOwnerId)
+                .OrderBy(a => a.AppointmentTime)
                 .ToListAsync();
 
             return appointments.Select(MapToDto);
@@ -146,7 +159,7 @@ namespace RealEstateHubAPI.Services
                 return false;
             }
 
-            appointment.IsCanceled = true;
+            appointment.Status = AppointmentStatus.REJECTED;
             await _context.SaveChangesAsync();
 
             _logger.LogInformation($"Canceled Appointment {appointmentId} for User {userId}");
@@ -162,15 +175,14 @@ namespace RealEstateHubAPI.Services
                 .FirstOrDefaultAsync(a => a.Id == appointmentId && 
                                          a.Post != null && 
                                          a.Post.UserId == postOwnerId &&
-                                         !a.IsCanceled &&
-                                         !a.IsConfirmed);
+                                         a.Status == AppointmentStatus.PENDING);
 
             if (appointment == null)
             {
                 return false;
             }
 
-            appointment.IsConfirmed = true;
+            appointment.Status = AppointmentStatus.ACCEPTED;
             await _context.SaveChangesAsync();
 
             // Gửi thông báo cho user đã tạo appointment (appointment.UserId) rằng lịch hẹn đã được chấp nhận
@@ -223,15 +235,14 @@ namespace RealEstateHubAPI.Services
                 .FirstOrDefaultAsync(a => a.Id == appointmentId && 
                                          a.Post != null && 
                                          a.Post.UserId == postOwnerId &&
-                                         !a.IsCanceled &&
-                                         !a.IsConfirmed);
+                                         a.Status == AppointmentStatus.PENDING);
 
             if (appointment == null)
             {
                 return false;
             }
 
-            appointment.IsCanceled = true; // Đánh dấu là đã hủy
+            appointment.Status = AppointmentStatus.REJECTED;
             await _context.SaveChangesAsync();
 
             // Gửi thông báo cho user đã tạo appointment (appointment.UserId) rằng lịch hẹn đã bị từ chối
@@ -280,11 +291,10 @@ namespace RealEstateHubAPI.Services
         {
             var now = DateTime.UtcNow;
 
-            // Chỉ gửi reminder cho appointments đã được chấp nhận (IsConfirmed = true)
+            // Chỉ gửi reminder cho appointments đã được chấp nhận (ACCEPTED)
             var dueAppointments = await _context.Appointments
                 .Where(a => !a.IsNotified &&
-                           !a.IsCanceled &&
-                           a.IsConfirmed && // CHỈ gửi reminder khi đã được chấp nhận
+                           a.Status == AppointmentStatus.ACCEPTED && // CHỈ gửi reminder khi đã được chấp nhận
                            a.AppointmentTime.AddMinutes(-a.ReminderMinutes) <= now)
                 .ToListAsync();
 
@@ -303,8 +313,7 @@ namespace RealEstateHubAPI.Services
                 AppointmentTime = appointment.AppointmentTime,
                 ReminderMinutes = appointment.ReminderMinutes,
                 IsNotified = appointment.IsNotified,
-                IsCanceled = appointment.IsCanceled,
-                IsConfirmed = appointment.IsConfirmed,
+                Status = appointment.Status,
                 CreatedAt = appointment.CreatedAt
             };
         }

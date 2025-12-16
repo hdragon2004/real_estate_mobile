@@ -5,10 +5,8 @@ import 'package:gap/gap.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:intl/intl.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/repositories/post_repository.dart';
-import '../../../core/repositories/appointment_repository.dart';
 import '../../../core/services/favorite_service.dart';
 import '../../../core/services/auth_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -18,6 +16,7 @@ import '../../../core/utils/image_url_helper.dart';
 import '../../widgets/common/user_avatar.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/loading_indicator.dart';
+import '../../widgets/appointment/appointment_booking_section.dart';
 import 'image_gallery_screen.dart';
 
 /// Màn hình Chi tiết bất động sản
@@ -37,7 +36,6 @@ class PostDetailsScreen extends StatefulWidget {
 
 class _PostDetailsScreenState extends State<PostDetailsScreen> {
   final PostRepository _postRepository = PostRepository();
-  final AppointmentRepository _appointmentRepository = AppointmentRepository();
   final FavoriteService _favoriteService = FavoriteService();
   final PageController _imageController = PageController();
   final ScrollController _scrollController = ScrollController();
@@ -46,7 +44,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   PostModel? _property;
   bool _isLoading = false;
   int _currentImageIndex = 0;
-  
+
   // UI state
   bool _isDetailsExpanded = false;
   bool _isDescriptionExpanded = false;
@@ -212,7 +210,8 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
 
     // Ưu tiên 1: Sử dụng tọa độ nếu có (chính xác nhất)
     if (property.latitude != null && property.longitude != null) {
-      googleMapsUrl = 'https://maps.google.com/?q=${property.latitude},${property.longitude}';
+      googleMapsUrl =
+          'https://maps.google.com/?q=${property.latitude},${property.longitude}';
     } else {
       // Ưu tiên 2: Sử dụng fullAddress nếu có
       String address = '';
@@ -229,7 +228,8 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         if (property.wardName != null && property.wardName!.isNotEmpty) {
           parts.add(property.wardName!);
         }
-        if (property.districtName != null && property.districtName!.isNotEmpty) {
+        if (property.districtName != null &&
+            property.districtName!.isNotEmpty) {
           parts.add(property.districtName!);
         }
         if (property.cityName != null && property.cityName!.isNotEmpty) {
@@ -249,17 +249,20 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         return;
       }
       // Mở với địa chỉ - dùng format đơn giản
-      googleMapsUrl = 'https://maps.google.com/?q=${Uri.encodeComponent(address)}';
+      googleMapsUrl =
+          'https://maps.google.com/?q=${Uri.encodeComponent(address)}';
     }
 
     // Mở Google Maps
     try {
       Uri uri;
-      
+
       // Nếu có tọa độ, thử dùng geo: URI scheme cho Android (ưu tiên mở Google Maps app)
       if (property.latitude != null && property.longitude != null) {
         try {
-          uri = Uri.parse('geo:${property.latitude},${property.longitude}?q=${property.latitude},${property.longitude}');
+          uri = Uri.parse(
+            'geo:${property.latitude},${property.longitude}?q=${property.latitude},${property.longitude}',
+          );
           if (await canLaunchUrl(uri)) {
             await launchUrl(uri, mode: LaunchMode.externalApplication);
             return;
@@ -268,17 +271,17 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
           // Nếu geo: không hoạt động, fallback về https
         }
       }
-      
+
       // Dùng https URL
       uri = Uri.parse(googleMapsUrl);
-      
+
       // Thử mở với externalApplication (ưu tiên mở app)
       if (await canLaunchUrl(uri)) {
         final launched = await launchUrl(
           uri,
           mode: LaunchMode.externalApplication,
         );
-        
+
         if (!launched && mounted) {
           // Nếu không mở được app, thử mở trong browser
           await launchUrl(uri, mode: LaunchMode.platformDefault);
@@ -295,7 +298,9 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: const Text('Không thể mở Google Maps. Vui lòng cài đặt Google Maps app.'),
+                content: const Text(
+                  'Không thể mở Google Maps. Vui lòng cài đặt Google Maps app.',
+                ),
                 backgroundColor: AppColors.error,
               ),
             );
@@ -381,8 +386,16 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                 SliverToBoxAdapter(child: _buildDescription(property)),
                 SliverToBoxAdapter(child: _buildAddressAndMap(property)),
                 SliverToBoxAdapter(child: _buildFloorPlanSection(property)),
-                SliverToBoxAdapter(child: _buildAppointmentSection(property)),
                 SliverToBoxAdapter(child: _buildContactCard(property)),
+                SliverToBoxAdapter(
+                  child: AppointmentBookingSection(
+                    propertyId: property.id,
+                    propertyTitle: property.title,
+                    ownerName: property.user?.name,
+                    ownerPhone: property.user?.phone,
+                    ownerEmail: property.user?.email,
+                  ),
+                ),
                 const SliverToBoxAdapter(child: Gap(100)),
               ],
             ),
@@ -392,7 +405,6 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
       ),
     );
   }
-
 
   SliverAppBar _buildImageAppBar(
     PostModel property,
@@ -416,7 +428,11 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
             shape: BoxShape.circle,
           ),
           child: IconButton(
-            icon: const FaIcon(FontAwesomeIcons.arrowLeft, color: Colors.white, size: 18),
+            icon: const FaIcon(
+              FontAwesomeIcons.arrowLeft,
+              color: Colors.white,
+              size: 18,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -515,7 +531,9 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
             ),
             child: IconButton(
               icon: FaIcon(
-                isFavorite ? FontAwesomeIcons.solidHeart : FontAwesomeIcons.heart,
+                isFavorite
+                    ? FontAwesomeIcons.solidHeart
+                    : FontAwesomeIcons.heart,
                 color: isFavorite ? AppColors.error : Colors.white,
                 size: 18,
               ),
@@ -533,7 +551,11 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: const FaIcon(FontAwesomeIcons.share, color: Colors.white, size: 18),
+              icon: const FaIcon(
+                FontAwesomeIcons.share,
+                color: Colors.white,
+                size: 18,
+              ),
               tooltip: 'Chia sẻ',
               onPressed: () {
                 // TODO: Implement share functionality
@@ -563,100 +585,106 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(12),
             ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title
-              Text(
-                property.title,
-                style: AppTextStyles.h4.copyWith(
-                  fontWeight: FontWeight.bold,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                Text(
+                  property.title,
+                  style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.bold),
                 ),
-              ),
-              const Gap(8),
-              // Category và Status
-              Row(
-                children: [
-                  if ((property.categoryName != null && property.categoryName!.isNotEmpty) ||
-                      (property.category != null && property.category!.name.isNotEmpty))
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        property.categoryName ?? property.category?.name ?? '',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
+                const Gap(8),
+                // Category và Status
+                Row(
+                  children: [
+                    if ((property.categoryName != null &&
+                            property.categoryName!.isNotEmpty) ||
+                        (property.category != null &&
+                            property.category!.name.isNotEmpty))
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          property.categoryName ??
+                              property.category?.name ??
+                              '',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                  if ((property.categoryName != null && property.categoryName!.isNotEmpty) ||
-                      (property.category != null && property.category!.name.isNotEmpty))
-                    const SizedBox(width: 8),
-                  Text(
-                    property.transactionType == TransactionType.sale
-                        ? 'For Sale'
-                        : 'For Rent',
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              const Gap(16),
-              // Price
-              Text(
-                Formatters.formatPriceWithUnit(
-                  property.price,
-                  property.priceUnit,
-                ),
-                style: AppTextStyles.priceLarge.copyWith(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Gap(16),
-              // Key Stats: Bed, Bath, Garage
-              Row(
-                children: [
-                  if (property.soPhongNgu != null)
-                    Expanded(
-                      child: _KeyStatItem(
-                        icon: FontAwesomeIcons.bed,
-                        label: '${property.soPhongNgu} Bedrooms',
+                    if ((property.categoryName != null &&
+                            property.categoryName!.isNotEmpty) ||
+                        (property.category != null &&
+                            property.category!.name.isNotEmpty))
+                      const SizedBox(width: 8),
+                    Text(
+                      property.transactionType == TransactionType.sale
+                          ? 'For Sale'
+                          : 'For Rent',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  if (property.soPhongNgu != null && property.soPhongTam != null)
-                    const SizedBox(width: 12),
-                  if (property.soPhongTam != null)
+                  ],
+                ),
+                const Gap(16),
+                // Price
+                Text(
+                  Formatters.formatPriceWithUnit(
+                    property.price,
+                    property.priceUnit,
+                  ),
+                  style: AppTextStyles.priceLarge.copyWith(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Gap(16),
+                // Key Stats: Bed, Bath, Garage
+                Row(
+                  children: [
+                    if (property.soPhongNgu != null)
+                      Expanded(
+                        child: _KeyStatItem(
+                          icon: FontAwesomeIcons.bed,
+                          label: '${property.soPhongNgu} Bedrooms',
+                        ),
+                      ),
+                    if (property.soPhongNgu != null &&
+                        property.soPhongTam != null)
+                      const SizedBox(width: 12),
+                    if (property.soPhongTam != null)
+                      Expanded(
+                        child: _KeyStatItem(
+                          icon: FontAwesomeIcons.bath,
+                          label: '${property.soPhongTam} Bathrooms',
+                        ),
+                      ),
+                    if (property.soPhongTam != null) const SizedBox(width: 12),
                     Expanded(
                       child: _KeyStatItem(
-                        icon: FontAwesomeIcons.bath,
-                        label: '${property.soPhongTam} Bathrooms',
+                        icon: FontAwesomeIcons.car,
+                        label: '1 Garages', // TODO: Get from property data
                       ),
                     ),
-                  if (property.soPhongTam != null)
-                    const SizedBox(width: 12),
-                  Expanded(
-                    child: _KeyStatItem(
-                      icon: FontAwesomeIcons.car,
-                      label: '1 Garages', // TODO: Get from property data
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-
 
   Widget _buildDescription(PostModel property) {
     return Padding(
@@ -666,7 +694,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         children: [
           Row(
             children: [
-              Text('Description', style: AppTextStyles.h5),
+              Text('Mô tả', style: AppTextStyles.h5),
               const Spacer(),
               if (!_isDescriptionExpanded)
                 TextButton(
@@ -676,7 +704,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                     });
                   },
                   child: Text(
-                    'Read More',
+                    'Xem thêm',
                     style: AppTextStyles.labelLarge.copyWith(
                       color: AppColors.primary,
                     ),
@@ -713,7 +741,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         children: [
           Row(
             children: [
-              Text('Address', style: AppTextStyles.h5),
+              Text('Địa chỉ', style: AppTextStyles.h5),
               const Spacer(),
               // Nút mở Google Maps
               TextButton.icon(
@@ -724,7 +752,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                   color: Colors.white,
                 ),
                 label: Text(
-                  'Google Maps',
+                  'Mở Google Maps',
                   style: AppTextStyles.labelLarge.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -732,7 +760,10 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                 ),
                 style: TextButton.styleFrom(
                   backgroundColor: const Color(0xFF4285F4), // Google Maps blue
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -765,7 +796,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         children: [
           Row(
             children: [
-              Text('Floor Plans', style: AppTextStyles.h5),
+              Text('Mặt bằng', style: AppTextStyles.h5),
               const Spacer(),
               TextButton(
                 onPressed: () => _showFloorPlanSheet(property),
@@ -773,7 +804,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'View Floor Plan',
+                      'Xem mặt bằng',
                       style: AppTextStyles.labelLarge.copyWith(
                         color: AppColors.primary,
                       ),
@@ -804,10 +835,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                           color: AppColors.textSecondary,
                         ),
                         const Gap(8),
-                        Text(
-                          '670 Sqft',
-                          style: AppTextStyles.bodyMedium,
-                        ),
+                        Text('670 Sqft', style: AppTextStyles.bodyMedium),
                       ],
                     ),
                     const Gap(12),
@@ -819,10 +847,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                           color: AppColors.textSecondary,
                         ),
                         const Gap(8),
-                        Text(
-                          '\$1,600',
-                          style: AppTextStyles.bodyMedium,
-                        ),
+                        Text('\$1,600', style: AppTextStyles.bodyMedium),
                       ],
                     ),
                   ],
@@ -841,10 +866,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                           color: AppColors.textSecondary,
                         ),
                         const Gap(8),
-                        Text(
-                          '530 Sqft',
-                          style: AppTextStyles.bodyMedium,
-                        ),
+                        Text('530 Sqft', style: AppTextStyles.bodyMedium),
                       ],
                     ),
                     const Gap(12),
@@ -856,10 +878,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                           color: AppColors.textSecondary,
                         ),
                         const Gap(8),
-                        Text(
-                          '1345 Sqft',
-                          style: AppTextStyles.bodyMedium,
-                        ),
+                        Text('1345 Sqft', style: AppTextStyles.bodyMedium),
                       ],
                     ),
                   ],
@@ -902,10 +921,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                 // Title
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'Floor Plans',
-                    style: AppTextStyles.h5,
-                  ),
+                  child: Text('Floor Plans', style: AppTextStyles.h5),
                 ),
                 const Gap(16),
                 // Content
@@ -914,10 +930,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                     controller: scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     children: [
-                      Text(
-                        'First Floor',
-                        style: AppTextStyles.h6,
-                      ),
+                      Text('First Floor', style: AppTextStyles.h6),
                       const Gap(12),
                       Container(
                         height: 200,
@@ -952,7 +965,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     final pricePerSqft = property.areaSize > 0
         ? property.price / property.areaSize
         : 0.0;
-    
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
       child: Column(
@@ -960,7 +973,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         children: [
           Row(
             children: [
-              Text('Details', style: AppTextStyles.h5),
+              Text('Chi tiết', style: AppTextStyles.h5),
               const Spacer(),
               TextButton(
                 onPressed: () {
@@ -972,7 +985,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'More Details',
+                      'Xem chi tiết',
                       style: AppTextStyles.labelLarge.copyWith(
                         color: AppColors.primary,
                       ),
@@ -995,10 +1008,13 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
           const Gap(12),
           Column(
             children: [
-              _DetailRow(label: 'Property ID:', value: property.id.toString()),
+              _DetailRow(
+                label: 'Mã bất động sản:',
+                value: property.id.toString(),
+              ),
               const Gap(12),
               _DetailRow(
-                label: 'First Price:',
+                label: 'Giá chính:',
                 value: Formatters.formatPriceWithUnit(
                   property.price,
                   property.priceUnit,
@@ -1007,14 +1023,15 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
               if (hasPerM2 || pricePerSqft > 0) ...[
                 const Gap(12),
                 _DetailRow(
-                  label: 'Second Price:',
+                  label: 'Đơn giá theo diện tích:',
                   value: '\$${pricePerSqft.toStringAsFixed(0)}/sq ft',
                 ),
               ],
               const Gap(12),
               _DetailRow(
-                label: 'Property Type:',
-                value: property.categoryName ?? property.category?.name ?? 'N/A',
+                label: 'Loại bất động sản:',
+                value:
+                    property.categoryName ?? property.category?.name ?? 'N/A',
               ),
               AnimatedSize(
                 duration: const Duration(milliseconds: 300),
@@ -1029,27 +1046,48 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                           ),
                           if (property.soTang != null) ...[
                             const Gap(12),
-                            _DetailRow(label: 'Số tầng', value: '${property.soTang}'),
+                            _DetailRow(
+                              label: 'Số tầng',
+                              value: '${property.soTang}',
+                            ),
                           ],
                           if (property.duongVao != null) ...[
                             const Gap(12),
-                            _DetailRow(label: 'Đường vào', value: '${property.duongVao} m'),
+                            _DetailRow(
+                              label: 'Đường vào',
+                              value: '${property.duongVao} m',
+                            ),
                           ],
-                          if (property.huongNha != null && property.huongNha!.isNotEmpty) ...[
+                          if (property.huongNha != null &&
+                              property.huongNha!.isNotEmpty) ...[
                             const Gap(12),
-                            _DetailRow(label: 'Hướng nhà', value: property.huongNha!),
+                            _DetailRow(
+                              label: 'Hướng nhà',
+                              value: property.huongNha!,
+                            ),
                           ],
-                          if (property.huongBanCong != null && property.huongBanCong!.isNotEmpty) ...[
+                          if (property.huongBanCong != null &&
+                              property.huongBanCong!.isNotEmpty) ...[
                             const Gap(12),
-                            _DetailRow(label: 'Hướng ban công', value: property.huongBanCong!),
+                            _DetailRow(
+                              label: 'Hướng ban công',
+                              value: property.huongBanCong!,
+                            ),
                           ],
                           if (property.matTien != null) ...[
                             const Gap(12),
-                            _DetailRow(label: 'Mặt tiền', value: '${property.matTien} m'),
+                            _DetailRow(
+                              label: 'Mặt tiền',
+                              value: '${property.matTien} m',
+                            ),
                           ],
-                          if (property.phapLy != null && property.phapLy!.isNotEmpty) ...[
+                          if (property.phapLy != null &&
+                              property.phapLy!.isNotEmpty) ...[
                             const Gap(12),
-                            _DetailRow(label: 'Pháp lý', value: property.phapLy!),
+                            _DetailRow(
+                              label: 'Pháp lý',
+                              value: property.phapLy!,
+                            ),
                           ],
                         ],
                       )
@@ -1062,390 +1100,6 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     );
   }
 
-
-  Widget _buildAppointmentSection(PostModel property) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Schedule Appointment', style: AppTextStyles.h5),
-          const Gap(12),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const FaIcon(
-                        FontAwesomeIcons.calendarCheck,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
-                    ),
-                    const Gap(12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Đặt lịch xem bất động sản',
-                            style: AppTextStyles.h6.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Gap(4),
-                          Text(
-                            'Chọn thời gian phù hợp để xem trực tiếp',
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const Gap(16),
-                AppButton(
-                  text: 'Tạo lịch hẹn',
-                  onPressed: () => _showCreateAppointmentDialog(property),
-                  icon: FontAwesomeIcons.calendarPlus,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showCreateAppointmentDialog(PostModel property) async {
-    // Kiểm tra đăng nhập
-    final userId = await AuthStorageService.getUserId();
-    if (userId == null) {
-      if (!mounted) return;
-      _showLoginRequiredDialog(
-        'Bạn cần đăng nhập để tạo lịch hẹn.',
-      );
-      return;
-    }
-
-    if (!mounted) return;
-    // Lưu context từ widget state để dùng sau khi đóng dialog
-    final widgetContextForDialog = context;
-
-    final titleController = TextEditingController(text: 'Xem ${property.title}');
-    final descriptionController = TextEditingController();
-    DateTime? selectedDate;
-    TimeOfDay? selectedTime;
-    int reminderMinutes = 30; // Mặc định nhắc nhở 30 phút trước
-
-    if (!mounted) return;
-    final dialogContextForShow = context; // Lưu ngay trước await
-    await showDialog(
-      context: dialogContextForShow,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text('Tạo lịch hẹn', style: AppTextStyles.h5),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: titleController,
-                  decoration: InputDecoration(
-                    labelText: 'Tiêu đề',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const Gap(16),
-                TextField(
-                  controller: descriptionController,
-                  decoration: InputDecoration(
-                    labelText: 'Ghi chú (tùy chọn)',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  maxLines: 3,
-                ),
-                const Gap(16),
-                // Chọn ngày
-                InkWell(
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now().add(const Duration(days: 1)),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                    );
-                    if (date != null) {
-                      setDialogState(() {
-                        selectedDate = date;
-                      });
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.border),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const FaIcon(
-                          FontAwesomeIcons.calendar,
-                          color: AppColors.primary,
-                          size: 18,
-                        ),
-                        const Gap(12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Ngày',
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              const Gap(4),
-                              Text(
-                                selectedDate != null
-                                    ? DateFormat('dd/MM/yyyy').format(selectedDate!)
-                                    : 'Chọn ngày',
-                                style: AppTextStyles.bodyMedium,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Gap(12),
-                // Chọn giờ
-                InkWell(
-                  onTap: () async {
-                    final time = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay.now(),
-                    );
-                    if (time != null) {
-                      setDialogState(() {
-                        selectedTime = time;
-                      });
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.border),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const FaIcon(
-                          FontAwesomeIcons.clock,
-                          color: AppColors.primary,
-                          size: 18,
-                        ),
-                        const Gap(12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Giờ',
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              const Gap(4),
-                              Text(
-                                selectedTime != null
-                                    ? selectedTime!.format(context)
-                                    : 'Chọn giờ',
-                                style: AppTextStyles.bodyMedium,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Gap(16),
-                // Chọn thời gian nhắc nhở
-                Text(
-                  'Nhắc nhở trước',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Gap(8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ChoiceChip(
-                        label: const Text('15 phút'),
-                        selected: reminderMinutes == 15,
-                        onSelected: (selected) {
-                          if (selected) {
-                            setDialogState(() => reminderMinutes = 15);
-                          }
-                        },
-                      ),
-                    ),
-                    const Gap(8),
-                    Expanded(
-                      child: ChoiceChip(
-                        label: const Text('30 phút'),
-                        selected: reminderMinutes == 30,
-                        onSelected: (selected) {
-                          if (selected) {
-                            setDialogState(() => reminderMinutes = 30);
-                          }
-                        },
-                      ),
-                    ),
-                    const Gap(8),
-                    Expanded(
-                      child: ChoiceChip(
-                        label: const Text('1 giờ'),
-                        selected: reminderMinutes == 60,
-                        onSelected: (selected) {
-                          if (selected) {
-                            setDialogState(() => reminderMinutes = 60);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Hủy', style: AppTextStyles.labelLarge),
-            ),
-            AppButton(
-              text: 'Tạo lịch hẹn',
-              onPressed: () async {
-                // Lưu context từ builder để sử dụng trong dialog
-                final builderContext = context;
-                // Lưu widgetContext từ widget state (đã được lưu ở hàm cha) để dùng sau khi đóng dialog
-                final currentWidgetContext = widgetContextForDialog;
-                
-                if (selectedDate == null || selectedTime == null) {
-                  ScaffoldMessenger.of(builderContext).showSnackBar(
-                    const SnackBar(
-                      content: Text('Vui lòng chọn ngày và giờ'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                  return;
-                }
-
-                // Kết hợp ngày và giờ
-                final appointmentDateTime = DateTime(
-                  selectedDate!.year,
-                  selectedDate!.month,
-                  selectedDate!.day,
-                  selectedTime!.hour,
-                  selectedTime!.minute,
-                );
-
-                // Kiểm tra thời gian phải trong tương lai
-                if (appointmentDateTime.isBefore(DateTime.now())) {
-                  ScaffoldMessenger.of(builderContext).showSnackBar(
-                    const SnackBar(
-                      content: Text('Thời gian phải trong tương lai'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                  return;
-                }
-
-                Navigator.pop(builderContext);
-
-                // Hiển thị loading - lưu context ngay trước khi sử dụng
-                if (!mounted) return;
-                final loadingDialogContext = currentWidgetContext;
-                showDialog(
-                  context: loadingDialogContext,
-                  barrierDismissible: false,
-                  builder: (context) => const Center(
-                    child: LoadingIndicator(),
-                  ),
-                );
-
-                try {
-                  await _appointmentRepository.createAppointment(
-                    postId: property.id,
-                    title: titleController.text.trim(),
-                    description: descriptionController.text.trim().isEmpty
-                        ? null
-                        : descriptionController.text.trim(),
-                    appointmentTime: appointmentDateTime,
-                    reminderMinutes: reminderMinutes,
-                  );
-
-                  // Lưu context ngay trước khi sử dụng sau async
-                  if (!mounted) return;
-                  final successContext = currentWidgetContext;
-                  Navigator.pop(successContext); // Đóng loading
-
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(successContext).showSnackBar(
-                    const SnackBar(
-                      content: Text('Đã tạo lịch hẹn thành công'),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                } catch (e) {
-                  // Lưu context ngay trước khi sử dụng sau async
-                  if (!mounted) return;
-                  final errorContext = currentWidgetContext;
-                  Navigator.pop(errorContext); // Đóng loading
-
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(errorContext).showSnackBar(
-                    SnackBar(
-                      content: Text('Lỗi tạo lịch hẹn: $e'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildContactCard(PostModel property) {
     final user = property.user;
     return Padding(
@@ -1453,69 +1107,69 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Contact Information', style: AppTextStyles.h5),
+          Text('Thông tin liên hệ', style: AppTextStyles.h5),
           const Gap(16),
           Row(
-              children: [
-                UserAvatarWithFallback(
-                  avatarUrl: user?.avatarUrl,
-                  name: user?.name ?? 'User',
-                  radius: 32,
-                  fontSize: 20,
-                ),
-                const Gap(16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user?.name ?? 'Agent',
-                        style: AppTextStyles.h6.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+            children: [
+              UserAvatarWithFallback(
+                avatarUrl: user?.avatarUrl,
+                name: user?.name ?? 'Người dùng',
+                radius: 32,
+                fontSize: 20,
+              ),
+              const Gap(16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user?.name ?? 'Môi giới',
+                      style: AppTextStyles.h6.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                      const Gap(4),
-                      Text(
-                        user?.role ?? 'Agent',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                    ),
+                    const Gap(4),
+                    Text(
+                      user?.role ?? 'Môi giới',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () => _launchMail(user?.email),
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const FaIcon(
+                    FontAwesomeIcons.envelope,
+                    color: AppColors.primary,
+                    size: 18,
                   ),
                 ),
-                IconButton(
-                  onPressed: () => _launchMail(user?.email),
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const FaIcon(
-                      FontAwesomeIcons.envelope,
-                      color: AppColors.primary,
-                      size: 18,
-                    ),
+              ),
+              IconButton(
+                onPressed: () => _launchPhone(user?.phone),
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const FaIcon(
+                    FontAwesomeIcons.phone,
+                    color: AppColors.success,
+                    size: 18,
                   ),
                 ),
-                IconButton(
-                  onPressed: () => _launchPhone(user?.phone),
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const FaIcon(
-                      FontAwesomeIcons.phone,
-                      color: AppColors.success,
-                      size: 18,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1542,9 +1196,7 @@ class _DetailRow extends StatelessWidget {
         ),
         Text(
           value,
-          style: AppTextStyles.bodyMedium.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
+          style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w500),
         ),
       ],
     );
@@ -1555,10 +1207,7 @@ class _KeyStatItem extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const _KeyStatItem({
-    required this.icon,
-    required this.label,
-  });
+  const _KeyStatItem({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -1571,11 +1220,7 @@ class _KeyStatItem extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          FaIcon(
-            icon,
-            size: 16,
-            color: AppColors.textSecondary,
-          ),
+          FaIcon(icon, size: 16, color: AppColors.textSecondary),
           const Gap(8),
           Flexible(
             child: Text(
@@ -1592,4 +1237,3 @@ class _KeyStatItem extends StatelessWidget {
     );
   }
 }
-

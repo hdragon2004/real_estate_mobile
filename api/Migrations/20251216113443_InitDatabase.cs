@@ -194,8 +194,7 @@ namespace RealEstateHubAPI.Migrations
                     AppointmentTime = table.Column<DateTime>(type: "datetime2", nullable: false),
                     ReminderMinutes = table.Column<int>(type: "int", nullable: false),
                     IsNotified = table.Column<bool>(type: "bit", nullable: false),
-                    IsCanceled = table.Column<bool>(type: "bit", nullable: false),
-                    IsConfirmed = table.Column<bool>(type: "bit", nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>

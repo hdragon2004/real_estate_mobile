@@ -313,12 +313,6 @@ namespace RealEstateHubAPI.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
-                    b.Property<bool>("IsCanceled")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsConfirmed")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("IsNotified")
                         .HasColumnType("bit");
 
@@ -326,6 +320,9 @@ namespace RealEstateHubAPI.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("ReminderMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
                         .HasColumnType("int");
 
                     b.Property<string>("Title")

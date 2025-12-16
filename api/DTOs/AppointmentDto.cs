@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using RealEstateHubAPI.Models;
 
 namespace RealEstateHubAPI.DTOs
 {
@@ -33,8 +34,7 @@ namespace RealEstateHubAPI.DTOs
         public DateTime AppointmentTime { get; set; }
         public int ReminderMinutes { get; set; }
         public bool IsNotified { get; set; }
-        public bool IsCanceled { get; set; }
-        public bool IsConfirmed { get; set; }
+        public AppointmentStatus Status { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime ReminderTime => AppointmentTime.AddMinutes(-ReminderMinutes);
     }

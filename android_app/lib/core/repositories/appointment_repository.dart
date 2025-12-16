@@ -66,6 +66,20 @@ class AppointmentRepository {
     }
   }
 
+  /// Lấy TẤT CẢ appointments cho các bài post của user hiện tại (cho chủ bài post)
+  Future<List<Map<String, dynamic>>> getAllAppointmentsForMyPosts() async {
+    try {
+      final response = await _apiClient.get('${ApiConstants.appointments}/for-my-posts');
+      
+      if (response is List) {
+        return response.cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Chấp nhận appointment
   Future<void> confirmAppointment(int appointmentId) async {
     try {
@@ -79,6 +93,16 @@ class AppointmentRepository {
   Future<void> rejectAppointment(int appointmentId) async {
     try {
       await _apiClient.put('${ApiConstants.appointments}/$appointmentId/reject');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Lấy chi tiết appointment theo ID
+  Future<Map<String, dynamic>> getAppointmentById(int appointmentId) async {
+    try {
+      final response = await _apiClient.get('${ApiConstants.appointments}/$appointmentId');
+      return response as Map<String, dynamic>;
     } catch (e) {
       rethrow;
     }

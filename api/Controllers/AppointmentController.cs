@@ -146,6 +146,29 @@ namespace RealEstateHubAPI.Controllers
             }
         }
 
+        [HttpGet("for-my-posts")]
+        [ProducesResponseType(typeof(IEnumerable<AppointmentDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> GetAllAppointmentsForMyPosts()
+        {
+            try
+            {
+                var userId = GetUserId();
+                if (!userId.HasValue)
+                {
+                    return Unauthorized("User ID not found in token");
+                }
+
+                var appointments = await _appointmentService.GetAllAppointmentsForPostOwnerAsync(userId.Value);
+                return Ok(appointments);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting appointments for my posts");
+                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+            }
+        }
+
         [HttpPut("{id}/confirm")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
