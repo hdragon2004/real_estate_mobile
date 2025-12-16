@@ -1,9 +1,11 @@
 import '../network/api_client.dart';
 import '../constants/api_constants.dart';
 
+
 class AppointmentRepository {
   final ApiClient _apiClient = ApiClient();
 
+<<<<<<< HEAD
   /// Tạo appointment mới
   Future<Map<String, dynamic>> createAppointment({
     required int postId,
