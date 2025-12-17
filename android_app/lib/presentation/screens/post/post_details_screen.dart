@@ -18,6 +18,8 @@ import '../../widgets/common/app_button.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/appointment/appointment_booking_section.dart';
 import 'image_gallery_screen.dart';
+import 'post_owner_screen.dart';
+import '../chat/chat_screen.dart';
 
 /// Màn hình Chi tiết bất động sản
 class PostDetailsScreen extends StatefulWidget {
@@ -109,6 +111,99 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     HapticFeedback.lightImpact();
     await _favoriteService.toggleFavorite(property, userId);
     setState(() {});
+  }
+
+  /// Navigate đến màn hình chat với chủ bài post
+  Future<void> _navigateToChat(PostModel property) async {
+    // Kiểm tra đăng nhập trước khi chat
+    final currentUserId = await AuthStorageService.getUserId();
+    if (currentUserId == null) {
+      _showLoginRequiredDialog(
+        'Bạn cần đăng nhập để nhắn tin với chủ bài đăng.',
+      );
+      return;
+    }
+
+    // Kiểm tra user có phải là chủ bài post không
+    if (property.userId == currentUserId) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bạn không thể nhắn tin với chính mình'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    // Lấy thông tin chủ bài post
+    final postOwnerId = property.userId;
+    final postOwnerName = property.user?.name;
+    final postOwnerAvatar = property.user?.avatarUrl;
+
+    // Tạo địa chỉ đầy đủ từ các thành phần
+    final addressParts = <String>[];
+    if (property.streetName.isNotEmpty) {
+      addressParts.add(property.streetName);
+    }
+    if (property.wardName != null && property.wardName!.isNotEmpty) {
+      addressParts.add(property.wardName!);
+    }
+    if (property.districtName != null && property.districtName!.isNotEmpty) {
+      addressParts.add(property.districtName!);
+    }
+    if (property.cityName != null && property.cityName!.isNotEmpty) {
+      addressParts.add(property.cityName!);
+    }
+    // Tạo địa chỉ đầy đủ từ các thành phần
+    String? fullAddress;
+    if (property.fullAddress != null && property.fullAddress!.isNotEmpty) {
+      // Ưu tiên dùng fullAddress từ Google Maps nếu có
+      fullAddress = property.fullAddress;
+    } else {
+      // Nếu không có, tạo từ các thành phần
+      final addressParts = <String>[];
+      if (property.streetName.isNotEmpty) {
+        addressParts.add(property.streetName);
+      }
+      if (property.wardName != null && property.wardName!.isNotEmpty) {
+        addressParts.add(property.wardName!);
+      }
+      if (property.districtName != null && property.districtName!.isNotEmpty) {
+        addressParts.add(property.districtName!);
+      }
+      if (property.cityName != null && property.cityName!.isNotEmpty) {
+        addressParts.add(property.cityName!);
+      }
+      fullAddress = addressParts.isNotEmpty ? addressParts.join(', ') : null;
+    }
+
+    // Tạo ConversationId chỉ từ userId (không có postId)
+    final minId = currentUserId < postOwnerId 
+        ? currentUserId 
+        : postOwnerId;
+    final maxId = currentUserId > postOwnerId 
+        ? currentUserId 
+        : postOwnerId;
+    final conversationId = '$minId' '_' '$maxId';
+
+    // Navigate đến ChatScreen
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+          chatId: conversationId,
+          otherUserId: postOwnerId,
+          postId: property.id, // Vẫn truyền để hiển thị thông tin post và gửi message tự động
+          userName: postOwnerName,
+          userAvatar: postOwnerAvatar,
+          postTitle: property.title,
+          postPrice: property.price,
+          postAddress: fullAddress,
+        ),
+      ),
+    );
   }
 
   Future<void> _showLoginRequiredDialog(String message) async {
@@ -542,7 +637,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
             ),
           ),
         ),
-        // Share button với overlay
+        // Chat button với overlay
         SafeArea(
           child: Container(
             margin: const EdgeInsets.only(right: 8, top: 8),
@@ -552,14 +647,12 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
             ),
             child: IconButton(
               icon: const FaIcon(
-                FontAwesomeIcons.share,
+                FontAwesomeIcons.message,
                 color: Colors.white,
                 size: 18,
               ),
-              tooltip: 'Chia sẻ',
-              onPressed: () {
-                // TODO: Implement share functionality
-              },
+              tooltip: 'Chat',
+              onPressed: () => _navigateToChat(property),
             ),
           ),
         ),
@@ -1109,66 +1202,87 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         children: [
           Text('Thông tin liên hệ', style: AppTextStyles.h5),
           const Gap(16),
-          Row(
-            children: [
-              UserAvatarWithFallback(
-                avatarUrl: user?.avatarUrl,
-                name: user?.name ?? 'Người dùng',
-                radius: 32,
-                fontSize: 20,
-              ),
-              const Gap(16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      user?.name ?? 'Môi giới',
-                      style: AppTextStyles.h6.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+          InkWell(
+            onTap: () {
+              if (user != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PostOwnerScreen(
+                      userId: property.userId,
+                      userName: user.name,
+                      userAvatar: user.avatarUrl,
+                      userEmail: user.email,
+                      userPhone: user.phone,
+                      userRole: user.role,
+                      postId: property.id,
                     ),
-                    const Gap(4),
-                    Text(
-                      user?.role ?? 'Môi giới',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
+                  ),
+                );
+              }
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Row(
+              children: [
+                UserAvatarWithFallback(
+                  avatarUrl: user?.avatarUrl,
+                  name: user?.name ?? 'Người dùng',
+                  radius: 32,
+                  fontSize: 20,
+                ),
+                const Gap(16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user?.name ?? 'Môi giới',
+                        style: AppTextStyles.h6.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
+                      const Gap(4),
+                      Text(
+                        user?.role ?? 'Môi giới',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => _launchMail(user?.email),
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                ),
-              ),
-              IconButton(
-                onPressed: () => _launchMail(user?.email),
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const FaIcon(
-                    FontAwesomeIcons.envelope,
-                    color: AppColors.primary,
-                    size: 18,
+                    child: const FaIcon(
+                      FontAwesomeIcons.envelope,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
                   ),
                 ),
-              ),
-              IconButton(
-                onPressed: () => _launchPhone(user?.phone),
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const FaIcon(
-                    FontAwesomeIcons.phone,
-                    color: AppColors.success,
-                    size: 18,
+                IconButton(
+                  onPressed: () => _launchPhone(user?.phone),
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const FaIcon(
+                      FontAwesomeIcons.phone,
+                      color: AppColors.success,
+                      size: 18,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

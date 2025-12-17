@@ -240,28 +240,21 @@ class _PostUserScreenState extends State<PostUserScreen>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       itemCount: posts.length,
       itemBuilder: (context, index) {
         final post = posts[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PostDetailsScreen(propertyId: post.id.toString()),
-                ),
-              );
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
+        final isLastItem = index == posts.length - 1;
+        final isFirstItem = index == 0;
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(
+                top: isFirstItem ? 8 : 8,
+                bottom: 8,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -346,7 +339,14 @@ class _PostUserScreenState extends State<PostUserScreen>
                 ],
               ),
             ),
-          ),
+            // Divider line giữa các card (không hiển thị ở item cuối)
+            if (!isLastItem)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.divider,
+              ),
+          ],
         );
       },
     );

@@ -49,6 +49,13 @@ namespace RealEstateHubAPI.Controllers
             return null;
         }
 
+        private string GenerateConversationId(int user1Id, int user2Id)
+        {
+            var minId = Math.Min(user1Id, user2Id);
+            var maxId = Math.Max(user1Id, user2Id);
+            return $"{minId}_{maxId}";
+        }
+
         /// <summary>
         /// POST /api/messages
         /// Gửi tin nhắn đến một user (thường là chủ bài đăng)
@@ -103,12 +110,16 @@ namespace RealEstateHubAPI.Controllers
                     return BadRequest("Message content cannot be empty");
                 }
 
+                // Tạo ConversationId để định danh cho đoạn chat (chỉ dùng SenderId và ReceiverId)
+                var conversationId = GenerateConversationId(senderId.Value, dto.ReceiverId);
+
                 // Lưu tin nhắn vào database
                 var message = new Message
                 {
                     SenderId = senderId.Value,
                     ReceiverId = dto.ReceiverId,
                     PostId = dto.PostId ?? 0, // Nếu không có PostId, dùng 0
+                    ConversationId = conversationId,
                     Content = dto.Content,
                     SentTime = DateTime.UtcNow
                 };
@@ -132,6 +143,7 @@ namespace RealEstateHubAPI.Controllers
                     PostId = dto.PostId,
                     PostTitle = post?.Title,
                     PostUserName = post?.User?.Name,
+                    ConversationId = conversationId,
                     Content = message.Content,
                     SentTime = message.SentTime
                 };
@@ -208,17 +220,15 @@ namespace RealEstateHubAPI.Controllers
                     .Include(m => m.Post)
                         .ThenInclude(p => p.User)
                     .Where(m => m.SenderId == userId.Value || m.ReceiverId == userId.Value)
-                    .GroupBy(m => new 
-                    { 
-                        PostId = m.PostId,
-                        OtherUserId = m.SenderId == userId.Value ? m.ReceiverId : m.SenderId
-                    })
+                    .GroupBy(m => m.ConversationId)
                     .Select(g => new ConversationDto
                     {
-                        PostId = g.Key.PostId,
-                        OtherUserId = g.Key.OtherUserId,
-                        PostTitle = g.First().Post != null ? g.First().Post.Title : null,
-                        PostUserName = g.First().Post != null && g.First().Post.User != null ? g.First().Post.User.Name : null,
+                        PostId = null, // Không còn group theo PostId nữa
+                        OtherUserId = g.First().SenderId == userId.Value 
+                            ? g.First().ReceiverId 
+                            : g.First().SenderId,
+                        PostTitle = null, // Có thể có nhiều post trong 1 conversation
+                        PostUserName = null,
                         OtherUserName = g.First().SenderId == userId.Value 
                             ? g.First().Receiver.Name 
                             : g.First().Sender.Name,
@@ -232,8 +242,11 @@ namespace RealEstateHubAPI.Controllers
                             SenderName = g.OrderByDescending(m => m.SentTime).First().Sender.Name,
                             ReceiverId = g.OrderByDescending(m => m.SentTime).First().ReceiverId,
                             ReceiverName = g.OrderByDescending(m => m.SentTime).First().Receiver.Name,
-                            PostId = g.Key.PostId,
-                            PostTitle = g.First().Post != null ? g.First().Post.Title : null,
+                            PostId = g.OrderByDescending(m => m.SentTime).First().PostId,
+                            PostTitle = g.OrderByDescending(m => m.SentTime).First().Post != null 
+                                ? g.OrderByDescending(m => m.SentTime).First().Post.Title 
+                                : null,
+                            ConversationId = g.Key,
                             Content = g.OrderByDescending(m => m.SentTime).First().Content,
                             SentTime = g.OrderByDescending(m => m.SentTime).First().SentTime
                         },
@@ -252,12 +265,12 @@ namespace RealEstateHubAPI.Controllers
         }
 
         /// <summary>
-        /// GET /api/messages/conversation/{otherUserId}?postId={postId}
-        /// Lấy lịch sử chat với một user cụ thể (có thể liên quan đến một post)
+        /// GET /api/messages/conversation/{otherUserId}
+        /// Lấy lịch sử chat với một user cụ thể (theo ConversationId, có thể chứa nhiều PostId)
         /// </summary>
         [HttpGet("conversation/{otherUserId}")]
         [ProducesResponseType(typeof(IEnumerable<MessageDto>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetConversation(int otherUserId, [FromQuery] int? postId = null)
+        public async Task<IActionResult> GetConversation(int otherUserId)
         {
             try
             {
@@ -267,22 +280,15 @@ namespace RealEstateHubAPI.Controllers
                     return Unauthorized("User not authenticated");
                 }
 
-                var query = _context.Messages
+                // Tạo ConversationId từ 2 userId
+                var conversationId = GenerateConversationId(userId.Value, otherUserId);
+
+                var messages = await _context.Messages
                     .Include(m => m.Sender)
                     .Include(m => m.Receiver)
                     .Include(m => m.Post)
                         .ThenInclude(p => p.User)
-                    .Where(m => 
-                        ((m.SenderId == userId.Value && m.ReceiverId == otherUserId) ||
-                         (m.SenderId == otherUserId && m.ReceiverId == userId.Value)));
-
-                // Nếu có postId, filter theo post
-                if (postId.HasValue)
-                {
-                    query = query.Where(m => m.PostId == postId.Value);
-                }
-
-                var messages = await query
+                    .Where(m => m.ConversationId == conversationId)
                     .OrderBy(m => m.SentTime)
                     .Select(m => new MessageDto
                     {
@@ -296,6 +302,7 @@ namespace RealEstateHubAPI.Controllers
                         PostId = m.PostId,
                         PostTitle = m.Post != null ? m.Post.Title : null,
                         PostUserName = m.Post != null && m.Post.User != null ? m.Post.User.Name : null,
+                        ConversationId = m.ConversationId,
                         Content = m.Content,
                         SentTime = m.SentTime
                     })

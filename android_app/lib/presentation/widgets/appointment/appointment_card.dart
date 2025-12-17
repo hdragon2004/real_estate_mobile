@@ -4,7 +4,6 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../../core/theme/app_shadows.dart';
 
 /// Widget card hiển thị thông tin lịch hẹn
 /// Tái sử dụng để tránh lặp code
@@ -15,6 +14,7 @@ class AppointmentCard extends StatelessWidget {
   final VoidCallback? onReject;
   final VoidCallback? onNavigateToChat; // Callback để nhắn tin
   final VoidCallback? onViewPost; // Callback để xem chi tiết bài post
+  final bool isFirstItem; // Item đầu tiên trong danh sách
 
   const AppointmentCard({
     super.key,
@@ -24,6 +24,7 @@ class AppointmentCard extends StatelessWidget {
     this.onReject,
     this.onNavigateToChat,
     this.onViewPost,
+    this.isFirstItem = false,
   });
 
   /// Lấy status của appointment
@@ -123,22 +124,14 @@ class AppointmentCard extends StatelessWidget {
     final showActionButtons =
         status == 'pending' && appointmentStatus == 'PENDING';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.card,
-        border: Border.all(
-          color: AppColors.border,
-          width: 1,
-        ),
+    return Padding(
+      padding: EdgeInsets.only(
+        top: isFirstItem ? 8 : 8,
+        bottom: 8,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             // Header với status và button nhắn tin
             Row(
               children: [
@@ -248,103 +241,120 @@ class AppointmentCard extends StatelessWidget {
               ),
             ],
             const Gap(8),
-            // Thông tin thời gian
+            // Thông tin thời gian và nhắc nhở bên trái, button bên phải
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const FaIcon(
-                  FontAwesomeIcons.calendarDays,
-                  size: 14,
-                  color: AppColors.primary,
-                ),
-                const Gap(6),
-                Text(
-                  _formatDateTime(
-                    appointment['appointmentTime']?.toString(),
+                // Bên trái: Ngày (trên) và nhắc nhở (dưới)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Thông tin thời gian (ngày)
+                      Row(
+                        children: [
+                          const FaIcon(
+                            FontAwesomeIcons.calendarDays,
+                            size: 14,
+                            color: AppColors.primary,
+                          ),
+                          const Gap(6),
+                          Flexible(
+                            child: Text(
+                              _formatDateTime(
+                                appointment['appointmentTime']?.toString(),
+                              ),
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Thông tin nhắc nhở (dưới ngày)
+                      if (appointment['reminderMinutes'] != null) ...[
+                        const Gap(6),
+                        Row(
+                          children: [
+                            const FaIcon(
+                              FontAwesomeIcons.bell,
+                              size: 14,
+                              color: AppColors.textSecondary,
+                            ),
+                            const Gap(6),
+                            Flexible(
+                              child: Text(
+                                'Nhắc nhở: ${appointment['reminderMinutes']} phút trước',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
                   ),
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 13,
-                  ),
                 ),
+                // Bên phải: 2 button tròn (Từ chối và Chấp nhận)
+                if (showActionButtons && onReject != null && onConfirm != null) ...[
+                  const Gap(12),
+                  // Button Từ chối (hình tròn, icon X)
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onReject,
+                      borderRadius: BorderRadius.circular(23),
+                      child: Container(
+                        width: 45,
+                        height: 45,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.error,
+                            width: 1.5,
+                          ),
+                          color: Colors.white,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 23,
+                          color: AppColors.error,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Gap(15),
+                  // Button Chấp nhận (hình tròn, icon tích)
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onConfirm,
+                      borderRadius: BorderRadius.circular(23),
+                      child: Container(
+                        width: 45,
+                        height: 45,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.success,
+                        ),
+                        child: const Icon(
+                          Icons.check,
+                          size: 23,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
-            if (appointment['reminderMinutes'] != null) ...[
-              const Gap(6),
-              Row(
-                children: [
-                  const FaIcon(
-                    FontAwesomeIcons.bell,
-                    size: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                  const Gap(6),
-                  Text(
-                    'Nhắc nhở: ${appointment['reminderMinutes']} phút trước',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            const Gap(8),
-            // 2 button "Từ chối" và "Đồng ý" chỉ hiển thị ở tab "Chờ xác nhận" (pending)
-            if (showActionButtons && onReject != null && onConfirm != null)
-              Row(
-                children: [
-                  // Button Từ chối (bên trái)
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: onReject,
-                      icon: const FaIcon(
-                        FontAwesomeIcons.xmark,
-                        size: 12,
-                      ),
-                      label: const Text(
-                        'Từ chối',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.error,
-                        side: BorderSide(
-                          color: AppColors.error.withValues(alpha: 0.5),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Gap(8),
-                  // Button Đồng ý (bên phải)
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: onConfirm,
-                      icon: const FaIcon(
-                        FontAwesomeIcons.check,
-                        size: 12,
-                      ),
-                      label: const Text(
-                        'Đồng ý',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.success,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
           ],
         ),
-      ),
     );
   }
 }

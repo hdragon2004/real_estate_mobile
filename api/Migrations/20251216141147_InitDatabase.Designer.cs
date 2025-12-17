@@ -12,7 +12,7 @@ using RealEstateHubAPI.Model;
 namespace RealEstateHubAPI.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251216113443_InitDatabase")]
+    [Migration("20251216141147_InitDatabase")]
     partial class InitDatabase
     {
         /// <inheritdoc />
@@ -73,6 +73,10 @@ namespace RealEstateHubAPI.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ConversationId")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 

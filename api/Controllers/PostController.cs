@@ -891,25 +891,36 @@ namespace RealEstateHubAPI.Controllers
         }
 
         /// <summary>
-        /// Lấy tất cả bài viết của user (bao gồm cả đã duyệt, đợi duyệt, và bị từ chối)
-        /// User có thể xem tất cả bài viết của mình và trạng thái của chúng
+        /// Lấy bài viết của user
+        /// - Nếu user xem bài viết của chính mình: trả về tất cả (đã duyệt, đợi duyệt, bị từ chối)
+        /// - Nếu user xem bài viết của user khác: chỉ trả về các bài đã duyệt (Active)
         /// </summary>
         [HttpGet("user/{userId}")]
         [Authorize]
         public async Task<IActionResult> GetPostsByUser(int userId)
         {
-            // Kiểm tra user chỉ có thể xem bài viết của chính mình
             var currentUserId = GetUserId();
-            if (!currentUserId.HasValue || currentUserId.Value != userId)
+            if (!currentUserId.HasValue)
             {
                 return Forbid("Bạn chỉ có thể xem bài viết của chính mình");
             }
 
-            var posts = await _context.Posts          
+            var isOwnPosts = currentUserId.Value == userId;
+
+            var query = _context.Posts
                 .Include(p => p.Images)
                 .Include(p => p.Category)
                 .Include(p => p.User)
-                .Where(p => p.UserId == userId)
+                .Where(p => p.UserId == userId);
+
+            // Nếu không phải bài viết của chính mình, chỉ hiển thị các bài đã duyệt (Active)
+            if (!isOwnPosts)
+            {
+                var oneDayAgo = DateTime.Now.AddDays(-1);
+                query = query.Where(p => p.Status == "Active" && (p.ExpiryDate == null || p.ExpiryDate > oneDayAgo));
+            }
+
+            var posts = await query
                 .OrderByDescending(p => p.Created)
                 .ToListAsync();
               

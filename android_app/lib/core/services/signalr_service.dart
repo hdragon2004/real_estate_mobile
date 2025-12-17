@@ -133,16 +133,26 @@ class SignalRService {
           .build();
 
       // Đăng ký callback để nhận messages
+      // Backend gửi MessageDto object qua SignalR event "ReceiveMessage"
       _messageHub!.on('ReceiveMessage', (arguments) {
         try {
-          if (arguments != null && arguments.length >= 2) {
-            final fromUserId = arguments[0].toString();
-            final message = arguments[1].toString();
-            debugPrint('[SignalR] Received message from $fromUserId: $message');
-            onMessageReceived?.call({
-              'fromUserId': fromUserId,
-              'message': message,
-            });
+          if (arguments != null && arguments.isNotEmpty) {
+            // Backend gửi MessageDto object (1 argument)
+            final messageData = arguments[0];
+            Map<String, dynamic> messageMap;
+            
+            if (messageData is Map) {
+              messageMap = Map<String, dynamic>.from(messageData);
+            } else if (messageData is String) {
+              messageMap = json.decode(messageData) as Map<String, dynamic>;
+            } else {
+              debugPrint('[SignalR] Unknown message format: $messageData');
+              return;
+            }
+            
+            debugPrint('[SignalR] Received message: $messageMap');
+            // Gọi callback với MessageDto đầy đủ
+            onMessageReceived?.call(messageMap);
           }
         } catch (e) {
           debugPrint('[SignalR] Error parsing message: $e');

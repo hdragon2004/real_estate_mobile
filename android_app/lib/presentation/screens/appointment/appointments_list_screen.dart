@@ -3,6 +3,7 @@ import 'package:gap/gap.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/repositories/appointment_repository.dart';
 import '../../../core/repositories/post_repository.dart';
+import '../../../core/repositories/user_repository.dart';
 import '../../../core/services/auth_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -23,6 +24,7 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
     with SingleTickerProviderStateMixin {
   final AppointmentRepository _repository = AppointmentRepository();
   final PostRepository _postRepository = PostRepository();
+  final UserRepository _userRepository = UserRepository();
   List<Map<String, dynamic>> _allAppointments = [];
   bool _isLoading = true;
   String? _error;
@@ -441,7 +443,6 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
     if (postIdInt == null) return;
     
     // Xác định người nhận tin nhắn
-    int? otherUserId;
     String? userName;
     String? userAvatar;
     
@@ -450,7 +451,10 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
         : int.tryParse(appointmentUserId.toString());
     if (appointmentUserIdInt == null) return;
     
+    // Xác định user hiện tại là người đặt lịch hay chủ bài post
     final isCreatedByUser = appointmentUserIdInt == _currentUserId;
+    final postOwnerId = _postOwnershipCache[postIdInt];
+    final isPostOwner = postOwnerId == _currentUserId;
     
     // Hiển thị loading dialog
     if (!mounted) return;
@@ -466,25 +470,29 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
       // Lấy post details để lấy thông tin user
       final post = await _postRepository.getPostById(postIdInt);
       
+      int finalOtherUserId;
       if (isCreatedByUser) {
         // User là người đặt lịch hẹn → nhắn tin với chủ bài post
-        otherUserId = _postOwnershipCache[postIdInt] ?? post.userId;
+        finalOtherUserId = postOwnerId ?? post.userId;
         userName = post.user?.name;
         userAvatar = post.user?.avatarUrl;
-      } else {
+      } else if (isPostOwner) {
         // User là chủ bài post → nhắn tin với người đặt lịch hẹn
-        otherUserId = appointmentUserIdInt;
-        // Có thể cần fetch thông tin user từ API nếu cần
-        userName = null; // Có thể fetch từ user API nếu cần
-        userAvatar = null;
-      }
-
-      if (!mounted) return;
-      Navigator.pop(context); // Đóng loading dialog
-
-      // Kiểm tra otherUserId có giá trị hợp lệ không
-      final finalOtherUserId = otherUserId;
-      if (finalOtherUserId == null) {
+        finalOtherUserId = appointmentUserIdInt;
+        // Fetch thông tin user đặt lịch hẹn từ API
+        try {
+          final appointmentUser = await _userRepository.getUserById(appointmentUserIdInt);
+          userName = appointmentUser.name;
+          userAvatar = appointmentUser.avatarUrl;
+        } catch (e) {
+          debugPrint('Error fetching appointment user info: $e');
+          // Nếu không fetch được, vẫn tiếp tục với userName và userAvatar = null
+          // ChatScreen sẽ xử lý việc hiển thị
+        }
+      } else {
+        // Trường hợp không xác định được (không nên xảy ra)
+        if (!mounted) return;
+        Navigator.pop(context); // Đóng loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Không thể xác định người nhận tin nhắn'),
@@ -494,14 +502,26 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
         return;
       }
 
+      if (!mounted) return;
+      Navigator.pop(context); // Đóng loading dialog
+
+      // Tạo ConversationId chỉ từ userId (không có postId)
+      final minId = _currentUserId! < finalOtherUserId 
+          ? _currentUserId! 
+          : finalOtherUserId;
+      final maxId = _currentUserId! > finalOtherUserId 
+          ? _currentUserId! 
+          : finalOtherUserId;
+      final conversationId = '$minId' '_' '$maxId';
+
       // Navigate đến ChatScreen
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => ChatScreen(
-            chatId: '${finalOtherUserId}_$postIdInt',
+            chatId: conversationId,
             otherUserId: finalOtherUserId,
-            postId: postIdInt,
+            postId: postIdInt, // Vẫn truyền để hiển thị thông tin post nếu cần
             userName: userName,
             userAvatar: userAvatar,
           ),
@@ -642,34 +662,50 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       itemCount: appointments.length,
       itemBuilder: (context, index) {
         final appointment = appointments[index];
         final postId = appointment['postId']?.toString();
+        final isLastItem = index == appointments.length - 1;
         
         // Chỉ hiển thị button "Đồng ý" và "Từ chối" nếu user là chủ bài post
         final canManage = _canManageAppointment(appointment);
 
-        return AppointmentCard(
-          appointment: appointment,
-          status: status,
-          onConfirm: status == 'pending' &&
-                  _getStatus(appointment) == 'PENDING' &&
-                  canManage
-              ? () => _confirmAppointment(appointment['id'] as int)
-              : null,
-          onReject: status == 'pending' &&
-                  _getStatus(appointment) == 'PENDING' &&
-                  canManage
-              ? () => _rejectAppointment(appointment['id'] as int)
-              : null,
-          onNavigateToChat: postId != null
-              ? () => _navigateToChat(appointment)
-              : null,
-          onViewPost: postId != null
-              ? () => _viewPost(postId)
-              : null,
+        final isFirstItem = index == 0;
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppointmentCard(
+              isFirstItem: isFirstItem,
+              appointment: appointment,
+              status: status,
+              onConfirm: status == 'pending' &&
+                      _getStatus(appointment) == 'PENDING' &&
+                      canManage
+                  ? () => _confirmAppointment(appointment['id'] as int)
+                  : null,
+              onReject: status == 'pending' &&
+                      _getStatus(appointment) == 'PENDING' &&
+                      canManage
+                  ? () => _rejectAppointment(appointment['id'] as int)
+                  : null,
+              onNavigateToChat: postId != null
+                  ? () => _navigateToChat(appointment)
+                  : null,
+              onViewPost: postId != null
+                  ? () => _viewPost(postId)
+                  : null,
+            ),
+            // Divider line giữa các card (không hiển thị ở item cuối)
+            if (!isLastItem)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.divider,
+              ),
+          ],
         );
       },
     );

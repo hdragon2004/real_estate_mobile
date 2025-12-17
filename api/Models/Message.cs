@@ -15,6 +15,8 @@ namespace RealEstateHubAPI.Model
         public int PostId { get; set; }
         public Post Post { get; set; }
 
+        public string ConversationId { get; set; }
+
         public string Content { get; set; }
 
         public DateTime SentTime { get; set; } = DateTime.Now;
