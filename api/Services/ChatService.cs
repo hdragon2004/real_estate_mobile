@@ -29,7 +29,8 @@ namespace RealEstateHubAPI.Services
             try
             {
                 // Generate Stream Chat user token (JWT signed with Stream API secret)
-                var apiSecret = _configuration["StreamChat:ApiSecret"];
+                var apiSecret = _configuration["StreamChat:ApiSecret"]
+                                ?? Environment.GetEnvironmentVariable("STREAM_CHAT_API_SECRET");
                 if (string.IsNullOrWhiteSpace(apiSecret))
                 {
                     throw new Exception("StreamChat ApiSecret is not configured");
@@ -62,8 +63,10 @@ namespace RealEstateHubAPI.Services
 
         public async Task EnsureUsersExistAsync(IEnumerable<int> userIds)
         {
-            var apiKey = _configuration["StreamChat:ApiKey"];
-            var apiSecret = _configuration["StreamChat:ApiSecret"];
+            var apiKey = _configuration["StreamChat:ApiKey"]
+                         ?? Environment.GetEnvironmentVariable("STREAM_CHAT_API_KEY");
+            var apiSecret = _configuration["StreamChat:ApiSecret"]
+                            ?? Environment.GetEnvironmentVariable("STREAM_CHAT_API_SECRET");
             if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(apiSecret))
                 throw new Exception("StreamChat ApiKey/ApiSecret not configured");
 
@@ -121,8 +124,10 @@ namespace RealEstateHubAPI.Services
         }
         public async Task DeleteChannelAsync(string channelType, string channelId, bool hardDelete = true)
         {
-            var apiKey = _configuration["StreamChat:ApiKey"];
-            var apiSecret = _configuration["StreamChat:ApiSecret"];
+            var apiKey = _configuration["StreamChat:ApiKey"]
+                         ?? Environment.GetEnvironmentVariable("STREAM_CHAT_API_KEY");
+            var apiSecret = _configuration["StreamChat:ApiSecret"]
+                            ?? Environment.GetEnvironmentVariable("STREAM_CHAT_API_SECRET");
             if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(apiSecret))
                 throw new Exception("StreamChat ApiKey/ApiSecret not configured");
 

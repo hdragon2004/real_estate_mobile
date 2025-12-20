@@ -53,8 +53,7 @@ namespace RealEstateHubAPI.Controllers
                 }
 
                 // Validate: AppointmentTime phải trong tương lai
-                // Frontend gửi local time, cần so sánh với local time hiện tại
-                if (dto.AppointmentTime <= DateTime.Now)
+                if (dto.AppointmentTime <= DateTime.UtcNow)
                 {
                     return BadRequest(new { error = "AppointmentTime must be in the future" });
                 }
@@ -120,110 +119,6 @@ namespace RealEstateHubAPI.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error canceling appointment");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
-            }
-        }
-
-        [HttpGet("pending")]
-        [ProducesResponseType(typeof(IEnumerable<AppointmentDto>), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> GetPendingAppointments()
-        {
-            try
-            {
-                var userId = GetUserId();
-                if (!userId.HasValue)
-                {
-                    return Unauthorized("User ID not found in token");
-                }
-
-                var appointments = await _appointmentService.GetPendingAppointmentsForPostOwnerAsync(userId.Value);
-                return Ok(appointments);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting pending appointments");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
-            }
-        }
-
-        [HttpGet("for-my-posts")]
-        [ProducesResponseType(typeof(IEnumerable<AppointmentDto>), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> GetAllAppointmentsForMyPosts()
-        {
-            try
-            {
-                var userId = GetUserId();
-                if (!userId.HasValue)
-                {
-                    return Unauthorized("User ID not found in token");
-                }
-
-                var appointments = await _appointmentService.GetAllAppointmentsForPostOwnerAsync(userId.Value);
-                return Ok(appointments);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting appointments for my posts");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
-            }
-        }
-
-        [HttpPut("{id}/confirm")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> ConfirmAppointment(int id)
-        {
-            try
-            {
-                var userId = GetUserId();
-                if (!userId.HasValue)
-                {
-                    return Unauthorized("User ID not found in token");
-                }
-
-                var confirmed = await _appointmentService.ConfirmAppointmentAsync(id, userId.Value);
-                if (!confirmed)
-                {
-                    return NotFound(new { error = "Appointment not found or access denied" });
-                }
-
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error confirming appointment");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
-            }
-        }
-
-        [HttpPut("{id}/reject")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> RejectAppointment(int id)
-        {
-            try
-            {
-                var userId = GetUserId();
-                if (!userId.HasValue)
-                {
-                    return Unauthorized("User ID not found in token");
-                }
-
-                var rejected = await _appointmentService.RejectAppointmentAsync(id, userId.Value);
-                if (!rejected)
-                {
-                    return NotFound(new { error = "Appointment not found or access denied" });
-                }
-
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error rejecting appointment");
                 return StatusCode(500, new { error = "Internal server error", message = ex.Message });
             }
         }

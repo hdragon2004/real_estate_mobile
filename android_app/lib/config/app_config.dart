@@ -87,5 +87,12 @@ class AppConfig {
   /// Lấy từ: https://console.cloud.google.com/apis/credentials
   /// Cần bật: Places API, Geocoding API
   static String get googlePlacesApiKey => dotenv.get('GOOGLE_PLACES_API_KEY', fallback: 'YOUR_GOOGLE_PLACES_API_KEY_HERE');
+
+  // ============================================
+  // STREAM CHAT CONFIGURATION
+  // ============================================
+  /// Stream Chat API Key - Dùng cho Stream Chat integration
+  /// Lấy từ: https://getstream.io/dashboard/
+  static String get streamChatApiKey => dotenv.get('STREAM_CHAT_API_KEY', fallback: 'YOUR_STREAM_CHAT_API_KEY_HERE');
 }
 

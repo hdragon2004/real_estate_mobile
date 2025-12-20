@@ -13,6 +13,8 @@ class AuthStorageService {
 
   static const String _tokenKey = 'auth_token';
   static const String _userIdKey = 'user_id';
+  static const String _userNameKey = 'user_name';
+  static const String _userAvatarKey = 'user_avatar';
 
   /// Lưu token vào secure storage
   static Future<void> saveToken(String token) async {
@@ -68,8 +70,50 @@ class AuthStorageService {
     try {
       await _storage.delete(key: _tokenKey);
       await _storage.delete(key: _userIdKey);
+      await _storage.delete(key: _userNameKey);
+      await _storage.delete(key: _userAvatarKey);
     } catch (e) {
       throw Exception('Lỗi xóa dữ liệu: $e');
+    }
+  }
+
+  /// Lưu user name vào secure storage
+  static Future<void> saveUserName(String userName) async {
+    try {
+      await _storage.write(key: _userNameKey, value: userName);
+    } catch (e) {
+      throw Exception('Lỗi lưu userName: $e');
+    }
+  }
+
+  /// Lấy user name từ secure storage
+  static Future<String?> getUserName() async {
+    try {
+      return await _storage.read(key: _userNameKey);
+    } catch (e) {
+      throw Exception('Lỗi đọc userName: $e');
+    }
+  }
+
+  /// Lưu user avatar vào secure storage
+  static Future<void> saveUserAvatar(String? avatarUrl) async {
+    try {
+      if (avatarUrl != null && avatarUrl.isNotEmpty) {
+        await _storage.write(key: _userAvatarKey, value: avatarUrl);
+      } else {
+        await _storage.delete(key: _userAvatarKey);
+      }
+    } catch (e) {
+      throw Exception('Lỗi lưu userAvatar: $e');
+    }
+  }
+
+  /// Lấy user avatar từ secure storage
+  static Future<String?> getUserAvatar() async {
+    try {
+      return await _storage.read(key: _userAvatarKey);
+    } catch (e) {
+      throw Exception('Lỗi đọc userAvatar: $e');
     }
   }
 

@@ -39,21 +39,6 @@ namespace RealEstateHubAPI.Controllers
             var notifications = await _context.Notifications
                 .Where(n => n.UserId == userId)
                 .OrderByDescending(n => n.CreatedAt)
-                .Select(n => new
-                {
-                    n.Id,
-                    n.UserId,
-                    n.PostId,
-                    n.SavedSearchId,
-                    n.AppointmentId,
-                    n.MessageId,
-                    n.SenderId, // Đảm bảo trả về SenderId
-                    n.Title,
-                    n.Message,
-                    n.Type,
-                    n.CreatedAt,
-                    n.IsRead
-                })
                 .ToListAsync();
             
             return Ok(notifications);

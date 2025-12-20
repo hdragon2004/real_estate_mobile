@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using RealEstateHubAPI.DTOs;
-using RealEstateHubAPI.Model;
+using RealEstateHubAPI.Model;   
 using RealEstateHubAPI.Models;
 using RealEstateHubAPI.Repositories;
 using RealEstateHubAPI.Services;
@@ -99,15 +99,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 // Add Controllers with increased file size limit for large images
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        // Cho phép parse string thành enum (ví dụ: "Sale" -> TransactionType.Sale)
-        options.JsonSerializerOptions.Converters.Add(
-            new System.Text.Json.Serialization.JsonStringEnumConverter());
-        // Cho phép parse camelCase JSON thành PascalCase properties
-        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
-    });
+builder.Services.AddControllers();
 
 // Configure form options for large file uploads (images can be 10-20MB each)
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>

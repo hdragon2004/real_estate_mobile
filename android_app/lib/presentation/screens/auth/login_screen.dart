@@ -7,6 +7,7 @@ import 'forgot_password_screen.dart';
 import '../../../core/repositories/auth_repository.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/auth_storage_service.dart';
+import '../../../core/services/stream_chat_service.dart';
 
 /// Màn hình Đăng nhập - Dark theme với background image
 class LoginScreen extends StatefulWidget {
@@ -45,8 +46,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Lưu token vào ApiClient và secure storage
       await ApiClient().setAuthToken(authResponse.token);
-      // Lưu userId để sử dụng sau này
+      // Lưu user info để sử dụng sau này
       await AuthStorageService.saveUserId(authResponse.user.id);
+      await AuthStorageService.saveUserName(authResponse.user.name);
+      if (authResponse.user.avatarUrl != null) {
+        await AuthStorageService.saveUserAvatar(authResponse.user.avatarUrl);
+      }
+
+      // Kết nối Stream Chat sau khi login thành công
+      try {
+        await StreamChatService().connectUser();
+        debugPrint('[Login] Stream Chat connected successfully');
+      } catch (e) {
+        debugPrint('[Login] Error connecting Stream Chat: $e');
+        // Không block login nếu Stream Chat fail
+      }
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
@@ -96,7 +110,9 @@ class _LoginScreenState extends State<LoginScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF2A4A4F), // Medium blue-green - vừa đủ sáng, không quá chói
+              Color(
+                0xFF2A4A4F,
+              ), // Medium blue-green - vừa đủ sáng, không quá chói
               Color(0xFF3D5A5F),
               Color(0xFF2A4A4F),
             ],
@@ -129,66 +145,70 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             // Content
             SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 40),
-                // Title
-                Text(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 40),
+                      // Title
+                      Text(
                         'Login',
-                  textAlign: TextAlign.center,
+                        textAlign: TextAlign.center,
                         style: AppTextStyles.h1.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                const SizedBox(height: 48),
-                // Email field
-                _buildTextField(
-                  controller: _emailController,
-                  label: 'Email',
-                  hint: 'Nhập email của bạn',
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Vui lòng nhập email';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Email không hợp lệ';
-                    }
-                    return null;
-                  },
+                      const SizedBox(height: 48),
+                      // Email field
+                      _buildTextField(
+                        controller: _emailController,
+                        label: 'Email',
+                        hint: 'Nhập email của bạn',
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Vui lòng nhập email';
+                          }
+                          if (!value.contains('@')) {
+                            return 'Email không hợp lệ';
+                          }
+                          return null;
+                        },
                       ),
-                const SizedBox(height: 20),
-                // Password field
-                _buildTextField(
-                  controller: _passwordController,
+                      const SizedBox(height: 20),
+                      // Password field
+                      _buildTextField(
+                        controller: _passwordController,
                         label: 'Password',
-                  hint: 'Nhập mật khẩu',
-                  obscureText: _obscurePassword,
-                  suffixIcon: IconButton(
+                        hint: 'Nhập mật khẩu',
+                        obscureText: _obscurePassword,
+                        suffixIcon: IconButton(
                           icon: FaIcon(
-                            _obscurePassword ? FontAwesomeIcons.eyeSlash : FontAwesomeIcons.eye,
+                            _obscurePassword
+                                ? FontAwesomeIcons.eyeSlash
+                                : FontAwesomeIcons.eye,
                             color: Colors.grey.shade300,
                             size: 20,
-                    ),
-                    onPressed: () {
-                      setState(() => _obscurePassword = !_obscurePassword);
-                    },
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Vui lòng nhập mật khẩu';
-                    }
-                    if (value.length < 6) {
-                      return 'Mật khẩu phải có ít nhất 6 ký tự';
-                    }
-                    return null;
-                  },
+                          ),
+                          onPressed: () {
+                            setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            );
+                          },
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Vui lòng nhập mật khẩu';
+                          }
+                          if (value.length < 6) {
+                            return 'Mật khẩu phải có ít nhất 6 ký tự';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
                       // Remember me và Forgot password
@@ -214,18 +234,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             ],
                           ),
                           TextButton(
-                    onPressed: _navigateToForgotPassword,
-                    child: Text(
+                            onPressed: _navigateToForgotPassword,
+                            child: Text(
                               'Forgot Password?',
                               style: AppTextStyles.bodySmall.copyWith(
                                 color: Colors.grey.shade300,
-                      ),
-                    ),
-                  ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 32),
-                // Login button
+                      // Login button
                       ElevatedButton(
                         onPressed: _isLoading ? null : _handleLogin,
                         style: ElevatedButton.styleFrom(
@@ -243,7 +263,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 height: 24,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.5,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                 ),
                               )
                             : Text(
@@ -254,43 +276,35 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                       ),
                       const SizedBox(height: 32),
-                // Divider
-                Row(
-                  children: [
-                          Expanded(
-                            child: Divider(
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
+                      // Divider
+                      Row(
+                        children: [
+                          Expanded(child: Divider(color: Colors.grey.shade600)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
                               'or login with',
                               style: AppTextStyles.bodySmall.copyWith(
                                 color: Colors.grey.shade400,
                               ),
-                      ),
-                    ),
-                          Expanded(
-                            child: Divider(
-                              color: Colors.grey.shade600,
                             ),
                           ),
-                  ],
+                          Expanded(child: Divider(color: Colors.grey.shade600)),
+                        ],
                       ),
-                const SizedBox(height: 24),
-                // Social login buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildSocialButton(
-                        icon: 'G',
-                        onPressed: _handleGoogleLogin,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildSocialButton(
+                      const SizedBox(height: 24),
+                      // Social login buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildSocialButton(
+                              icon: 'G',
+                              onPressed: _handleGoogleLogin,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildSocialButton(
                               icon: FontAwesomeIcons.twitter,
                               onPressed: () {
                                 // TODO: Implement Twitter login
@@ -304,37 +318,37 @@ class _LoginScreenState extends State<LoginScreen> {
                               onPressed: () {
                                 // TODO: Implement Facebook login
                               },
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                      ),
-                const SizedBox(height: 32),
+                      const SizedBox(height: 32),
                       // Signup link
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
                             "Bạn chưa có tài khoản? ",
-                      style: AppTextStyles.bodyMedium.copyWith(
+                            style: AppTextStyles.bodyMedium.copyWith(
                               color: Colors.grey.shade300,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: _navigateToRegister,
-                      child: Text(
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: _navigateToRegister,
+                            child: Text(
                               'Đăng ký',
-                        style: AppTextStyles.labelLarge.copyWith(
-                          color: AppColors.primary,
+                              style: AppTextStyles.labelLarge.copyWith(
+                                color: AppColors.primary,
                                 fontWeight: FontWeight.bold,
-                        ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                      ),
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
@@ -357,9 +371,7 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         Text(
           label,
-          style: AppTextStyles.labelLarge.copyWith(
-            color: Colors.grey.shade300,
-          ),
+          style: AppTextStyles.labelLarge.copyWith(color: Colors.grey.shade300),
         ),
         const SizedBox(height: 8),
         TextFormField(
@@ -367,9 +379,7 @@ class _LoginScreenState extends State<LoginScreen> {
           keyboardType: keyboardType,
           obscureText: obscureText,
           validator: validator,
-          style: AppTextStyles.bodyMedium.copyWith(
-            color: Colors.grey.shade800,
-          ),
+          style: AppTextStyles.bodyMedium.copyWith(color: Colors.grey.shade800),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: AppTextStyles.bodyMedium.copyWith(
@@ -394,7 +404,10 @@ class _LoginScreenState extends State<LoginScreen> {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.error),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
           ),
         ),
       ],
@@ -407,14 +420,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }) {
     return GestureDetector(
       onTap: onPressed,
-              child: Container(
+      child: Container(
         width: 60,
         height: 60,
-                decoration: BoxDecoration(
+        decoration: BoxDecoration(
           color: Colors.grey.shade800,
           borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
+        ),
+        child: Center(
           child: icon is String
               ? Text(
                   icon,
@@ -424,12 +437,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Colors.white,
                   ),
                 )
-              : FaIcon(
-                  icon as IconData,
-                  color: Colors.white,
-                  size: 24,
-                    ),
-                  ),
+              : FaIcon(icon as IconData, color: Colors.white, size: 24),
+        ),
       ),
     );
   }

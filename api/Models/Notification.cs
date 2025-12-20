@@ -9,9 +9,8 @@ namespace RealEstateHubAPI.Models
         public int UserId { get; set; }
         public int? PostId { get; set; } 
 
-        public int? SavedSearchId { get; set; } // Metadata only, not FK
-        public int? AppointmentId { get; set; } // FK to Appointment
-        public int? MessageId { get; set; } // FK to Message
+        public int? SavedSearchId { get; set; }
+        public int? AppointmentId { get; set; } // Link to Appointment
         
         public string Title { get; set; }
         public string Message { get; set; }
@@ -38,13 +37,11 @@ namespace RealEstateHubAPI.Models
         [ForeignKey("PostId")]
         public virtual Post? Post { get; set; }
         
-        // SavedSearchId is metadata only, not a FK relationship
+        [ForeignKey("SavedSearchId")]
+        public virtual SavedSearch? SavedSearch { get; set; }
 
         [ForeignKey("AppointmentId")]
         public virtual Appointment? Appointment { get; set; }
-        
-        [ForeignKey("MessageId")]
-        public virtual Message? MessageEntity { get; set; }
         
         public int? SenderId { get; internal set; }
     }

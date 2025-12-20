@@ -301,10 +301,6 @@ namespace RealEstateHubAPI.Services
                 notifications.Add(new Notification
                 {
                     UserId = userId,
-                    PostId = null,
-                    AppointmentId = null,
-                    MessageId = null,
-                    SavedSearchId = null,
                     Title = "Thanh toán thành công! 🎉",
                     Message = $"Giao dịch của bạn đã được xử lý thành công. Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!",
                     Type = "payment_success",
@@ -322,10 +318,6 @@ namespace RealEstateHubAPI.Services
                     notifications.Add(new Notification
                     {
                         UserId = userId,
-                        PostId = null,
-                        AppointmentId = null,
-                        MessageId = null,
-                        SavedSearchId = null,
                         Title = "Nâng cấp gói thành công! 👑",
                         Message = $"Tài khoản của bạn đã được nâng cấp lên {planName}.",
                         Type = "membership_upgrade",

@@ -32,6 +32,11 @@ class ApiConstants {
 
   // Message Endpoints
   static const String messages = '/messages';
+  
+  // Chat Endpoints (Stream Chat)
+  static const String chat = '/chat';
+  static const String chatToken = '/chat/token';
+  static const String chatEnsureUsers = '/chat/ensure-users';
 
   // Notification Endpoints
   static const String notifications = '/notifications';

@@ -114,9 +114,6 @@ namespace RealEstateHubAPI.Controllers
             {
                 UserId = post.User.Id,
                 PostId = post.Id,
-                AppointmentId = null,
-                MessageId = null,
-                SavedSearchId = null,
                 Title = "Tin đăng đã được duyệt",
                 Message = $"Tin đăng '{post.Title}' của bạn đã được admin duyệt thành công.",
                 Type = "approved",
@@ -133,8 +130,6 @@ namespace RealEstateHubAPI.Controllers
                 UserId = notification.UserId,
                 PostId = notification.PostId,
                 SavedSearchId = notification.SavedSearchId,
-                AppointmentId = notification.AppointmentId,
-                MessageId = notification.MessageId,
                 Title = notification.Title,
                 Message = notification.Message,
                 Type = notification.Type,
@@ -222,9 +217,6 @@ namespace RealEstateHubAPI.Controllers
             {
                 UserId = post.UserId,
                 PostId = post.Id,
-                AppointmentId = null,
-                MessageId = null,
-                SavedSearchId = null,
                 Title = "Tin đăng bị từ chối",
                 Message = $"Tin đăng '{post.Title}' của bạn đã bị từ chối bởi admin.",
                 Type = "PostRejected",
@@ -241,8 +233,6 @@ namespace RealEstateHubAPI.Controllers
                 UserId = notification.UserId,
                 PostId = notification.PostId,
                 SavedSearchId = notification.SavedSearchId,
-                AppointmentId = notification.AppointmentId,
-                MessageId = notification.MessageId,
                 Title = notification.Title,
                 Message = notification.Message,
                 Type = notification.Type,
@@ -717,8 +707,7 @@ namespace RealEstateHubAPI.Controllers
                 var notifications = await _context.Notifications
                     .Include(n => n.User)
                     .Include(n => n.Post)
-                    .Include(n => n.Appointment)
-                    .Include(n => n.MessageEntity)
+                    .Include(n => n.SavedSearch)
                     .OrderByDescending(n => n.CreatedAt)
                     .Select(n => new
                     {
@@ -832,7 +821,7 @@ namespace RealEstateHubAPI.Controllers
                         a.AppointmentTime,
                         a.ReminderMinutes,
                         a.IsNotified,
-                        Status = a.Status,
+                        a.IsCanceled,
                         a.CreatedAt
                     })
                     .ToListAsync();

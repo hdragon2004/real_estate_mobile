@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/favorite/favorites_screen.dart';
 import '../screens/chat/chat_list_screen.dart';
+import '../screens/chat/stream_chat_list_screen.dart';
 import '../screens/home/search_screen.dart';
 import '../screens/post/create_post_screen.dart';
 import '../widgets/navigation/custom_bottom_nav_bar.dart';
@@ -45,7 +46,7 @@ class _MainLayoutState extends State<MainLayout> {
       onSearchTap: _switchToSearchTab,
     ),
     SearchScreen(key: _searchScreenKey),
-    const ChatListScreen(),
+    const StreamChatListScreen(), // Sử dụng Stream Chat thay vì ChatListScreen cũ
     const FavoritesScreen(),
   ];
 
