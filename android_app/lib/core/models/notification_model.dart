@@ -30,13 +30,17 @@ class NotificationModel {
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     // Xử lý timestamp từ nhiều field có thể có
+    // Backend trả về UTC time, cần convert về local time để hiển thị đúng
     DateTime timestamp;
     if (json['createdAt'] != null) {
-      timestamp = DateTime.parse(json['createdAt'] as String);
+      final parsed = DateTime.parse(json['createdAt'] as String);
+      timestamp = parsed.isUtc ? parsed.toLocal() : parsed;
     } else if (json['created'] != null) {
-      timestamp = DateTime.parse(json['created'] as String);
+      final parsed = DateTime.parse(json['created'] as String);
+      timestamp = parsed.isUtc ? parsed.toLocal() : parsed;
     } else if (json['timestamp'] != null) {
-      timestamp = DateTime.parse(json['timestamp'] as String);
+      final parsed = DateTime.parse(json['timestamp'] as String);
+      timestamp = parsed.isUtc ? parsed.toLocal() : parsed;
     } else {
       timestamp = DateTime.now(); // Fallback
     }
@@ -64,6 +68,9 @@ class NotificationModel {
       case 'savedsearch': // Thông báo tin mới theo khu vực yêu thích
         return NotificationType.property;
       case 'appointment':
+      case 'appointmentrequest': // Yêu cầu lịch hẹn mới
+      case 'appointmentconfirmed': // Lịch hẹn đã được chấp nhận
+      case 'appointmentrejected': // Lịch hẹn đã bị từ chối
       case 'reminder': // Nhắc lịch hẹn
       case 'expire':
       case 'expired':

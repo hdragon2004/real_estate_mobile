@@ -8,6 +8,7 @@ import '../../../core/theme/app_shadows.dart';
 import '../../../core/models/notification_model.dart';
 import '../post/post_details_screen.dart';
 import '../chat/chat_screen.dart';
+import '../appointment/appointments_list_screen.dart';
 
 /// Màn hình Chi tiết thông báo
 class NotificationDetailsScreen extends StatefulWidget {
@@ -34,6 +35,7 @@ class _NotificationDetailsScreenState extends State<NotificationDetailsScreen> {
       _markAsRead();
     }
   }
+
 
   Future<void> _markAsRead() async {
     if (widget.notification.isRead || _isMarkingAsRead) return;
@@ -108,9 +110,15 @@ class _NotificationDetailsScreenState extends State<NotificationDetailsScreen> {
         }
         break;
       case NotificationType.appointment:
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tính năng lịch hẹn đang phát triển')),
-        );
+        // Navigate đến màn hình lịch hẹn nếu có appointmentId
+        if (widget.notification.appointmentId != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AppointmentsListScreen(),
+            ),
+          );
+        }
         break;
       case NotificationType.message:
         if (widget.notification.senderId != null && widget.notification.postId != null) {
@@ -148,6 +156,7 @@ class _NotificationDetailsScreenState extends State<NotificationDetailsScreen> {
     return widget.notification.type != NotificationType.system ||
         (widget.notification.postId != null || widget.notification.senderId != null);
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -249,44 +258,47 @@ class _NotificationDetailsScreenState extends State<NotificationDetailsScreen> {
                       ),
                     ),
                   ),
-                  const Gap(24),
-                  // Action button nếu có
-                  if (_hasAction() && _getActionButtonText().isNotEmpty)
+                  // Action button nếu có (cho các loại notification khác, không bao gồm appointment)
+                  if (widget.notification.type != NotificationType.appointment && 
+                      _hasAction() && 
+                      _getActionButtonText().isNotEmpty) ...[
+                    const Gap(24),
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
+                      child: OutlinedButton.icon(
                         onPressed: _handleAction,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: color,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        icon: FaIcon(
+                          widget.notification.type == NotificationType.property
+                              ? FontAwesomeIcons.arrowRight
+                              : widget.notification.type == NotificationType.message
+                                  ? FontAwesomeIcons.message
+                                  : FontAwesomeIcons.calendarDays,
+                          size: 16,
+                          color: color,
+                        ),
+                        label: Text(
+                          _getActionButtonText(),
+                          style: AppTextStyles.labelLarge.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
                           ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            FaIcon(
-                              widget.notification.type == NotificationType.property
-                                  ? FontAwesomeIcons.arrowRight
-                                  : widget.notification.type == NotificationType.message
-                                      ? FontAwesomeIcons.message
-                                      : FontAwesomeIcons.calendarDays,
-                              size: 16,
-                            ),
-                            const Gap(8),
-                            Text(
-                              _getActionButtonText(),
-                              style: AppTextStyles.labelLarge.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: color,
+                          side: BorderSide(
+                            color: color,
+                            width: 1.5,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                       ),
                     ),
+                  ],
                 ],
               ),
             ),

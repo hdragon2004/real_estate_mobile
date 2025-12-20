@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../core/theme/app_shadows.dart';
 
 /// Widget hiển thị trạng thái rỗng
 class EmptyState extends StatelessWidget {
@@ -25,37 +29,74 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 80,
-              color: Colors.grey.shade400,
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 60,
+                color: AppColors.primary,
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             Text(
               title,
-              style: TextStyle(
-                fontSize: 20,
+              style: AppTextStyles.h5.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.grey.shade700,
+                color: AppColors.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
             if (message != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                message!,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  message!,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
             ],
             if (buttonText != null && onButtonTap != null) ...[
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: onButtonTap,
-                child: Text(buttonText!),
+              const SizedBox(height: 32),
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: AppShadows.medium,
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: onButtonTap,
+                  icon: const FaIcon(
+                    FontAwesomeIcons.plus,
+                    size: 18,
+                  ),
+                  label: Text(
+                    buttonText!,
+                    style: AppTextStyles.labelLarge.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
               ),
             ],
           ],

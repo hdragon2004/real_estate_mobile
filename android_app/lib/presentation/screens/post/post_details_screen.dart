@@ -16,6 +16,7 @@ import '../../../core/utils/image_url_helper.dart';
 import '../../widgets/common/user_avatar.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/loading_indicator.dart';
+import '../../widgets/appointment/appointment_booking_section.dart';
 import 'image_gallery_screen.dart';
 
 /// Màn hình Chi tiết bất động sản
@@ -387,6 +388,15 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                 SliverToBoxAdapter(child: _buildAddressAndMap(property)),
                 SliverToBoxAdapter(child: _buildFloorPlanSection(property)),
                 SliverToBoxAdapter(child: _buildContactCard(property)),
+                SliverToBoxAdapter(
+                  child: AppointmentBookingSection(
+                    propertyId: property.id,
+                    propertyTitle: property.title,
+                    ownerName: property.user?.name,
+                    ownerPhone: property.user?.phone,
+                    ownerEmail: property.user?.email,
+                  ),
+                ),
                 const SliverToBoxAdapter(child: Gap(100)),
               ],
             ),
@@ -685,7 +695,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         children: [
           Row(
             children: [
-              Text('Description', style: AppTextStyles.h5),
+              Text('Mô tả', style: AppTextStyles.h5),
               const Spacer(),
               if (!_isDescriptionExpanded)
                 TextButton(
@@ -695,7 +705,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                     });
                   },
                   child: Text(
-                    'Read More',
+                    'Xem thêm',
                     style: AppTextStyles.labelLarge.copyWith(
                       color: AppColors.primary,
                     ),
@@ -732,7 +742,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         children: [
           Row(
             children: [
-              Text('Address', style: AppTextStyles.h5),
+              Text('Địa chỉ', style: AppTextStyles.h5),
               const Spacer(),
               // Nút mở Google Maps
               TextButton.icon(
@@ -743,7 +753,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                   color: Colors.white,
                 ),
                 label: Text(
-                  'Google Maps',
+                  'Mở Google Maps',
                   style: AppTextStyles.labelLarge.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -787,7 +797,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         children: [
           Row(
             children: [
-              Text('Floor Plans', style: AppTextStyles.h5),
+              Text('Mặt bằng', style: AppTextStyles.h5),
               const Spacer(),
               TextButton(
                 onPressed: () => _showFloorPlanSheet(property),
@@ -795,7 +805,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'View Floor Plan',
+                      'Xem mặt bằng',
                       style: AppTextStyles.labelLarge.copyWith(
                         color: AppColors.primary,
                       ),
@@ -964,7 +974,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         children: [
           Row(
             children: [
-              Text('Details', style: AppTextStyles.h5),
+              Text('Chi tiết', style: AppTextStyles.h5),
               const Spacer(),
               TextButton(
                 onPressed: () {
@@ -976,7 +986,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'More Details',
+                      'Xem chi tiết',
                       style: AppTextStyles.labelLarge.copyWith(
                         color: AppColors.primary,
                       ),
@@ -999,10 +1009,13 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
           const Gap(12),
           Column(
             children: [
-              _DetailRow(label: 'Property ID:', value: property.id.toString()),
+              _DetailRow(
+                label: 'Mã bất động sản:',
+                value: property.id.toString(),
+              ),
               const Gap(12),
               _DetailRow(
-                label: 'First Price:',
+                label: 'Giá chính:',
                 value: Formatters.formatPriceWithUnit(
                   property.price,
                   property.priceUnit,
@@ -1011,13 +1024,13 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
               if (hasPerM2 || pricePerSqft > 0) ...[
                 const Gap(12),
                 _DetailRow(
-                  label: 'Second Price:',
+                  label: 'Đơn giá theo diện tích:',
                   value: '\$${pricePerSqft.toStringAsFixed(0)}/sq ft',
                 ),
               ],
               const Gap(12),
               _DetailRow(
-                label: 'Property Type:',
+                label: 'Loại bất động sản:',
                 value:
                     property.categoryName ?? property.category?.name ?? 'N/A',
               ),
@@ -1095,13 +1108,13 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Contact Information', style: AppTextStyles.h5),
+          Text('Thông tin liên hệ', style: AppTextStyles.h5),
           const Gap(16),
           Row(
             children: [
               UserAvatarWithFallback(
                 avatarUrl: user?.avatarUrl,
-                name: user?.name ?? 'User',
+                name: user?.name ?? 'Người dùng',
                 radius: 32,
                 fontSize: 20,
               ),
@@ -1111,14 +1124,14 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      user?.name ?? 'Agent',
+                      user?.name ?? 'Môi giới',
                       style: AppTextStyles.h6.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const Gap(4),
                     Text(
-                      user?.role ?? 'Agent',
+                      user?.role ?? 'Môi giới',
                       style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.textSecondary,
                       ),

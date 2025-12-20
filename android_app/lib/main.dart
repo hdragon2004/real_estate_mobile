@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/network/api_client.dart';
+import 'core/widgets/stream_chat_wrapper.dart';
 import 'presentation/screens/splash/splash_screen.dart';
 import 'presentation/screens/splash/welcome_screen.dart';
 import 'presentation/screens/auth/login_screen.dart';
@@ -47,6 +48,8 @@ class MyApp extends StatelessWidget {
       title: 'Real Estate Hub',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      builder: (context, child) =>
+          StreamChatWrapper(child: child ?? const SizedBox.shrink()),
 
       // Có thể dùng home hoặc initialRoute, ở đây giữ home như bạn
       home: const SplashScreen(),

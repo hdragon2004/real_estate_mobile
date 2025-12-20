@@ -7,7 +7,7 @@ import '../../../core/theme/app_text_styles.dart';
 import 'filter_screen.dart';
 import '../post/post_details_screen.dart';
 import '../notification/notifications_screen.dart';
-import '../splash/splash_screen.dart';
+import 'saved_search_screen.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/models/vietnam_address_model.dart';
 import '../../../core/repositories/post_repository.dart';
@@ -377,30 +377,25 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _loadProperties,
-          color: AppColors.primary,
-          child: CustomScrollView(
-            slivers: [
-              // Header với location
-              SliverToBoxAdapter(child: _buildHeader()),
-
-              // Search Bar
-              SliverToBoxAdapter(child: _buildSearchBar()),
-
-              // Categories - "Bạn đang tìm gì?"
-              SliverToBoxAdapter(child: _buildCategories()),
-
-              // Featured Properties Section
-              SliverToBoxAdapter(child: _buildFeaturedSection()),
-
-              // Latest Properties Section
-              SliverToBoxAdapter(child: _buildLatestSection()),
-
-              // Bottom padding - Giảm khoảng cách với lề dưới
-              const SliverToBoxAdapter(child: SizedBox(height: 4)),
-            ],
-          ),
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _loadProperties,
+                color: AppColors.primary,
+                child: CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(child: _buildSearchBar()),
+                    SliverToBoxAdapter(child: _buildCategories()),
+                    SliverToBoxAdapter(child: _buildFeaturedSection()),
+                    SliverToBoxAdapter(child: _buildLatestSection()),
+                    const SliverToBoxAdapter(child: SizedBox(height: 4)),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -470,22 +465,24 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           // Spacer để đẩy icon thông báo sang bên phải
           const Spacer(),
-          // Button tạm để mở splash screen (để test design)
+          // Button để quản lý khu vực quan tâm
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const SplashScreen()),
+                MaterialPageRoute(
+                  builder: (context) => const SavedSearchScreen(),
+                ),
               );
             },
             icon: const FaIcon(
-              FontAwesomeIcons.image,
+              FontAwesomeIcons.mapLocationDot,
               size: 18,
               color: AppColors.primary,
             ),
-            tooltip: 'Xem Splash Screen',
+            tooltip: 'Khu vực quan tâm',
           ),
           const SizedBox(width: 8),
           // Notification icon - chỉ hiển thị chấm đỏ khi có thông báo chưa đọc

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/repositories/user_repository.dart';
 import '../../../core/services/auth_storage_service.dart';
+import '../../../core/services/stream_chat_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../screens/user/profile_screen.dart';
+import '../../screens/appointment/appointments_list_screen.dart';
 import '../common/user_avatar.dart';
 
 /// App Drawer - Sidebar Navigation
@@ -13,11 +15,7 @@ class AppDrawer extends StatefulWidget {
   final Function(int)? onNavigate;
   final int? currentIndex;
 
-  const AppDrawer({
-    super.key,
-    this.onNavigate,
-    this.currentIndex,
-  });
+  const AppDrawer({super.key, this.onNavigate, this.currentIndex});
 
   @override
   State<AppDrawer> createState() => _AppDrawerState();
@@ -55,13 +53,8 @@ class _AppDrawerState extends State<AppDrawer> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Text(
-          'Đăng xuất',
-          style: AppTextStyles.h6,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Đăng xuất', style: AppTextStyles.h6),
         content: Text(
           'Bạn có chắc chắn muốn đăng xuất?',
           style: AppTextStyles.bodyMedium,
@@ -69,18 +62,13 @@ class _AppDrawerState extends State<AppDrawer> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Hủy',
-              style: AppTextStyles.labelLarge,
-            ),
+            child: Text('Hủy', style: AppTextStyles.labelLarge),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(
               'Đăng xuất',
-              style: AppTextStyles.labelLarge.copyWith(
-                color: AppColors.error,
-              ),
+              style: AppTextStyles.labelLarge.copyWith(color: AppColors.error),
             ),
           ),
         ],
@@ -88,16 +76,20 @@ class _AppDrawerState extends State<AppDrawer> {
     );
 
     if (confirm == true) {
+      // Disconnect Stream Chat trước khi logout
+      try {
+        await StreamChatService().disconnect();
+      } catch (e) {
+        // Không throw error vì đây là operation không critical
+        debugPrint('Error disconnecting Stream Chat: $e');
+      }
+
       // Xóa token và user data
       await AuthStorageService.clearAll();
       await ApiClient().clearAuthToken();
 
       if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/welcome',
-        (route) => false,
-      );
+      Navigator.pushNamedAndRemoveUntil(context, '/welcome', (route) => false);
     }
   }
 
@@ -162,6 +154,20 @@ class _AppDrawerState extends State<AppDrawer> {
                     );
                   },
                 ),
+                _buildMenuItem(
+                  icon: FontAwesomeIcons.calendarDays,
+                  activeIcon: FontAwesomeIcons.calendarCheck,
+                  title: 'Lịch hẹn',
+                  onTap: () {
+                    Navigator.pop(context); // Đóng drawer
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AppointmentsListScreen(),
+                      ),
+                    );
+                  },
+                ),
                 const Divider(height: 1),
                 _buildMenuItem(
                   icon: FontAwesomeIcons.gear,
@@ -191,10 +197,7 @@ class _AppDrawerState extends State<AppDrawer> {
 
   Widget _buildHeader() {
     return Container(
-      constraints: const BoxConstraints(
-        minHeight: 120,
-        maxHeight: 170,
-      ),
+      constraints: const BoxConstraints(minHeight: 120, maxHeight: 170),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -209,10 +212,7 @@ class _AppDrawerState extends State<AppDrawer> {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.primary,
-                      AppColors.primaryLight,
-                    ],
+                    colors: [AppColors.primary, AppColors.primaryLight],
                   ),
                 ),
               );
@@ -245,33 +245,33 @@ class _AppDrawerState extends State<AppDrawer> {
                     avatarUrl: _userInfo?['avatarUrl']?.toString(),
                     name: _userInfo?['name']?.toString() ?? 'User',
                     radius: 26,
-                  backgroundColor: Colors.white,
+                    backgroundColor: Colors.white,
                     fontSize: 18,
-                ),
-                const SizedBox(height: 4),
-                // Name
-                Text(
-                  _userInfo?['name'] ?? 'Người dùng',
-                  style: AppTextStyles.bodyLarge.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                // Email
-                Text(
-                  _userInfo?['email'] ?? '',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 13,
+                  const SizedBox(height: 4),
+                  // Name
+                  Text(
+                    _userInfo?['name'] ?? 'Người dùng',
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+                  const SizedBox(height: 2),
+                  // Email
+                  Text(
+                    _userInfo?['email'] ?? '',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 13,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -309,12 +309,7 @@ class _AppDrawerState extends State<AppDrawer> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: AppColors.border,
-            width: 1,
-          ),
-        ),
+        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
       ),
       child: ListTile(
         leading: const FaIcon(
@@ -334,4 +329,3 @@ class _AppDrawerState extends State<AppDrawer> {
     );
   }
 }
-

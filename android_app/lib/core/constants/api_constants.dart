@@ -32,10 +32,23 @@ class ApiConstants {
 
   // Message Endpoints
   static const String messages = '/messages';
+  
+  // Chat Endpoints (Stream Chat)
+  static const String chat = '/chat';
+  static const String chatToken = '/chat/token';
+  static const String chatEnsureUsers = '/chat/ensure-users';
 
   // Notification Endpoints
   static const String notifications = '/notifications';
 
+  // Appointment Endpoints
+  static const String appointments = '/appointments';
+  static const String appointmentsMe = '/appointments/me';
+  static const String appointmentsForMyPosts = '/appointments/for-my-posts';
+
   // Payment Endpoints
   static const String payment = '/payment';
+
+  // Saved Search Endpoints
+  static const String savedSearches = '/saved-searches';
 }

@@ -21,9 +21,11 @@ class SignalRService {
   Function(Map<String, dynamic>)? onNotificationReceived;
   Function(Map<String, dynamic>)? onMessageReceived;
 
-  /// Kết nối với NotificationHub để nhận thông báo real-time
-  /// Hỗ trợ các loại: Reminder, SavedSearch, Message, approved, etc.
   Future<void> connectNotificationHub() async {
+    if (kIsWeb) {
+      debugPrint('[SignalR] NotificationHub is disabled on Web platform');
+      return;
+    }
     if (_isNotificationHubConnected && _notificationHub != null) {
       debugPrint('[SignalR] NotificationHub already connected');
       return;
@@ -104,8 +106,11 @@ class SignalRService {
     }
   }
 
-  /// Kết nối với MessageHub để nhận tin nhắn real-time
   Future<void> connectMessageHub() async {
+    if (kIsWeb) {
+      debugPrint('[SignalR] MessageHub is disabled on Web platform');
+      return;
+    }
     if (_isMessageHubConnected && _messageHub != null) {
       debugPrint('[SignalR] MessageHub already connected');
       return;

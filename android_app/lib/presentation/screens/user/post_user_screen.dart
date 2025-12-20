@@ -323,24 +323,11 @@ class _PostUserScreenState extends State<PostUserScreen>
                       );
                     },
                   ),
-                  // Additional Info
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_today,
-                        size: 14,
-                        color: AppColors.textHint,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Đăng ngày: ${Formatters.formatDate(post.created)}',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textHint,
-                        ),
-                      ),
-                      if (post.expiryDate != null) ...[
-                        const SizedBox(width: 16),
+                  // Additional Info - Chỉ hiển thị ngày hết hạn
+                  if (post.expiryDate != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
                         Icon(
                           Icons.event_busy,
                           size: 14,
@@ -354,8 +341,8 @@ class _PostUserScreenState extends State<PostUserScreen>
                           ),
                         ),
                       ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ],
               ),
             ),
