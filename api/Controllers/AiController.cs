@@ -7,7 +7,7 @@ namespace RealEstateHubAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AiController : ControllerBase
+    public class AiController : BaseController
     {
         private readonly IAiTextService _aiTextService;
         private readonly IAmenityLookupService _amenityLookupService;
@@ -24,7 +24,7 @@ namespace RealEstateHubAPI.Controllers
         {
             if (dto is null)
             {
-                return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+                return BadRequestResponse("Dữ liệu không hợp lệ");
             }
 
             try
@@ -33,11 +33,11 @@ namespace RealEstateHubAPI.Controllers
                 dto.NearbyAmenities = amenities?.ToList();
 
                 var (title, description) = await _aiTextService.GenerateListingAsync(dto, cancellationToken);
-                return Ok(new { title, description });
+                return Success(new { title, description }, "Tạo listing thành công");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "AI service error", detail = ex.Message });
+                return InternalServerError($"Lỗi dịch vụ AI: {ex.Message}");
             }
         }
 
@@ -46,17 +46,17 @@ namespace RealEstateHubAPI.Controllers
         {
             if (string.IsNullOrWhiteSpace(address))
             {
-                return BadRequest(new { message = "Địa chỉ không được để trống." });
+                return BadRequestResponse("Địa chỉ không được để trống");
             }
 
             try
             {
                 var amenities = await _amenityLookupService.GetNearbyAmenitiesAsync(address, cancellationToken);
-                return Ok(amenities ?? Array.Empty<AmenityInfo>());
+                return Success(amenities ?? Array.Empty<AmenityInfo>(), "Lấy danh sách tiện ích thành công");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Lỗi khi tìm kiếm tiện ích", detail = ex.Message });
+                return InternalServerError($"Lỗi khi tìm kiếm tiện ích: {ex.Message}");
             }
         }
     }

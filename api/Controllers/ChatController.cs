@@ -11,7 +11,7 @@ namespace RealEstateHubAPI.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class ChatController : ControllerBase
+    public class ChatController : BaseController
     {
         private readonly IChatService _chatService;
         private readonly ApplicationDbContext _context;
@@ -30,13 +30,13 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 if (request?.UserIds == null || request.UserIds.Count == 0)
-                    return BadRequest("Empty users");
+                    return BadRequestResponse("Empty users");
                 await _chatService.EnsureUsersExistAsync(request.UserIds);
-                return Ok(new { Success = true });
+                return Success(new { Success = true }, "Đảm bảo users tồn tại thành công");
             }
             catch (Exception ex)
             {
-                return BadRequest($"Failed to ensure users: {ex.Message}");
+                return BadRequestResponse($"Failed to ensure users: {ex.Message}");
             }
         }
         [HttpPost("token")]
@@ -46,7 +46,7 @@ namespace RealEstateHubAPI.Controllers
             {
                 var user = await _context.Users.FindAsync(request.UserId);
                 if (user == null)
-                    return NotFound("User not found");
+                    return NotFoundResponse("User not found");
 
                 var token = await _chatService.GenerateUserTokenAsync(
                     request.UserId,
@@ -54,15 +54,15 @@ namespace RealEstateHubAPI.Controllers
                     request.UserImage ?? user.AvatarUrl
                 );
 
-                return Ok(new ChatTokenResponse
+                return Success(new ChatTokenResponse
                 {
                     Token = token,
                     ApiKey = _configuration["StreamChat:ApiKey"] ?? string.Empty
-                });
+                }, "Tạo token thành công");
             }
             catch (Exception ex)
             {
-                return BadRequest($"Failed to generate token: {ex.Message}");
+                return BadRequestResponse($"Failed to generate token: {ex.Message}");
             }
         }
 
@@ -72,11 +72,11 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 await _chatService.DeleteChannelAsync(type, id, hardDelete);
-                return Ok(new { Success = true });
+                return Success<object>(null, "Xóa channel thành công");
             }
             catch (Exception ex)
             {
-                return BadRequest($"Failed to delete channel: {ex.Message}");
+                return BadRequestResponse($"Failed to delete channel: {ex.Message}");
             }
         }
 

@@ -13,7 +13,7 @@ namespace RealEstateHubAPI.Controllers
     [Route("api/notifications")]
     [ApiController]
     [Authorize] // Yêu cầu authentication
-    public class NotificationController : ControllerBase
+    public class NotificationController : BaseController
     {
         private readonly ApplicationDbContext _context;
         private readonly IHubContext<NotificationHub> _hubContext;
@@ -33,7 +33,7 @@ namespace RealEstateHubAPI.Controllers
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(userIdClaim, out int userId))
             {
-                return Unauthorized("User not authenticated");
+                return UnauthorizedResponse("User not authenticated");
             }
 
             var notifications = await _context.Notifications
@@ -56,18 +56,18 @@ namespace RealEstateHubAPI.Controllers
                 })
                 .ToListAsync();
             
-            return Ok(notifications);
+            return Success(notifications, "Lấy danh sách thông báo thành công");
         }
         [HttpPost]
         public async Task<IActionResult> CreateNotification([FromBody] Notification notification)
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(ModelState);
+                return BadRequestResponse("Dữ liệu không hợp lệ");
             }
             _context.Notifications.Add(notification);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetNotifications), new { userId = notification.UserId }, notification);
+            return Created(notification, "Tạo thông báo thành công");
         }
         /// <summary>
         /// PUT /api/notifications/{id}/mark-read
@@ -81,19 +81,19 @@ namespace RealEstateHubAPI.Controllers
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(userIdClaim, out int userId))
             {
-                return Unauthorized("User not authenticated");
+                return UnauthorizedResponse("User not authenticated");
             }
 
             var notification = await _context.Notifications.FindAsync(id);
             if (notification == null) 
             {
-                return NotFound("Notification not found");
+                return NotFoundResponse("Notification not found");
             }
 
             // Kiểm tra user chỉ có thể đánh dấu notification của chính mình
             if (notification.UserId != userId)
             {
-                return Forbid("Cannot mark other user's notification as read");
+                return ForbiddenResponse("Cannot mark other user's notification as read");
             }
 
             notification.IsRead = true;
@@ -102,16 +102,16 @@ namespace RealEstateHubAPI.Controllers
             // Gửi SignalR event để client cập nhật UI
             await _hubContext.Clients.Group($"user_{userId}").SendAsync("NotificationRead", id);
             
-            return Ok(new { message = "Notification marked as read" });
+            return Success<object>(null, "Đánh dấu thông báo đã đọc thành công");
         }
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteNotification(int id)
         {
             var notification = await _context.Notifications.FindAsync(id);
-            if (notification == null) return NotFound();
+            if (notification == null) return NotFoundResponse("Không tìm thấy thông báo");
             _context.Notifications.Remove(notification);
             await _context.SaveChangesAsync();
-            return Ok();
+            return Success<object>(null, "Xóa thông báo thành công");
         }
         
     }

@@ -11,7 +11,7 @@ namespace RealEstateHubAPI.Controllers
     [Route("api/categories")]
     [ApiController]
     //[Authorize(Roles = "Admin")]
-    public class CategoryController : ControllerBase
+    public class CategoryController : BaseController
     {
         private readonly ICategoryRepository _categoryRepository;
         private readonly ApplicationDbContext _context;
@@ -30,12 +30,12 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 var categories = await _categoryRepository.GetCategoriesAsync();
-                return Ok(categories);
+                return Success(categories, "Lấy danh sách danh mục thành công");
             }
             catch (Exception ex)
             {
                 // Handle exception
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
         [AllowAnonymous]
@@ -47,13 +47,13 @@ namespace RealEstateHubAPI.Controllers
             {
                 var category = await _categoryRepository.GetCategoryByIdAsync(id);
                 if (category == null)
-                    return NotFound();
-                return Ok(category);
+                    return NotFoundResponse("Không tìm thấy danh mục");
+                return Success(category, "Lấy thông tin danh mục thành công");
             }
             catch (Exception ex)
             {
                 // Handle exception
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
         
@@ -63,15 +63,12 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 await _categoryRepository.AddCategoryAsync(category);
-                return CreatedAtAction(nameof(GetCategoryById), new
-                {
-                    id = category.Id
-                }, category);
+                return Created(category, "Thêm danh mục thành công");
             }
             catch (Exception ex)
             {
                 // Handle exception
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
        
@@ -82,14 +79,14 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 if (id != category.Id)
-                    return BadRequest();
+                    return BadRequestResponse("ID không khớp");
                 await _categoryRepository.UpdateCategoryAsync(category);
-                return NoContent();
+                return Success(category, "Cập nhật danh mục thành công");
             }
             catch (Exception ex)
             {
                 // Handle exception
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
        
@@ -100,12 +97,12 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 await _categoryRepository.DeleteCategoryAsync(id);
-                return NoContent();
+                return Success<object>(null, "Xóa danh mục thành công");
             }
             catch (Exception ex)
             {
                 // Handle exception
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -119,11 +116,11 @@ namespace RealEstateHubAPI.Controllers
                     .Where(c => c.IsActive)
                     .ToListAsync();
 
-                return Ok(categories);
+                return Success(categories, "Lấy danh sách danh mục thành công");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
     }

@@ -16,7 +16,7 @@ namespace RealEstateHubAPI.Controllers
     [ApiController]
     [Route("api/admin")]
     [Authorize(Roles = "Admin")]
-    public class AdminController : ControllerBase
+    public class AdminController : BaseController
     {
         private readonly ICategoryRepository _categoryRepository;
         private readonly ApplicationDbContext _context;
@@ -58,7 +58,7 @@ namespace RealEstateHubAPI.Controllers
                 totalReports = await _context.Reports.CountAsync(),
                 pendingApprovals = await _context.Posts.CountAsync(p => p.Status == "Pending")
             };
-            return Ok(stats);
+            return Success(stats, "Lấy thống kê thành công");
         }
 
         // Get recent posts
@@ -70,7 +70,7 @@ namespace RealEstateHubAPI.Controllers
                 .OrderByDescending(p => p.Created)
                 .Take(10)
                 .ToListAsync();
-            return Ok(posts);
+            return Success(posts, "Lấy danh sách bài đăng gần đây thành công");
         }
 
         // Get recent users
@@ -81,7 +81,7 @@ namespace RealEstateHubAPI.Controllers
                 .OrderByDescending(u => u.Create)
                 .Take(10)
                 .ToListAsync();
-            return Ok(users);
+            return Success(users, "Lấy danh sách người dùng gần đây thành công");
         }
 
         // Approve a post
@@ -92,7 +92,7 @@ namespace RealEstateHubAPI.Controllers
                 .Include(p => p.User)
                 .FirstOrDefaultAsync(p => p.Id == postId);
             if (post == null)
-                return NotFound();
+                return NotFoundResponse("Không tìm thấy bài đăng");
 
             post.IsApproved = true; // Giữ lại để tương thích ngược
             post.Status = "Active"; // Đánh dấu là đã duyệt
@@ -161,7 +161,7 @@ namespace RealEstateHubAPI.Controllers
             
             //await _emailService.SendAsync(post.User.Email, notification.Title, notification.Message);
 
-            return Ok(post);
+            return Success(post, "Duyệt bài đăng thành công");
         }
 
         // Get all reports with details
@@ -195,7 +195,7 @@ namespace RealEstateHubAPI.Controllers
                     }
                 })
                 .ToListAsync();
-            return Ok(reports);
+            return Success(reports, "Lấy danh sách báo cáo thành công");
         }
 
         /// <summary>
@@ -209,7 +209,7 @@ namespace RealEstateHubAPI.Controllers
                 .Include(p => p.User)
                 .FirstOrDefaultAsync(p => p.Id == postId);
             if (post == null)
-                return NotFound();
+                return NotFoundResponse("Không tìm thấy bài đăng");
 
             // Soft delete: Đánh dấu bài viết là "Rejected" thay vì xóa khỏi database
             post.Status = "Rejected";
@@ -250,7 +250,7 @@ namespace RealEstateHubAPI.Controllers
                 IsRead = notification.IsRead
             });
 
-            return Ok(new { message = "Bài viết đã được đánh dấu là từ chối", postId = postId });
+            return Success(new { message = "Bài viết đã được đánh dấu là từ chối", postId = postId }, "Từ chối bài đăng thành công");
         }
 
         /// <summary>
@@ -272,7 +272,7 @@ namespace RealEstateHubAPI.Controllers
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null)
-                return NotFound();
+                return NotFoundResponse("Không tìm thấy bài đăng");
 
             user.IsLocked = isLocked;
             await _context.SaveChangesAsync();
@@ -284,33 +284,33 @@ namespace RealEstateHubAPI.Controllers
         public async Task<IActionResult> GetCategories()
         {
             var categories = await _context.Categories.ToListAsync();
-            return Ok(categories);
+            return Success(categories, "Lấy danh sách danh mục thành công");
         }
 
         [HttpPost("categories")]
         public async Task<IActionResult> AddCategory([FromBody] Category category)
         {
             if (string.IsNullOrEmpty(category.Name))
-                return BadRequest("Category name is required");
+                return BadRequestResponse("Category name is required");
 
             _context.Categories.Add(category);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetCategories), new { id = category.Id }, category);
+                return Created(category, "Thêm danh mục thành công");
         }
 
         [HttpPut("categories/{id}")]
         public async Task<IActionResult> UpdateCategory(int id, [FromBody] Category category)
         {
             if (id != category.Id)
-                return BadRequest();
+                return BadRequestResponse("ID không khớp");
 
             var existingCategory = await _context.Categories.FindAsync(id);
             if (existingCategory == null)
-                return NotFound();
+                return NotFoundResponse("Không tìm thấy bài đăng");
 
             existingCategory.Name = category.Name;
             await _context.SaveChangesAsync();
-            return Ok(existingCategory);
+            return Success(existingCategory, "Cập nhật danh mục thành công");
         }
 
         [HttpDelete("categories/{id}")]
@@ -318,11 +318,11 @@ namespace RealEstateHubAPI.Controllers
         {
             var category = await _context.Categories.FindAsync(id);
             if (category == null)
-                return NotFound();
+                return NotFoundResponse("Không tìm thấy bài đăng");
 
             _context.Categories.Remove(category);
             await _context.SaveChangesAsync();
-            return Ok();
+            return Success<object>(null, "Xóa danh mục thành công");
         }
 
         // Update user role
@@ -331,11 +331,11 @@ namespace RealEstateHubAPI.Controllers
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null)
-                return NotFound();
+                return NotFoundResponse("Không tìm thấy bài đăng");
 
             if (!Enum.TryParse(typeof(Role), model.Role, true, out var parsedRole))
             {
-                return BadRequest("Invalid role. Role must be one of: Admin, User, Pro_1, Pro_3, Pro_12");
+                return BadRequestResponse("Invalid role. Role must be one of: Admin, User, Pro_1, Pro_3, Pro_12");
             }
 
             user.Role = parsedRole.ToString();
@@ -355,19 +355,19 @@ namespace RealEstateHubAPI.Controllers
                 if (user == null)
                 {
                     Console.WriteLine($"User not found with ID: {userId}");
-                    return NotFound($"Không tìm thấy user với ID: {userId}");
+                    return NotFoundResponse($"Không tìm thấy user với ID: {userId}");
                 }
                 Console.WriteLine($"Found user: {user.Name} (ID: {user.Id})");
                 _context.Users.Remove(user);
                 await _context.SaveChangesAsync();
                 Console.WriteLine($"Successfully deleted user with ID: {userId}");
-                return Ok(new { message = "Xóa user thành công" });
+                return Success<object>(null, "Xóa user thành công");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error deleting user: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                return StatusCode(500, new { message = "Lỗi khi xóa user", error = ex.Message });
+                return InternalServerError($"Lỗi khi xóa user: {ex.Message}");
             }
         }
 
@@ -383,7 +383,7 @@ namespace RealEstateHubAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
         [AllowAnonymous]
@@ -395,13 +395,13 @@ namespace RealEstateHubAPI.Controllers
                 var city = await _locationRepository.GetCityByIdAsync(id);
                 if (city == null)
                 {
-                    return NotFound($"City with ID {id} not found");
+                    return NotFoundResponse($"City with ID {id} not found");
                 }
                 return Ok(city);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -411,11 +411,11 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 await _locationRepository.AddCityAsync(city);
-                return CreatedAtAction(nameof(GetCityById), new { id = city.Id }, city);
+                return Created(city, "Tạo thành phố thành công");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -426,14 +426,14 @@ namespace RealEstateHubAPI.Controllers
             {
                 if (id != city.Id)
                 {
-                    return BadRequest("City ID mismatch.");
+                    return BadRequestResponse("City ID mismatch");
                 }
                 await _locationRepository.UpdateCityAsync(city);
                 return Ok(city);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -443,11 +443,11 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 await _locationRepository.DeleteCityAsync(id);
-                return Ok();
+                return Success<object>(null, "Xóa danh mục thành công");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -463,7 +463,7 @@ namespace RealEstateHubAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -476,13 +476,13 @@ namespace RealEstateHubAPI.Controllers
                 var district = await _locationRepository.GetDistrictByIdAsync(id);
                 if (district == null)
                 {
-                    return NotFound($"District with ID {id} not found");
+                    return NotFoundResponse($"District with ID {id} not found");
                 }
                 return Ok(district);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -503,7 +503,7 @@ namespace RealEstateHubAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -525,11 +525,11 @@ namespace RealEstateHubAPI.Controllers
                 };
 
                 await _locationRepository.AddDistrictAsync(district);
-                return CreatedAtAction(nameof(GetDistrictById), new { id = district.Id }, district);
+                return Created(district, "Tạo quận/huyện thành công");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -550,7 +550,7 @@ namespace RealEstateHubAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -561,11 +561,11 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 await _locationRepository.DeleteDistrictAsync(id);
-                return Ok();
+                return Success<object>(null, "Xóa danh mục thành công");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -581,7 +581,7 @@ namespace RealEstateHubAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -594,13 +594,13 @@ namespace RealEstateHubAPI.Controllers
                 var ward = await _locationRepository.GetWardByIdAsync(id);
                 if (ward == null)
                 {
-                    return NotFound($"Ward with ID {id} not found");
+                    return NotFoundResponse($"Ward with ID {id} not found");
                 }
                 return Ok(ward);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -621,7 +621,7 @@ namespace RealEstateHubAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -643,11 +643,11 @@ namespace RealEstateHubAPI.Controllers
                 };
 
                 await _locationRepository.AddWardAsync(ward);
-                return CreatedAtAction(nameof(GetWardById), new { id = ward.Id }, ward);
+                return Created(ward, "Tạo phường/xã thành công");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -668,7 +668,7 @@ namespace RealEstateHubAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -679,11 +679,11 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 await _locationRepository.DeleteWardAsync(id);
-                return Ok();
+                return Success<object>(null, "Xóa danh mục thành công");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -696,15 +696,15 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 DataSeeder.SeedData(_context, force);
-                return Ok(new { 
+                return Success(new { 
                     message = "Data seeding completed successfully!", 
                     force = force,
                     note = force ? "Data was force seeded (may have overwritten existing data)" : "Data was seeded only if database was empty"
-                });
+                }, "Seed data thành công");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Error seeding data", error = ex.Message });
+                return InternalServerError($"Lỗi khi seed data: {ex.Message}");
             }
         }
 
@@ -736,12 +736,12 @@ namespace RealEstateHubAPI.Controllers
                         n.IsRead
                     })
                     .ToListAsync();
-                return Ok(notifications);
+                return Success(notifications, "Lấy danh sách thông báo thành công");
             }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error getting all notifications");
-                return StatusCode(500, new { message = "Error getting notifications", error = ex.Message });
+                return InternalServerError($"Lỗi khi lấy thông báo: {ex.Message}");
             }
         }
 
@@ -770,12 +770,12 @@ namespace RealEstateHubAPI.Controllers
                         m.IsRead
                     })
                     .ToListAsync();
-                return Ok(messages);
+                return Success(messages, "Lấy danh sách tin nhắn thành công");
             }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error getting all messages");
-                return StatusCode(500, new { message = "Error getting messages", error = ex.Message });
+                return InternalServerError($"Lỗi khi lấy tin nhắn: {ex.Message}");
             }
         }
 
@@ -804,12 +804,12 @@ namespace RealEstateHubAPI.Controllers
                         ss.CreatedAt
                     })
                     .ToListAsync();
-                return Ok(savedSearches);
+                return Success(savedSearches, "Lấy danh sách tìm kiếm đã lưu thành công");
             }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error getting all saved searches");
-                return StatusCode(500, new { message = "Error getting saved searches", error = ex.Message });
+                return InternalServerError($"Lỗi khi lấy tìm kiếm đã lưu: {ex.Message}");
             }
         }
 
@@ -836,12 +836,12 @@ namespace RealEstateHubAPI.Controllers
                         a.CreatedAt
                     })
                     .ToListAsync();
-                return Ok(appointments);
+                return Success(appointments, "Lấy danh sách lịch hẹn thành công");
             }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error getting all appointments");
-                return StatusCode(500, new { message = "Error getting appointments", error = ex.Message });
+                return InternalServerError($"Lỗi khi lấy lịch hẹn: {ex.Message}");
             }
         }
 

@@ -10,7 +10,7 @@ namespace RealEstateHubAPI.Controllers
     [ApiController]
     [Route("api/appointments")]
     [Authorize] // Tất cả endpoints đều yêu cầu đăng nhập
-    public class AppointmentController : ControllerBase
+    public class AppointmentController : BaseController
     {
         private readonly IAppointmentService _appointmentService;
         private readonly ILogger<AppointmentController> _logger;
@@ -49,27 +49,27 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("User ID not found in token");
+                    return UnauthorizedResponse("User ID not found in token");
                 }
 
                 // Validate: AppointmentTime phải trong tương lai
                 // Frontend gửi local time, cần so sánh với local time hiện tại
                 if (dto.AppointmentTime <= DateTime.Now)
                 {
-                    return BadRequest(new { error = "AppointmentTime must be in the future" });
+                    return BadRequestResponse("AppointmentTime must be in the future");
                 }
 
                 var appointment = await _appointmentService.CreateAppointmentAsync(userId.Value, dto);
-                return CreatedAtAction(nameof(GetUserAppointments), new { id = appointment.Id }, appointment);
+                return Created(appointment, "Tạo lịch hẹn thành công");
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { error = ex.Message });
+                return BadRequestResponse(ex.Message);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating appointment");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -83,16 +83,16 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("User ID not found in token");
+                    return UnauthorizedResponse("User ID not found in token");
                 }
 
                 var appointments = await _appointmentService.GetUserAppointmentsAsync(userId.Value);
-                return Ok(appointments);
+                return Success(appointments, "Lấy danh sách lịch hẹn thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting user appointments");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
         [HttpPut("{id}/cancel")]
@@ -106,21 +106,21 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("User ID not found in token");
+                    return UnauthorizedResponse("User ID not found in token");
                 }
 
                 var canceled = await _appointmentService.CancelAppointmentAsync(id, userId.Value);
                 if (!canceled)
                 {
-                    return NotFound(new { error = "Appointment not found or access denied" });
+                    return NotFoundResponse("Appointment not found or access denied");
                 }
 
-                return NoContent();
+                return Success<object>(null, "Hủy lịch hẹn thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error canceling appointment");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -134,16 +134,16 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("User ID not found in token");
+                    return UnauthorizedResponse("User ID not found in token");
                 }
 
                 var appointments = await _appointmentService.GetPendingAppointmentsForPostOwnerAsync(userId.Value);
-                return Ok(appointments);
+                return Success(appointments, "Lấy danh sách lịch hẹn chờ xác nhận thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting pending appointments");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -157,16 +157,16 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("User ID not found in token");
+                    return UnauthorizedResponse("User ID not found in token");
                 }
 
                 var appointments = await _appointmentService.GetAllAppointmentsForPostOwnerAsync(userId.Value);
-                return Ok(appointments);
+                return Success(appointments, "Lấy danh sách lịch hẹn cho bài đăng của tôi thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting appointments for my posts");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -181,21 +181,21 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("User ID not found in token");
+                    return UnauthorizedResponse("User ID not found in token");
                 }
 
                 var confirmed = await _appointmentService.ConfirmAppointmentAsync(id, userId.Value);
                 if (!confirmed)
                 {
-                    return NotFound(new { error = "Appointment not found or access denied" });
+                    return NotFoundResponse("Appointment not found or access denied");
                 }
 
-                return NoContent();
+                return Success<object>(null, "Xác nhận lịch hẹn thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error confirming appointment");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -210,21 +210,21 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("User ID not found in token");
+                    return UnauthorizedResponse("User ID not found in token");
                 }
 
                 var rejected = await _appointmentService.RejectAppointmentAsync(id, userId.Value);
                 if (!rejected)
                 {
-                    return NotFound(new { error = "Appointment not found or access denied" });
+                    return NotFoundResponse("Appointment not found or access denied");
                 }
 
-                return NoContent();
+                return Success<object>(null, "Từ chối lịch hẹn thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error rejecting appointment");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
     }

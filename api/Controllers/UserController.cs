@@ -11,7 +11,7 @@ namespace RealEstateHubAPI.Controllers
     [Route("api/users")]
     [ApiController]
     
-    public class UserController : ControllerBase
+    public class UserController : BaseController
     {
         private readonly IUserRepository _userRepository;
         private readonly ApplicationDbContext _context;
@@ -34,12 +34,12 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 var users = await _userRepository.GetUsersAsync();
-                return Ok(users);
+                return Success(users, "Lấy danh sách người dùng thành công");
             }
             catch (Exception ex)
             {
                 // Handle exception
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
 
@@ -47,7 +47,7 @@ namespace RealEstateHubAPI.Controllers
         public async Task<IActionResult> GetUserById(int id)
         {
             var user = await _userRepository.GetUserByIdAsync(id);
-            if (user == null) return NotFound();
+            if (user == null) return NotFoundResponse("Không tìm thấy người dùng");
             
             // Trả về avatar mặc định nếu user không có avatar
             if (string.IsNullOrEmpty(user.AvatarUrl))
@@ -55,7 +55,7 @@ namespace RealEstateHubAPI.Controllers
                 user.AvatarUrl = "/uploads/avatars/avatar.jpg";
             }
             
-            return Ok(user);
+            return Success(user, "Lấy thông tin người dùng thành công");
         }
 
         [AllowAnonymous] 
@@ -64,7 +64,7 @@ namespace RealEstateHubAPI.Controllers
         {
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, user);
+            return Created(user, "Thêm người dùng thành công");
         }
 
         
@@ -75,10 +75,10 @@ namespace RealEstateHubAPI.Controllers
         public async Task<IActionResult> GetProfile()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
+            if (string.IsNullOrEmpty(userIdClaim)) return UnauthorizedResponse("Chưa đăng nhập");
             var userId = int.Parse(userIdClaim);
             var user = await _context.Users.FindAsync(userId);
-            if (user == null) return NotFound();
+            if (user == null) return NotFoundResponse("Không tìm thấy người dùng");
             
             // Trả về avatar mặc định nếu user không có avatar
             if (string.IsNullOrEmpty(user.AvatarUrl))
@@ -86,7 +86,7 @@ namespace RealEstateHubAPI.Controllers
                 user.AvatarUrl = "/uploads/avatars/avatar.jpg";
             }
             
-            return Ok(user);
+            return Success(user, "Lấy thông tin profile thành công");
         }
 
 
@@ -94,11 +94,11 @@ namespace RealEstateHubAPI.Controllers
         public async Task<IActionResult> UpdateProfile([FromBody] User updateUser)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
+            if (string.IsNullOrEmpty(userIdClaim)) return UnauthorizedResponse("Chưa đăng nhập");
             var userId = int.Parse(userIdClaim);
 
             var user = await _context.Users.FindAsync(userId);
-            if (user == null) return NotFound();
+            if (user == null) return NotFoundResponse("Không tìm thấy người dùng");
 
             // Cập nhật các trường được phép
             user.Name = updateUser.Name;
@@ -107,7 +107,7 @@ namespace RealEstateHubAPI.Controllers
             user.AvatarUrl = updateUser.AvatarUrl;
 
             await _context.SaveChangesAsync();
-            return Ok(user);
+            return Success(user, "Cập nhật profile thành công");
         }
 
 
@@ -115,15 +115,15 @@ namespace RealEstateHubAPI.Controllers
         public async Task<IActionResult> UploadAvatar([FromForm] IFormFile avatar)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
+            if (string.IsNullOrEmpty(userIdClaim)) return UnauthorizedResponse("Chưa đăng nhập");
             var userId = int.Parse(userIdClaim);
 
             var user = await _context.Users.FindAsync(userId);
-            if (user == null) return NotFound();
+            if (user == null) return NotFoundResponse("Không tìm thấy người dùng");
 
             // Validate file
             if (avatar == null || avatar.Length == 0)
-                return BadRequest("No file uploaded.");
+                return BadRequestResponse("Không có file được tải lên");
 
             // Đường dẫn lưu file upload
             var uploads = Path.Combine(_env.WebRootPath, "uploads", "avatars");
@@ -162,7 +162,7 @@ namespace RealEstateHubAPI.Controllers
             user.AvatarUrl = $"/uploads/avatars/{fileName}";
             await _context.SaveChangesAsync();
 
-            return Ok(new { avatarUrl = user.AvatarUrl });
+            return Success(new { avatarUrl = user.AvatarUrl }, "Tải lên avatar thành công");
         }
 
 

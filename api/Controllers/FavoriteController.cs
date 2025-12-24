@@ -11,7 +11,7 @@ namespace RealEstateHubAPI.Controllers
     [Route("api/favorites")]
     [ApiController]
 
-    public class FavoriteController : ControllerBase
+    public class FavoriteController : BaseController
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<FavoriteController> _logger;
@@ -40,12 +40,12 @@ namespace RealEstateHubAPI.Controllers
                     .OrderByDescending(f => f.CreatedFavorite)
                     .ToListAsync();
 
-                return Ok(favorites);
+                return Success(favorites, "Lấy danh sách yêu thích thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting user favorites");
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -60,7 +60,7 @@ namespace RealEstateHubAPI.Controllers
                 var post = await _context.Posts.FindAsync(postId);
                 if (post == null)
                 {
-                    return NotFound("Bài đăng không tồn tại");
+                    return NotFoundResponse("Bài đăng không tồn tại");
                 }
 
                 // Kiểm tra xem đã yêu thích chưa
@@ -69,7 +69,7 @@ namespace RealEstateHubAPI.Controllers
 
                 if (existingFavorite != null)
                 {
-                    return BadRequest("Bài đăng đã được thêm vào danh sách yêu thích");
+                    return BadRequestResponse("Bài đăng đã được thêm vào danh sách yêu thích");
                 }
 
                 var favorite = new Favorite
@@ -82,12 +82,12 @@ namespace RealEstateHubAPI.Controllers
                 _context.Favorites.Add(favorite);
                 await _context.SaveChangesAsync();
 
-                return Ok(favorite);
+                return Created(favorite, "Thêm vào danh sách yêu thích thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error adding favorite");
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -103,18 +103,18 @@ namespace RealEstateHubAPI.Controllers
 
                 if (favorite == null)
                 {
-                    return NotFound("Không tìm thấy bài đăng trong danh sách yêu thích");
+                    return NotFoundResponse("Không tìm thấy bài đăng trong danh sách yêu thích");
                 }
 
                 _context.Favorites.Remove(favorite);
                 await _context.SaveChangesAsync();
 
-                return NoContent();
+                return Success<object>(null, "Xóa khỏi danh sách yêu thích thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error removing favorite");
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -128,18 +128,18 @@ namespace RealEstateHubAPI.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (userId == null)
                 {
-                    return Ok(new { isFavorite = false });
+                    return Success(new { isFavorite = false }, "Kiểm tra trạng thái yêu thích thành công");
                 }
 
                 var isFavorite = await _context.Favorites
                     .AnyAsync(f => f.UserId == int.Parse(userId) && f.PostId == postId);
 
-                return Ok(new { isFavorite });
+                return Success(new { isFavorite }, "Kiểm tra trạng thái yêu thích thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error checking favorite status");
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
     }

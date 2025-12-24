@@ -17,7 +17,7 @@ namespace RealEstateHubAPI.Controllers
     [ApiController]
     [Route("api/messages")]
     [Authorize] // Yêu cầu authentication
-    public class MessageController : ControllerBase
+    public class MessageController : BaseController
     {
         private readonly ApplicationDbContext _context;
         private readonly IHubContext<MessageHub> _messageHub;
@@ -71,25 +71,25 @@ namespace RealEstateHubAPI.Controllers
                 var senderId = GetUserId();
                 if (!senderId.HasValue)
                 {
-                    return Unauthorized("User not authenticated");
+                    return UnauthorizedResponse("User not authenticated");
                 }
 
                 if (!ModelState.IsValid)
                 {
-                    return BadRequest(ModelState);
+                    return BadRequestResponse("Dữ liệu không hợp lệ");
                 }
 
                 // Validate: không được gửi tin nhắn cho chính mình
                 if (dto.ReceiverId == senderId.Value)
                 {
-                    return BadRequest("Cannot send message to yourself");
+                    return BadRequestResponse("Cannot send message to yourself");
                 }
 
                 // Kiểm tra receiver tồn tại
                 var receiver = await _context.Users.FindAsync(dto.ReceiverId);
                 if (receiver == null)
                 {
-                    return BadRequest($"Receiver with ID {dto.ReceiverId} not found");
+                    return BadRequestResponse($"Receiver with ID {dto.ReceiverId} not found");
                 }
 
                 // Kiểm tra post tồn tại (nếu có)
@@ -101,13 +101,13 @@ namespace RealEstateHubAPI.Controllers
                         .FirstOrDefaultAsync(p => p.Id == dto.PostId.Value);
                     if (post == null)
                     {
-                        return BadRequest($"Post with ID {dto.PostId} not found");
+                        return BadRequestResponse($"Post with ID {dto.PostId} not found");
                     }
                 }
 
                 if (string.IsNullOrWhiteSpace(dto.Content))
                 {
-                    return BadRequest("Message content cannot be empty");
+                    return BadRequestResponse("Message content cannot be empty");
                 }
 
                 // Tạo ConversationId để định danh cho đoạn chat (chỉ dùng SenderId và ReceiverId)
@@ -189,12 +189,12 @@ namespace RealEstateHubAPI.Controllers
 
                 _logger.LogInformation($"Message {message.Id} sent from {senderId.Value} to {dto.ReceiverId}");
 
-                return Ok(messageDto);
+                return Success(messageDto, "Gửi tin nhắn thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error sending message");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -211,7 +211,7 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("User not authenticated");
+                    return UnauthorizedResponse("User not authenticated");
                 }
 
                 var conversations = await _context.Messages
@@ -255,12 +255,12 @@ namespace RealEstateHubAPI.Controllers
                     .OrderByDescending(c => c.LastMessage.SentTime)
                     .ToListAsync();
 
-                return Ok(conversations);
+                return Success(conversations, "Lấy danh sách cuộc hội thoại thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting conversations");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -277,7 +277,7 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("User not authenticated");
+                    return UnauthorizedResponse("User not authenticated");
                 }
 
                 // Tạo ConversationId từ 2 userId
@@ -308,12 +308,12 @@ namespace RealEstateHubAPI.Controllers
                     })
                     .ToListAsync();
 
-                return Ok(messages);
+                return Success(messages, "Lấy lịch sử chat thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting conversation");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
     }

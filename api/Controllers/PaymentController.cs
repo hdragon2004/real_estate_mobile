@@ -17,7 +17,7 @@ namespace RealEstateHubAPI.Controllers
 {
     [ApiController]
     [Route("api/payment")]
-    public class PaymentController : ControllerBase
+    public class PaymentController : BaseController
     {
         private readonly IWebHostEnvironment _env;
         private readonly ApplicationDbContext _context;
@@ -44,7 +44,7 @@ namespace RealEstateHubAPI.Controllers
         public IActionResult CreatePaymentUrlVnpay([FromBody] PaymentInformationModel model)
         {
             var url = _vnPayService.CreatePaymentUrl(model, HttpContext);
-            return Ok(new { url });
+            return Success(new { url }, "Tạo URL thanh toán VNPay thành công");
         }
 
         [HttpPost("momo/create")]
@@ -63,16 +63,16 @@ namespace RealEstateHubAPI.Controllers
                 
                 if (response.ErrorCode == 0 && !string.IsNullOrEmpty(response.PayUrl))
                 {
-                    return Ok(new { url = response.PayUrl });
+                    return Success(new { url = response.PayUrl }, "Tạo URL thanh toán MoMo thành công");
                 }
                 else
                 {
-                    return BadRequest(new { error = response.Message });
+                    return BadRequestResponse(response.Message);
                 }
             }
             catch (Exception ex)
             {
-                return BadRequest(new { error = "Lỗi khi tạo thanh toán MoMo: " + ex.Message });
+                return BadRequestResponse($"Lỗi khi tạo thanh toán MoMo: {ex.Message}");
             }
         }
 
@@ -116,7 +116,7 @@ namespace RealEstateHubAPI.Controllers
                 Console.WriteLine($"Payment not successful or OrderInfo is null. Success: {response.Success}, OrderInfo: {response.OrderInfo}");
             }
             
-            return Ok(response);
+            return Success(response, "Xử lý callback VNPay thành công");
         }
 
         [AllowAnonymous]
@@ -162,7 +162,7 @@ namespace RealEstateHubAPI.Controllers
                 Console.WriteLine($"MoMo payment not successful. Success: {response.Success}, OrderInfo: {response.OrderInfo}");
             }
             
-            return Ok(response);
+            return Success(response, "Xử lý callback VNPay thành công");
         }
 
         [AllowAnonymous]
@@ -204,7 +204,7 @@ namespace RealEstateHubAPI.Controllers
                 Console.WriteLine($"IPN not successful or OrderInfo is null. Success: {response.Success}, OrderInfo: {response.OrderInfo}");
             }
             
-            return Ok(new { RspCode = "00", Message = "Confirm Success" });
+            return Success(new { RspCode = "00", Message = "Confirm Success" }, "Xác nhận thành công");
         }
 
         [AllowAnonymous]
@@ -246,7 +246,7 @@ namespace RealEstateHubAPI.Controllers
                 Console.WriteLine($"MoMo notify not successful. Success: {response.Success}, OrderInfo: {response.OrderInfo}");
             }
             
-            return Ok(new { RspCode = "00", Message = "Confirm Success" });
+            return Success(new { RspCode = "00", Message = "Confirm Success" }, "Xác nhận thành công");
         }
 
         [HttpPost("test-process")]
@@ -263,17 +263,17 @@ namespace RealEstateHubAPI.Controllers
                         message = "Payment processing test completed",
                         agentProfileId = agentProfileId
                     };
-                    return Ok(response);
+                    return Success(response, "Xử lý callback VNPay thành công");
                 }
                 else
                 {
-                    return StatusCode(500, new { success = false, error = "Payment processing failed" });
+                    return InternalServerError("Payment processing failed");
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Test payment processing error: {ex.Message}");
-                return StatusCode(500, new { success = false, error = ex.Message });
+                return InternalServerError($"Lỗi: {ex.Message}");
             }
         }
 
@@ -286,23 +286,23 @@ namespace RealEstateHubAPI.Controllers
                 var user = await _context.Users.FindAsync(userId);
                 if (user == null)
                 {
-                    return NotFound(new { success = false, error = "User not found" });
+                    return NotFoundResponse("User not found");
                 }
 
                 var oldRole = user.Role;
                 user.Role = "Membership";
                 await _context.SaveChangesAsync();
 
-                return Ok(new { 
+                return Success(new { 
                     success = true, 
                     message = $"User upgraded from {oldRole} to Membership",
                     user = new { id = user.Id, name = user.Name, role = user.Role }
-                });
+                }, "Test upgrade user thành công");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Test user upgrade error: {ex.Message}");
-                return StatusCode(500, new { success = false, error = ex.Message });
+                return InternalServerError($"Lỗi: {ex.Message}");
             }
         }
         [HttpPost]
@@ -330,17 +330,17 @@ namespace RealEstateHubAPI.Controllers
                 
                 Console.WriteLine($"MoMo test response - ErrorCode: {response.ErrorCode}, Message: {response.Message}, PayUrl: {response.PayUrl}");
                 
-                return Ok(new { 
+                return Success(new { 
                     success = response.ErrorCode == 0,
                     errorCode = response.ErrorCode,
                     message = response.Message,
                     payUrl = response.PayUrl,
                     fullResponse = response
-                });
+                }, "Test MoMo payment thành công");
             }
             catch (Exception ex)
             {
-                return BadRequest(new { error = "Lỗi khi test MoMo: " + ex.Message });
+                return BadRequestResponse($"Lỗi khi test MoMo: {ex.Message}");
             }
         }
 

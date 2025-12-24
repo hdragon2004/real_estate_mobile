@@ -16,7 +16,7 @@ namespace RealEstateHubAPI.Controllers
     [ApiController]
     [Route("api/posts")]
     
-    public class PostController : ControllerBase
+    public class PostController : BaseController
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
@@ -133,7 +133,7 @@ namespace RealEstateHubAPI.Controllers
                 SetDefaultAvatarIfNeeded(post.User);
             }
 
-            return Ok(postsList);
+            return Success(postsList, "Lấy danh sách bài đăng thành công");
         }
         
         /// <summary>
@@ -167,7 +167,7 @@ namespace RealEstateHubAPI.Controllers
                 if (dto.RadiusInKm <= 0)
                 {
                     _logger.LogWarning($"[MapRadiusSearch] Invalid radius: {dto.RadiusInKm}");
-                    return BadRequest(new { error = "Radius must be greater than 0" });
+                    return BadRequestActionResult<IEnumerable<PostDto>>("Radius must be greater than 0");
                 }
 
                 // Lấy tất cả posts đã approved và còn hạn
@@ -241,12 +241,12 @@ namespace RealEstateHubAPI.Controllers
                 _logger.LogInformation($"[MapRadiusSearch] Found {postDtos.Count} posts within {dto.RadiusInKm}km radius");
                 
                 // Trả về empty list nếu không có kết quả (HTTP 200 với empty array)
-                return Ok(postDtos);
+                return SuccessActionResult<IEnumerable<PostDto>>(postDtos, "Tìm kiếm bài đăng theo bán kính thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[MapRadiusSearch] Error searching posts by radius");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerErrorActionResult<IEnumerable<PostDto>>($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
         
@@ -263,17 +263,17 @@ namespace RealEstateHubAPI.Controllers
                     .FirstOrDefaultAsync(p => p.Id == id);
 
                 if (post == null)
-                    return NotFound();
+                    return NotFoundResponse("Không tìm thấy bài đăng");
 
                 // Set avatar mặc định cho user nếu cần
                 SetDefaultAvatarIfNeeded(post.User);
 
-                return Ok(post);
+                return Success(post, "Lấy thông tin bài đăng thành công");
             }
             catch (Exception ex)
             {
                 // Log lỗi chi tiết hơn trong môi trường phát triển
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -286,27 +286,27 @@ namespace RealEstateHubAPI.Controllers
                 dto.Price <= 0 || dto.Area_Size <= 0 || string.IsNullOrEmpty(dto.Street_Name) || 
                 dto.CategoryId <= 0 || dto.UserId <= 0)
             {
-                return BadRequest("All required fields must be filled with valid values");
+                return BadRequestResponse("All required fields must be filled with valid values");
             }
 
             // Verify User exists và kiểm tra IsLocked
             var user = await _context.Users.FindAsync(dto.UserId);
             if (user == null)
             {
-                return BadRequest($"User with ID {dto.UserId} not found");
+                return BadRequestResponse($"User with ID {dto.UserId} not found");
             }
 
             // Kiểm tra user có bị khóa không
             if (user.IsLocked)
             {
-                return BadRequest("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.");
+                return BadRequestResponse("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.");
             }
 
             // Kiểm tra nếu có token, userId từ token phải khớp với dto.UserId
             var currentUserId = GetUserId();
             if (currentUserId.HasValue && currentUserId.Value != dto.UserId)
             {
-                return BadRequest("Bạn chỉ có thể tạo post cho chính tài khoản của mình.");
+                return BadRequestResponse("Bạn chỉ có thể tạo post cho chính tài khoản của mình.");
             }
 
             // Enforce posting limits based on user's current role
@@ -332,7 +332,7 @@ namespace RealEstateHubAPI.Controllers
 
             if (countInWindow >= limit)
             {
-                return BadRequest($"Bạn đã đạt giới hạn {limit} bài viết trong {windowDays} ngày. Nâng cấp gói Pro để đăng nhiều hơn (Pro_1: 100/30 ngày, Pro_3: 300/90 ngày, Pro_12: 1200/365 ngày). Vào trang Membership để nâng cấp.");
+                return BadRequestResponse($"Bạn đã đạt giới hạn {limit} bài viết trong {windowDays} ngày. Nâng cấp gói Pro để đăng nhiều hơn (Pro_1: 100/30 ngày, Pro_3: 300/90 ngày, Pro_12: 1200/365 ngày). Vào trang Membership để nâng cấp.");
             }
 
             try
@@ -352,7 +352,7 @@ namespace RealEstateHubAPI.Controllers
                     string.IsNullOrEmpty(dto.DistrictName) || 
                     string.IsNullOrEmpty(dto.WardName))
                 {
-                    return BadRequest("CityName, DistrictName, and WardName are required (from provinces.open-api.vn)");
+                    return BadRequestResponse("CityName, DistrictName, and WardName are required (from provinces.open-api.vn)");
                 }
 
                 // Nếu có FullAddress nhưng chưa có CityName/DistrictName/WardName, tự động parse
@@ -374,14 +374,14 @@ namespace RealEstateHubAPI.Controllers
                 // Parse TransactionType from string to enum
                 if (!Enum.TryParse<TransactionType>(dto.TransactionType.ToString(), true, out var transactionType))
                 {
-                    return BadRequest($"Invalid TransactionType: {dto.TransactionType}. Must be either 'Sale' or 'Rent'");
+                    return BadRequestResponse($"Invalid TransactionType: {dto.TransactionType}. Must be either 'Sale' or 'Rent'");
                 }
 
                 // Verify Category exists
                 var category = await _context.Categories.FindAsync(dto.CategoryId);
                 if (category == null)
                 {
-                    return BadRequest($"Category with ID {dto.CategoryId} not found");
+                    return BadRequestResponse($"Category with ID {dto.CategoryId} not found");
                 }
 
                 // Tính toán thời gian hết hạn dựa trên role (user đã được verify ở trên)
@@ -562,7 +562,7 @@ namespace RealEstateHubAPI.Controllers
                 {
                     _logger.LogError($"Database update error: {ex.Message}");
                     _logger.LogError($"Inner exception: {ex.InnerException?.Message}");
-                    return StatusCode(500, $"Database error: {ex.InnerException?.Message ?? ex.Message}");
+                    return InternalServerError($"Database error: {ex.InnerException?.Message ?? ex.Message}");
                 }
 
                 // Xóa tin nháp khi đăng tin thành công
@@ -574,13 +574,13 @@ namespace RealEstateHubAPI.Controllers
                     _logger.LogInformation($"Đã xóa tin nháp cho user {userId} sau khi đăng tin thành công");
                 }
 
-                return CreatedAtAction(nameof(GetById), new { id = post.Id }, post);
+                return Created(post, "Tạo bài đăng thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Error in Create post: {ex.Message}");
                 _logger.LogError($"Stack trace: {ex.StackTrace}");
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -589,14 +589,14 @@ namespace RealEstateHubAPI.Controllers
         public async Task<IActionResult> Update(int id, [FromForm] UpdatePostDto updateDto)
         {
             if (id != updateDto.Id)
-                return BadRequest("ID không khớp.");
+                return BadRequestResponse("ID không khớp");
 
             var post = await _context.Posts
                 .Include(p => p.Images) 
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (post == null)
-                return NotFound("Bài đăng không tìm thấy.");
+                return NotFoundResponse("Bài đăng không tìm thấy");
 
             // Nếu có FullAddress nhưng chưa có CityName/DistrictName/WardName, tự động parse
             if (!string.IsNullOrEmpty(updateDto.FullAddress) && 
@@ -618,7 +618,7 @@ namespace RealEstateHubAPI.Controllers
             if ((!string.IsNullOrEmpty(updateDto.CityName) || !string.IsNullOrEmpty(updateDto.DistrictName) || !string.IsNullOrEmpty(updateDto.WardName)) &&
                 (string.IsNullOrEmpty(updateDto.CityName) || string.IsNullOrEmpty(updateDto.DistrictName) || string.IsNullOrEmpty(updateDto.WardName)))
             {
-                return BadRequest("If updating address, CityName, DistrictName, and WardName are all required (from provinces.open-api.vn)");
+                return BadRequestResponse("If updating address, CityName, DistrictName, and WardName are all required (from provinces.open-api.vn)");
             }
            
             post.Title = updateDto.Title;
@@ -729,7 +729,7 @@ namespace RealEstateHubAPI.Controllers
 
 
             await _context.SaveChangesAsync();
-            return NoContent();
+            return Success(post, "Cập nhật bài đăng thành công");
         }
 
         // DELETE: api/posts/{id}
@@ -740,13 +740,13 @@ namespace RealEstateHubAPI.Controllers
                 .Include(p => p.Images)
                 .FirstOrDefaultAsync(p => p.Id == id);
             if (post == null)
-                return NotFound();
+                return NotFoundResponse("Không tìm thấy bài đăng");
 
             _context.PostImages.RemoveRange(post.Images);
             _context.Posts.Remove(post);
 
             await _context.SaveChangesAsync();
-            return NoContent();
+            return Success<object>(null, "Xóa bài đăng thành công");
         }
 
         [HttpGet("search")]
@@ -826,11 +826,11 @@ namespace RealEstateHubAPI.Controllers
                     SetDefaultAvatarIfNeeded(post.User);
                 }
                 
-                return Ok(posts);
+                return SuccessActionResult<IEnumerable<Post>>(posts, "Tìm kiếm bài đăng thành công");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return InternalServerErrorActionResult<IEnumerable<Post>>($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -902,7 +902,7 @@ namespace RealEstateHubAPI.Controllers
             var currentUserId = GetUserId();
             if (!currentUserId.HasValue)
             {
-                return Forbid("Bạn chỉ có thể xem bài viết của chính mình");
+                return ForbiddenResponse("Bạn chỉ có thể xem bài viết của chính mình");
             }
 
             var isOwnPosts = currentUserId.Value == userId;
@@ -930,7 +930,7 @@ namespace RealEstateHubAPI.Controllers
                 SetDefaultAvatarIfNeeded(post.User);
             }
               
-            return Ok(posts);
+            return Success(posts, "Lấy danh sách bài đăng của người dùng thành công");
         }
 
         
@@ -945,7 +945,7 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("Không tìm thấy thông tin người dùng.");
+                    return UnauthorizedResponse("Không tìm thấy thông tin người dùng");
                 }
 
                 var draftKey = $"post_draft_{userId}";
@@ -965,16 +965,16 @@ namespace RealEstateHubAPI.Controllers
 
                 _logger.LogInformation($"Đã lưu tin nháp cho user {userId}");
 
-                return Ok(new { 
+                return Success(new { 
                     message = "Đã lưu tin nháp thành công",
                     draftId = draftKey,
                     lastModified = draftData.LastModified
-                });
+                }, "Lưu tin nháp thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Lỗi khi lưu tin nháp: {ex.Message}");
-                return StatusCode(500, "Lỗi khi lưu tin nháp");
+                return InternalServerError("Lỗi khi lưu tin nháp");
             }
         }
 
@@ -988,28 +988,28 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("Không tìm thấy thông tin người dùng.");
+                    return UnauthorizedResponse("Không tìm thấy thông tin người dùng");
                 }
 
                 var draftKey = $"post_draft_{userId}";
                 if (_cache.TryGetValue(draftKey, out DraftPostData draftData))
                 {
-                    return Ok(new
+                    return Success(new
                     {
                         hasDraft = true,
                         formData = draftData.FormData,
                         currentStep = draftData.CurrentStep,
                         createdAt = draftData.CreatedAt,
                         lastModified = draftData.LastModified
-                    });
+                    }, "Lấy tin nháp thành công");
                 }
 
-                return Ok(new { hasDraft = false });
+                return Success(new { hasDraft = false }, "Không có tin nháp");
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Lỗi khi lấy tin nháp: {ex.Message}");
-                return StatusCode(500, "Lỗi khi lấy tin nháp");
+                return InternalServerError("Lỗi khi lấy tin nháp");
             }
         }
 
@@ -1023,7 +1023,7 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("Không tìm thấy thông tin người dùng.");
+                    return UnauthorizedResponse("Không tìm thấy thông tin người dùng");
                 }
 
                 var draftKey = $"post_draft_{userId}";
@@ -1031,12 +1031,12 @@ namespace RealEstateHubAPI.Controllers
 
                 _logger.LogInformation($"Đã xóa tin nháp cho user {userId}");
 
-                return Ok(new { message = "Đã xóa tin nháp thành công" });
+                return Success<object>(null, "Đã xóa tin nháp thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Lỗi khi xóa tin nháp: {ex.Message}");
-                return StatusCode(500, "Lỗi khi xóa tin nháp");
+                return InternalServerError("Lỗi khi xóa tin nháp");
             }
         }
 
@@ -1050,7 +1050,7 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("Không tìm thấy thông tin người dùng.");
+                    return UnauthorizedResponse("Không tìm thấy thông tin người dùng");
                 }
 
                 var draftKey = $"post_draft_{userId}";
@@ -1067,18 +1067,18 @@ namespace RealEstateHubAPI.Controllers
 
                     _logger.LogInformation($"Đã cập nhật tin nháp cho user {userId}");
 
-                    return Ok(new { 
+                    return Success(new { 
                         message = "Đã cập nhật tin nháp thành công",
                         lastModified = existingDraft.LastModified
-                    });
+                    }, "Cập nhật tin nháp thành công");
                 }
 
-                return NotFound("Không tìm thấy tin nháp để cập nhật");
+                return NotFoundResponse("Không tìm thấy tin nháp để cập nhật");
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Lỗi khi cập nhật tin nháp: {ex.Message}");
-                return StatusCode(500, "Lỗi khi cập nhật tin nháp");
+                return InternalServerError("Lỗi khi cập nhật tin nháp");
             }
         }
         

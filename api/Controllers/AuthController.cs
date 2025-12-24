@@ -10,7 +10,7 @@ namespace RealEstateHubAPI.Controllers
     [Route("api/auth")]
     [ApiController]
     
-    public class AuthController : ControllerBase
+    public class AuthController : BaseController
     {
         private readonly IAuthService _authService;
         private readonly IUserRepository _userRepository;
@@ -29,10 +29,10 @@ namespace RealEstateHubAPI.Controllers
             var user = users.FirstOrDefault(u => u.Email == model.Email && u.Password == model.Password);
             
             if (user == null)
-                return Unauthorized("Invalid credentials");
+                return UnauthorizedResponse("Invalid credentials");
                 
             if (user.IsLocked)
-                return BadRequest("Tài khoản của bạn đã bị khóa");
+                return BadRequestResponse("Tài khoản của bạn đã bị khóa");
 
             var token = _authService.GenerateJwtToken(user);
 
@@ -46,7 +46,7 @@ namespace RealEstateHubAPI.Controllers
                 IsLocked = user.IsLocked
             };
 
-            return Ok(new { user = userDto, token });
+            return Success(new { user = userDto, token }, "Đăng nhập thành công");
         }
         [AllowAnonymous]
         [HttpPost("register")]
@@ -56,17 +56,17 @@ namespace RealEstateHubAPI.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    return BadRequest(ModelState);
+                    return BadRequestResponse("Dữ liệu không hợp lệ");
                 }
 
                 if (model.Password != model.ConfirmPassword)
                 {
-                    return BadRequest("Mật khẩu xác nhận không khớp");
+                    return BadRequestResponse("Mật khẩu xác nhận không khớp");
                 }
 
                 var user = await _authService.Register(model);
                 if (user == null)
-                    return BadRequest("Email đã tồn tại");
+                    return BadRequestResponse("Email đã tồn tại");
 
                 var token = _authService.GenerateJwtToken(user);
                 
@@ -80,11 +80,11 @@ namespace RealEstateHubAPI.Controllers
                     IsLocked = user.IsLocked
                 };
 
-                return Ok(new { user = userDto, token });
+                return Created(new { user = userDto, token }, "Đăng ký thành công");
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequestResponse(ex.Message);
             }
         }
 

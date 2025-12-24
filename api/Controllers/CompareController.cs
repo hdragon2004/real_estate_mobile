@@ -12,7 +12,7 @@ namespace RealEstateHubAPI.Controllers
     [ApiController]
     
 
-    public class CompareController : Controller
+    public class CompareController : BaseController
     {
         private readonly ApplicationDbContext _context;
         public CompareController(ApplicationDbContext context)
@@ -32,9 +32,9 @@ namespace RealEstateHubAPI.Controllers
                 .FirstOrDefaultAsync(p => p.Id == id2);
 
             if (property1 == null || property2 == null)
-                return NotFound("Không tìm thấy bất động sản");
+                return NotFoundResponse("Không tìm thấy bất động sản");
 
-            return Ok(new { property1, property2 });
+            return Success(new { property1, property2 }, "So sánh bất động sản thành công");
         }
     }
 }

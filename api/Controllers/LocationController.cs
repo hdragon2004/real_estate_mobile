@@ -10,7 +10,7 @@ namespace RealEstateHubAPI.Controllers
     [Route("api/locations")]
     [ApiController]
     [Authorize(Roles = "Admin")]
-    public class LocationController : ControllerBase
+    public class LocationController : BaseController
     {
         private readonly ILocationRepository _locationRepository;
         private readonly ApplicationDbContext _context;
@@ -28,11 +28,11 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 var cities = await _locationRepository.GetCitiesAsync();
-                return Ok(cities);
+                return Success(cities, "Lấy danh sách thành phố thành công");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Internal server error");
+                return InternalServerError("Lỗi máy chủ nội bộ");
             }
         }
         [AllowAnonymous]
@@ -44,9 +44,9 @@ namespace RealEstateHubAPI.Controllers
                 var city = await _locationRepository.GetCityByIdAsync(id);
                 if (city == null)
                 {
-                    return NotFound($"City with ID {id} not found");
+                    return NotFoundResponse($"Không tìm thấy thành phố với ID {id}");
                 }
-                return Ok(city);
+                return Success(city, "Lấy thông tin thành phố thành công");
             }
             catch (Exception ex)
             {
@@ -60,7 +60,7 @@ namespace RealEstateHubAPI.Controllers
             try
             {
                 await _locationRepository.AddCityAsync(city);
-                return CreatedAtAction(nameof(GetCityById), new { id = city.Id }, city);
+                return Created(city, "Tạo thành phố thành công");
             }
             catch (Exception ex)
             {
@@ -92,9 +92,9 @@ namespace RealEstateHubAPI.Controllers
                 var district = await _locationRepository.GetDistrictByIdAsync(id);
                 if (district == null)
                 {
-                    return NotFound($"District with ID {id} not found");
+                    return NotFoundResponse($"Không tìm thấy quận/huyện với ID {id}");
                 }
-                return Ok(district);
+                return Success(district, "Lấy thông tin quận/huyện thành công");
             }
             catch (Exception ex)
             {
@@ -110,11 +110,11 @@ namespace RealEstateHubAPI.Controllers
                 var city = await _locationRepository.GetCityByIdAsync(cityId);
                 if (city == null)
                 {
-                    return NotFound($"City with ID {cityId} not found");
+                    return NotFoundResponse($"Không tìm thấy thành phố với ID {cityId}");
                 }
 
                 var districts = await _locationRepository.GetDistrictsByCityAsync(cityId);
-                return Ok(districts);
+                return Success(districts, "Lấy danh sách quận/huyện thành công");
             }
             catch (Exception ex)
             {
@@ -130,7 +130,7 @@ namespace RealEstateHubAPI.Controllers
                 var city = await _locationRepository.GetCityByIdAsync(districtDto.CityId);
                 if (city == null)
                 {
-                    return NotFound($"City with ID {districtDto.CityId} not found");
+                    return NotFoundResponse($"Không tìm thấy thành phố với ID {districtDto.CityId}");
                 }
 
                 var district = new District
@@ -140,7 +140,7 @@ namespace RealEstateHubAPI.Controllers
                 };
 
                 await _locationRepository.AddDistrictAsync(district);
-                return CreatedAtAction(nameof(GetDistrictById), new { id = district.Id }, district);
+                return Created(district, "Tạo quận/huyện thành công");
             }
             catch (Exception ex)
             {
@@ -172,9 +172,9 @@ namespace RealEstateHubAPI.Controllers
                 var ward = await _locationRepository.GetWardByIdAsync(id);
                 if (ward == null)
                 {
-                    return NotFound($"Ward with ID {id} not found");
+                    return NotFoundResponse($"Không tìm thấy phường/xã với ID {id}");
                 }
-                return Ok(ward);
+                return Success(ward, "Lấy thông tin phường/xã thành công");
             }
             catch (Exception ex)
             {
@@ -190,11 +190,11 @@ namespace RealEstateHubAPI.Controllers
                 var district = await _locationRepository.GetDistrictByIdAsync(districtId);
                 if (district == null)
                 {
-                    return NotFound($"District with ID {districtId} not found");
+                    return NotFoundResponse($"Không tìm thấy quận/huyện với ID {districtId}");
                 }
 
                 var wards = await _locationRepository.GetWardsByDistrictAsync(districtId);
-                return Ok(wards);
+                return Success(wards, "Lấy danh sách phường/xã thành công");
             }
             catch (Exception ex)
             {
@@ -210,7 +210,7 @@ namespace RealEstateHubAPI.Controllers
                 var district = await _locationRepository.GetDistrictByIdAsync(wardDto.DistrictId);
                 if (district == null)
                 {
-                    return NotFound($"District with ID {wardDto.DistrictId} not found");
+                    return NotFoundResponse($"Không tìm thấy quận/huyện với ID {wardDto.DistrictId}");
                 }
 
                 var ward = new Ward
@@ -220,7 +220,7 @@ namespace RealEstateHubAPI.Controllers
                 };
 
                 await _locationRepository.AddWardAsync(ward);
-                return CreatedAtAction(nameof(GetWardById), new { id = ward.Id }, ward);
+                return Created(ward, "Tạo phường/xã thành công");
             }
             catch (Exception ex)
             {

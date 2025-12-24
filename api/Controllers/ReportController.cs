@@ -9,7 +9,7 @@ namespace RealEstateHubAPI.Controllers
 {
     [ApiController]
     [Route("api/reports")]
-    public class ReportController : ControllerBase
+    public class ReportController : BaseController
     {
         private readonly ApplicationDbContext _context;
 
@@ -48,7 +48,7 @@ namespace RealEstateHubAPI.Controllers
                 CreatedReport = r.CreatedReport
             }).ToList();
 
-            return Ok(result);
+            return Success(result, "Lấy danh sách báo cáo thành công");
         }
 
         // GET: api/reports/{id}
@@ -56,7 +56,7 @@ namespace RealEstateHubAPI.Controllers
         public async Task<IActionResult> GetById(int id)
         {
             var result = await GetReportDtoById(id);
-            return result is null ? NotFound("Không tìm thấy báo cáo.") : Ok(result);
+            return result is null ? NotFoundResponse("Không tìm thấy báo cáo") : Success(result, "Lấy thông tin báo cáo thành công");
         }
 
         // GET: api/reports/types
@@ -67,7 +67,7 @@ namespace RealEstateHubAPI.Controllers
                 .Cast<ReportType>()
                 .Select(rt => new { id = (int)rt, name = rt.ToString() });
 
-            return Ok(types);
+            return Success(types, "Lấy danh sách loại báo cáo thành công");
         }
 
         // POST: api/reports
@@ -79,10 +79,10 @@ namespace RealEstateHubAPI.Controllers
             var post = await _context.Posts.FindAsync(dto.PostId);
 
             if (user == null || post == null)
-                return BadRequest("User hoặc bài đăng không tồn tại.");
+                return BadRequestResponse("User hoặc bài đăng không tồn tại");
 
             if (dto.Type == ReportType.Other && string.IsNullOrWhiteSpace(dto.Other))
-                return BadRequest("Vui lòng nhập chi tiết cho loại báo cáo 'Other'.");
+                return BadRequestResponse("Vui lòng nhập chi tiết cho loại báo cáo 'Other'");
 
             var report = new Report
             {
@@ -98,7 +98,7 @@ namespace RealEstateHubAPI.Controllers
             await _context.SaveChangesAsync();
 
             var result = await GetReportDtoById(report.Id);
-            return Ok(result);
+            return Created(result, "Tạo báo cáo thành công");
         }
         
 

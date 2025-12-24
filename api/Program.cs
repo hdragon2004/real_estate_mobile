@@ -200,11 +200,32 @@ builder.Services.AddCors(options =>
                     try
                     {
                         var uri = new Uri(origin);
-                        // Cho phép localhost, 127.0.0.1, và ngrok domains
-                        return uri.Host == "localhost" 
-                            || uri.Host == "127.0.0.1"
-                            || uri.Host.EndsWith(".ngrok-free.dev")
-                            || uri.Host.EndsWith(".ngrok.io");
+                        var host = uri.Host;
+                        
+                        // Cho phép localhost, 127.0.0.1
+                        if (host == "localhost" || host == "127.0.0.1")
+                            return true;
+                        
+                        // Cho phép ngrok domains
+                        if (host.EndsWith(".ngrok-free.dev") || host.EndsWith(".ngrok.io"))
+                            return true;
+                        
+                        // Cho phép IP local network (192.168.x.x, 10.0.x.x) - cho máy ảo và điện thoại thật
+                        if (System.Net.IPAddress.TryParse(host, out var ipAddress))
+                        {
+                            var bytes = ipAddress.GetAddressBytes();
+                            // 192.168.x.x (C-class private network)
+                            if (bytes.Length == 4 && bytes[0] == 192 && bytes[1] == 168)
+                                return true;
+                            // 10.0.x.x (A-class private network) - bao gồm 10.0.2.2 cho Android Emulator
+                            if (bytes.Length == 4 && bytes[0] == 10)
+                                return true;
+                            // 172.16.x.x - 172.31.x.x (B-class private network)
+                            if (bytes.Length == 4 && bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+                                return true;
+                        }
+                        
+                        return false;
                     }
                     catch
                     {

@@ -12,7 +12,7 @@ namespace RealEstateHubAPI.Controllers
     [ApiController]
     [Route("api/saved-searches")]
     [Authorize] // Tất cả endpoints đều yêu cầu đăng nhập
-    public class SavedSearchController : ControllerBase
+    public class SavedSearchController : BaseController
     {
         private readonly ISavedSearchService _savedSearchService;
         private readonly ILogger<SavedSearchController> _logger;
@@ -58,22 +58,22 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("User ID not found in token");
+                    return UnauthorizedResponse("User ID not found in token");
                 }
 
                 // Validate MinPrice <= MaxPrice
                 if (dto.MinPrice.HasValue && dto.MaxPrice.HasValue && dto.MinPrice.Value > dto.MaxPrice.Value)
                 {
-                    return BadRequest(new { error = "MinPrice must be less than or equal to MaxPrice" });
+                    return BadRequestResponse("MinPrice must be less than or equal to MaxPrice");
                 }
 
                 var savedSearch = await _savedSearchService.CreateSavedSearchAsync(userId.Value, dto);
-                return CreatedAtAction(nameof(GetUserSavedSearches), new { id = savedSearch.Id }, savedSearch);
+                return Created(savedSearch, "Tạo tìm kiếm đã lưu thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating saved search");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -91,16 +91,16 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("User ID not found in token");
+                    return UnauthorizedResponse("User ID not found in token");
                 }
 
                 var savedSearches = await _savedSearchService.GetUserSavedSearchesAsync(userId.Value);
-                return Ok(savedSearches);
+                return Success(savedSearches, "Lấy danh sách tìm kiếm đã lưu thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting user saved searches");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -119,21 +119,21 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("User ID not found in token");
+                    return UnauthorizedResponse("User ID not found in token");
                 }
 
                 var deleted = await _savedSearchService.DeleteSavedSearchAsync(id, userId.Value);
                 if (!deleted)
                 {
-                    return NotFound(new { error = "SavedSearch not found or access denied" });
+                    return NotFoundResponse("SavedSearch not found or access denied");
                 }
 
-                return NoContent();
+                return Success<object>(null, "Xóa tìm kiếm đã lưu thành công");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting saved search");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
 
@@ -152,20 +152,20 @@ namespace RealEstateHubAPI.Controllers
                 var userId = GetUserId();
                 if (!userId.HasValue)
                 {
-                    return Unauthorized("User ID not found in token");
+                    return UnauthorizedResponse("User ID not found in token");
                 }
 
                 var posts = await _savedSearchService.FindMatchingPostsAsync(id, userId.Value);
-                return Ok(posts);
+                return Success(posts, "Lấy danh sách bài đăng phù hợp thành công");
             }
             catch (KeyNotFoundException ex)
             {
-                return NotFound(new { error = ex.Message });
+                return NotFoundResponse(ex.Message);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting matching posts");
-                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+                return InternalServerError($"Lỗi máy chủ nội bộ: {ex.Message}");
             }
         }
     }
