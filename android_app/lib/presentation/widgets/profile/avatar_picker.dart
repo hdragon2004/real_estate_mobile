@@ -33,10 +33,10 @@ class AvatarPicker extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
+                color: Colors.white.withValues(alpha: 0.7),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+              child: const Icon(Icons.camera_alt, size: 20, color: Colors.black54),
             ),
           ),
         ],

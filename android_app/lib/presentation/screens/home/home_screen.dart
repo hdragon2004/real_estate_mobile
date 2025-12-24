@@ -4,10 +4,10 @@ import '../../widgets/common/post_card.dart';
 import '../../widgets/carousel/property_carousel.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import 'search_screen.dart';
 import 'filter_screen.dart';
 import '../post/post_details_screen.dart';
 import '../notification/notifications_screen.dart';
+import 'saved_search_screen.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/models/vietnam_address_model.dart';
 import '../../../core/repositories/post_repository.dart';
@@ -21,8 +21,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Màn hình Home / Dashboard - Thiết kế theo mẫu
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onMenuTap;
+  final void Function({Map<String, dynamic>? filters})? onSearchTap;
   
-  const HomeScreen({super.key, this.onMenuTap});
+  const HomeScreen({super.key, this.onMenuTap, this.onSearchTap});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -223,10 +224,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleSearch() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SearchScreen()),
-    );
+    // Gọi callback từ MainLayout để chuyển sang tab Search
+    widget.onSearchTap?.call();
   }
 
   void _handleFilter() async {
@@ -359,42 +358,47 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _loadProperties,
-          color: AppColors.primary,
-          child: CustomScrollView(
-            slivers: [
-              // Header với location
-              SliverToBoxAdapter(
-                child: _buildHeader(),
+        child: Column(
+          children: [
+            // Header cố định - không scroll
+            _buildHeader(),
+            
+            // Phần nội dung có thể scroll (bao gồm search bar)
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _loadProperties,
+                color: AppColors.primary,
+                child: CustomScrollView(
+                  slivers: [
+                    // Search Bar - nằm trong phần scroll
+                    SliverToBoxAdapter(
+                      child: _buildSearchBar(),
+                    ),
+                    
+                    // Categories - "Bạn đang tìm gì?"
+                    SliverToBoxAdapter(
+                      child: _buildCategories(),
+                    ),
+                    
+                    // Featured Properties Section
+                    SliverToBoxAdapter(
+                      child: _buildFeaturedSection(),
+                    ),
+                    
+                    // Latest Properties Section
+                    SliverToBoxAdapter(
+                      child: _buildLatestSection(),
+                    ),
+                    
+                    // Bottom padding - Giảm khoảng cách với lề dưới
+                    const SliverToBoxAdapter(
+                      child: SizedBox(height: 4),
+                    ),
+                  ],
+                ),
               ),
-              
-              // Search Bar
-              SliverToBoxAdapter(
-                child: _buildSearchBar(),
-              ),
-              
-              // Categories - "Bạn đang tìm gì?"
-              SliverToBoxAdapter(
-                child: _buildCategories(),
-              ),
-              
-              // Featured Properties Section
-              SliverToBoxAdapter(
-                child: _buildFeaturedSection(),
-                          ),
-              
-              // Latest Properties Section
-              SliverToBoxAdapter(
-                child: _buildLatestSection(),
-                        ),
-              
-              // Bottom padding - Giảm khoảng cách với lề dưới
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 4),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -463,6 +467,26 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           // Spacer để đẩy icon thông báo sang bên phải
           const Spacer(),
+          // Button để quản lý khu vực quan tâm
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SavedSearchScreen(),
+                ),
+              );
+            },
+            icon: const FaIcon(
+              FontAwesomeIcons.mapLocationDot,
+              size: 18,
+              color: AppColors.primary,
+            ),
+            tooltip: 'Khu vực quan tâm',
+          ),
+          const SizedBox(width: 8),
           // Notification icon - chỉ hiển thị chấm đỏ khi có thông báo chưa đọc
           IconButton(
             padding: EdgeInsets.zero,

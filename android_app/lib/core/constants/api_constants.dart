@@ -13,6 +13,7 @@ class ApiConstants {
   // Post Endpoints (Bất động sản)
   static const String posts = '/posts';
   static const String postSearch = '/posts/search';
+  static const String postSearchByRadius = '/posts/map-radius-search';
   static const String postsByUser = '/posts/user'; // + /{userId}
 
   // Category Endpoints
@@ -35,6 +36,14 @@ class ApiConstants {
   // Notification Endpoints
   static const String notifications = '/notifications';
 
+  // Appointment Endpoints
+  static const String appointments = '/appointments';
+  static const String appointmentsMe = '/appointments/me';
+  static const String appointmentsForMyPosts = '/appointments/for-my-posts';
+
   // Payment Endpoints
   static const String payment = '/payment';
+
+  // Saved Search Endpoints
+  static const String savedSearches = '/saved-searches';
 }

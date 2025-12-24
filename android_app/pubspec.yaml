@@ -30,6 +30,9 @@ dependencies:
   # Networking
   dio: ^5.4.0
   http: ^1.2.0
+  
+  # Environment variables
+  flutter_dotenv: ^5.1.0
 
   # Secure Storage for authentication token
   flutter_secure_storage: ^9.2.2
@@ -48,6 +51,16 @@ dependencies:
   url_launcher: ^6.3.0
   intl: ^0.19.0
   syncfusion_flutter_sliders: ^31.2.18
+  
+  # OpenStreetMap for FREE map display (NO Google Maps API needed)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  
+  # Geolocation - Get user's current location
+  geolocator: ^13.0.1
+  
+  # SignalR for real-time notifications and messages
+  signalr_netcore: ^1.0.0
 
 dev_dependencies:
   flutter_test:
@@ -65,4 +78,5 @@ flutter:
   # Assets
   assets:
     - assets/images/
+    - .env
 

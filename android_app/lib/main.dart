@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/network/api_client.dart';
@@ -13,6 +14,9 @@ import 'presentation/layout/main_layout.dart';
 Future<void> main() async {
   // Bắt buộc cho mọi async init trước runApp
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load file .env
+  await dotenv.load(fileName: '.env');
 
   // Khởi tạo định dạng ngày cho locale tiếng Việt
   await initializeDateFormatting('vi_VN', null);

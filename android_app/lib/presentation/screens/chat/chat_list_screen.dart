@@ -18,7 +18,7 @@ class ChatModel {
   final DateTime lastMessageTime;
   final int unreadCount;
   final bool isOnline;
-  final int postId;
+  final int? postId; // Có thể null nếu tin nhắn không liên quan đến post
   final String? postTitle;
 
   ChatModel({
@@ -30,15 +30,22 @@ class ChatModel {
     required this.lastMessageTime,
     this.unreadCount = 0,
     this.isOnline = false,
-    required this.postId,
+    this.postId, // Có thể null
     this.postTitle,
   });
 
-  factory ChatModel.fromJson(Map<String, dynamic> json) {
+  factory ChatModel.fromJson(Map<String, dynamic> json, int currentUserId) {
     final lastMessage = json['lastMessage'] as Map<String, dynamic>?;
+    final otherUserId = json['otherUserId'] as int;
+    
+    // Tạo ConversationId chỉ từ userId (không có postId)
+    final minId = currentUserId < otherUserId ? currentUserId : otherUserId;
+    final maxId = currentUserId > otherUserId ? currentUserId : otherUserId;
+    final conversationId = '$minId' '_' '$maxId';
+    
     return ChatModel(
-      id: '${json['postId']}_${json['otherUserId']}',
-      userId: json['otherUserId'] as int,
+      id: conversationId,
+      userId: otherUserId,
       userName: json['otherUserName'] as String? ?? 'Người dùng',
       userAvatar: json['otherUserAvatarUrl'] as String?,
       lastMessage: lastMessage?['content'] as String? ?? '',
@@ -47,8 +54,8 @@ class ChatModel {
           : DateTime.now(),
       unreadCount: json['unreadCount'] as int? ?? 0,
       isOnline: false, // TODO: Implement online status
-      postId: json['postId'] as int,
-      postTitle: json['postTitle'] as String?,
+      postId: lastMessage?['postId'] as int?, // Có thể null, lấy từ lastMessage
+      postTitle: lastMessage?['postTitle'] as String?,
     );
   }
 }
@@ -94,7 +101,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
         if (!mounted) return;
         setState(() {
           _chats = conversations
-              .map((json) => ChatModel.fromJson(json))
+              .map((json) => ChatModel.fromJson(json, userId))
               .toList();
           _isLoading = false;
         });
@@ -284,7 +291,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                                 userName: chat.userName,
                                 userAvatar: chat.userAvatar,
                                 otherUserId: chat.userId,
-                                postId: chat.postId,
+                                postId: chat.postId, // Có thể null
                               ),
                             ),
                           );

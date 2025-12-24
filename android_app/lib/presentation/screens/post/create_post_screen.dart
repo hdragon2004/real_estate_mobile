@@ -11,11 +11,14 @@ import '../../../core/repositories/category_repository.dart';
 import '../../../core/repositories/user_repository.dart';
 import '../../../core/services/image_picker_service.dart';
 import '../../../core/services/vietnam_address_service.dart';
+import '../../../core/services/nominatim_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/loading_indicator.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 /// Màn hình đăng tin bất động sản - Modern UI với Multi-step Form
 class CreatePostScreen extends StatefulWidget {
@@ -30,7 +33,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final PostRepository _postRepository = PostRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
   final UserRepository _userRepository = UserRepository();
-  
+
   int _currentStep = 0;
   final int _totalSteps = 5;
   bool _isLoading = false;
@@ -53,14 +56,18 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   // Form Data
   TransactionType _transactionType = TransactionType.sale;
   PriceUnit _priceUnit = PriceUnit.total;
-  final String _status = 'available';
+  // Status không được gửi lên - backend sẽ tự động set "Pending" khi tạo mới
   CategoryModel? _selectedCategory;
   VietnamProvince? _selectedProvince;
   VietnamDistrict? _selectedDistrict;
   VietnamWard? _selectedWard;
   String? _huongNha;
   String? _huongBanCong;
-  List<File> _selectedImages = [];
+  File? _mainImage; // Ảnh chính (chỉ 1 ảnh)
+  List<File> _selectedImages = []; // Ảnh phụ (nhiều ảnh)
+  // Tọa độ từ map selection
+  double? _selectedLatitude;
+  double? _selectedLongitude;
 
   // Data Lists
   List<CategoryModel> _categories = [];
@@ -70,7 +77,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   // Hướng nhà options
   final List<String> _huongNhaOptions = [
-    'Đông', 'Tây', 'Nam', 'Bắc', 'Đông Nam', 'Đông Bắc', 'Tây Nam', 'Tây Bắc'
+    'Đông',
+    'Tây',
+    'Nam',
+    'Bắc',
+    'Đông Nam',
+    'Đông Bắc',
+    'Tây Nam',
+    'Tây Bắc',
   ];
 
   @override
@@ -103,7 +117,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         _categoryRepository.getActiveCategories(),
         VietnamAddressService.fetchProvinces(),
       ]);
-      
+
       if (mounted) {
         setState(() {
           _categories = results[0] as List<CategoryModel>;
@@ -114,16 +128,18 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi tải dữ liệu: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi tải dữ liệu: $e')));
       }
     }
   }
 
   Future<void> _loadDistricts(String provinceCode) async {
     try {
-      final districts = await VietnamAddressService.fetchDistricts(provinceCode);
+      final districts = await VietnamAddressService.fetchDistricts(
+        provinceCode,
+      );
       if (mounted) {
         setState(() {
           _districts = districts;
@@ -135,9 +151,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (e) {
       debugPrint('Error loading districts: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi tải quận/huyện: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi tải quận/huyện: $e')));
       }
     }
   }
@@ -154,9 +170,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (e) {
       debugPrint('Error loading wards: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi tải phường/xã: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi tải phường/xã: $e')));
       }
     }
   }
@@ -222,7 +238,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           _showError('Vui lòng nhập giá');
           return false;
         }
-        if (double.tryParse(_priceController.text) == null || 
+        if (double.tryParse(_priceController.text) == null ||
             double.parse(_priceController.text) <= 0) {
           _showError('Giá không hợp lệ');
           return false;
@@ -231,7 +247,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           _showError('Vui lòng nhập diện tích');
           return false;
         }
-        if (double.tryParse(_areaController.text) == null || 
+        if (double.tryParse(_areaController.text) == null ||
             double.parse(_areaController.text) <= 0) {
           _showError('Diện tích không hợp lệ');
           return false;
@@ -240,8 +256,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       case 3: // Thông tin chi tiết
         return true; // Optional fields
       case 4: // Hình ảnh
-        if (_selectedImages.isEmpty) {
-          _showError('Vui lòng chọn ít nhất 1 hình ảnh');
+        if (_mainImage == null) {
+          _showError('Vui lòng chọn ảnh chính');
           return false;
         }
         return true;
@@ -252,20 +268,45 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
-      ),
+      SnackBar(content: Text(message), backgroundColor: AppColors.error),
     );
   }
 
+  /// Chọn/chụp ảnh chính (chỉ 1 ảnh)
+  Future<void> _pickMainImage() async {
+    final source = await _showImageSourceDialog();
+    if (source == null || !mounted) return;
+
+    File? newImage;
+
+    if (source == 'camera') {
+      // Chụp ảnh từ camera
+      newImage = await ImagePickerService.takePicture(context);
+    } else if (source == 'gallery') {
+      // Chọn 1 ảnh từ thư viện
+      final images = await ImagePickerService.pickMultipleImagesFromGallery(
+        context,
+        maxImages: 1,
+      );
+      if (images.isNotEmpty) {
+        newImage = images.first;
+      }
+    }
+
+    if (newImage != null && mounted) {
+      setState(() {
+        _mainImage = newImage;
+      });
+    }
+  }
+
+  /// Chọn/chụp ảnh phụ (nhiều ảnh)
   Future<void> _pickImages() async {
-    // Hiển thị dialog cho phép chọn giữa camera và thư viện
     final source = await _showImageSourceDialog();
     if (source == null || !mounted) return;
 
     List<File> newImages = [];
-    
+
     if (source == 'camera') {
       // Chụp ảnh từ camera
       final image = await ImagePickerService.takePicture(context);
@@ -278,7 +319,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (remainingSlots <= 0) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Chỉ được tối đa 10 ảnh')),
+            const SnackBar(content: Text('Chỉ được tối đa 10 ảnh phụ')),
           );
         }
         return;
@@ -295,7 +336,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         if (_selectedImages.length > 10) {
           _selectedImages = _selectedImages.take(10).toList();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Chỉ được tối đa 10 ảnh')),
+            const SnackBar(content: Text('Chỉ được tối đa 10 ảnh phụ')),
           );
         }
       });
@@ -324,21 +365,39 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 ),
               ),
               ListTile(
-                leading: FaIcon(FontAwesomeIcons.camera, color: AppColors.primary),
+                leading: FaIcon(
+                  FontAwesomeIcons.camera,
+                  color: AppColors.primary,
+                ),
                 title: Text('Chụp ảnh', style: AppTextStyles.labelLarge),
-                subtitle: Text('Chụp ảnh mới từ camera', style: AppTextStyles.bodySmall),
+                subtitle: Text(
+                  'Chụp ảnh mới từ camera',
+                  style: AppTextStyles.bodySmall,
+                ),
                 onTap: () => Navigator.pop(context, 'camera'),
               ),
               const Divider(height: 1),
               ListTile(
-                leading: FaIcon(FontAwesomeIcons.images, color: AppColors.primary),
-                title: Text('Chọn từ thư viện', style: AppTextStyles.labelLarge),
-                subtitle: Text('Chọn nhiều ảnh từ thư viện', style: AppTextStyles.bodySmall),
+                leading: FaIcon(
+                  FontAwesomeIcons.images,
+                  color: AppColors.primary,
+                ),
+                title: Text(
+                  'Chọn từ thư viện',
+                  style: AppTextStyles.labelLarge,
+                ),
+                subtitle: Text(
+                  'Chọn nhiều ảnh từ thư viện',
+                  style: AppTextStyles.bodySmall,
+                ),
                 onTap: () => Navigator.pop(context, 'gallery'),
               ),
               const Divider(height: 1),
               ListTile(
-                leading: FaIcon(FontAwesomeIcons.circleXmark, color: AppColors.textSecondary),
+                leading: FaIcon(
+                  FontAwesomeIcons.circleXmark,
+                  color: AppColors.textSecondary,
+                ),
                 title: Text('Hủy', style: AppTextStyles.labelLarge),
                 onTap: () => Navigator.pop(context),
               ),
@@ -350,12 +409,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
+  void _removeMainImage() {
+    setState(() {
+      _mainImage = null;
+    });
+  }
+
   void _removeImage(int index) {
     setState(() {
       _selectedImages.removeAt(index);
     });
   }
-
 
   Future<void> _submitPost() async {
     if (!_validateCurrentStep()) return;
@@ -388,35 +452,57 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   onPressed: () => Navigator.pop(context, true),
                   child: Text(
                     'Đăng nhập',
-                    style: AppTextStyles.labelLarge.copyWith(color: AppColors.primary),
+                    style: AppTextStyles.labelLarge.copyWith(
+                      color: AppColors.primary,
+                    ),
                   ),
                 ),
               ],
             ),
           );
-          
+
           if (shouldLogin == true && mounted && context.mounted) {
             Navigator.pop(context); // Đóng màn hình đăng tin
-            Navigator.pushNamed(context, '/login'); // Chuyển đến màn hình đăng nhập
+            Navigator.pushNamed(
+              context,
+              '/login',
+            ); // Chuyển đến màn hình đăng nhập
           }
         }
         return;
       }
-      
+
       // Tạo FormData
       final formData = FormData();
 
       // Tạo địa chỉ đầy đủ từ dropdown
-      final fullAddress = '${_streetController.text.trim()}, ${_selectedWard!.name}, ${_selectedDistrict!.name}, ${_selectedProvince!.name}';
-      
+      final fullAddress =
+          '${_streetController.text.trim()}, ${_selectedWard!.name}, ${_selectedDistrict!.name}, ${_selectedProvince!.name}';
+
+      // Map PriceUnit từ Flutter enum sang API enum
+      // API chỉ có 2 giá trị: 0 = Tỷ, 1 = Triệu
+      int apiPriceUnit;
+      final priceValue = double.tryParse(_priceController.text) ?? 0;
+      switch (_priceUnit) {
+        case PriceUnit.total:
+          // Nếu giá >= 1 tỷ thì dùng Tỷ (0), ngược lại dùng Triệu (1)
+          apiPriceUnit = priceValue >= 1000000000 ? 0 : 1;
+          break;
+        case PriceUnit.perM2:
+        case PriceUnit.perMonth:
+          // Giá/m² và giá/tháng thường dùng Triệu (1)
+          apiPriceUnit = 1;
+          break;
+      }
+
       // Basic info
       formData.fields.addAll([
         MapEntry('Title', _titleController.text.trim()),
         MapEntry('Description', _descriptionController.text.trim()),
         MapEntry('Price', _priceController.text),
-        MapEntry('PriceUnit', _priceUnit.index.toString()),
+        MapEntry('PriceUnit', apiPriceUnit.toString()),
         MapEntry('TransactionType', _transactionType.name),
-        MapEntry('Status', _status),
+        // Status không được gửi lên - backend sẽ tự động set "Pending" khi tạo mới
         MapEntry('Street_Name', _streetController.text.trim()),
         MapEntry('Area_Size', _areaController.text),
         MapEntry('CategoryId', _selectedCategory!.id.toString()),
@@ -427,6 +513,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         MapEntry('DistrictName', _selectedDistrict!.name),
         MapEntry('WardName', _selectedWard!.name),
       ]);
+
+      // Thêm tọa độ nếu có
+      if (_selectedLatitude != null && _selectedLongitude != null) {
+        formData.fields.add(
+          MapEntry('Latitude', _selectedLatitude!.toString()),
+        );
+        formData.fields.add(
+          MapEntry('Longitude', _selectedLongitude!.toString()),
+        );
+      }
 
       // Optional fields
       if (_soPhongNguController.text.isNotEmpty) {
@@ -454,12 +550,31 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         formData.fields.add(MapEntry('HuongBanCong', _huongBanCong!));
       }
 
-      // Add images
+      // Add images: ảnh chính trước, sau đó là ảnh phụ
+      // Backend sẽ lấy ảnh đầu tiên làm ảnh chính (ImageURL)
+      if (_mainImage != null) {
+        formData.files.add(
+          MapEntry(
+            'Images',
+            await MultipartFile.fromFile(
+              _mainImage!.path,
+              filename: _mainImage!.path.split('/').last,
+            ),
+          ),
+        );
+      }
+
+      // Thêm các ảnh phụ
       for (var image in _selectedImages) {
-        formData.files.add(MapEntry(
-          'Images',
-          await MultipartFile.fromFile(image.path, filename: image.path.split('/').last),
-        ));
+        formData.files.add(
+          MapEntry(
+            'Images',
+            await MultipartFile.fromFile(
+              image.path,
+              filename: image.path.split('/').last,
+            ),
+          ),
+        );
       }
 
       // Submit - role mặc định là 0 (User)
@@ -521,7 +636,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text('Đăng', style: AppTextStyles.labelLarge.copyWith(color: AppColors.primary)),
+                  : Text(
+                      'Đăng',
+                      style: AppTextStyles.labelLarge.copyWith(
+                        color: AppColors.primary,
+                      ),
+                    ),
             ),
         ],
       ),
@@ -560,7 +680,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               return Expanded(
                 child: Container(
                   height: 4,
-                  margin: EdgeInsets.only(right: index < _totalSteps - 1 ? 8 : 0),
+                  margin: EdgeInsets.only(
+                    right: index < _totalSteps - 1 ? 8 : 0,
+                  ),
                   decoration: BoxDecoration(
                     color: index <= _currentStep
                         ? AppColors.primary
@@ -603,7 +725,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             flex: _currentStep == 0 ? 1 : 2,
             child: AppButton(
               text: _currentStep == _totalSteps - 1 ? 'Hoàn tất' : 'Tiếp theo',
-              onPressed: _currentStep == _totalSteps - 1 ? _submitPost : _nextStep,
+              onPressed: _currentStep == _totalSteps - 1
+                  ? _submitPost
+                  : _nextStep,
               isLoading: _currentStep == _totalSteps - 1 && _isSubmitting,
             ),
           ),
@@ -623,9 +747,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           children: [
             Text('Thông tin cơ bản', style: AppTextStyles.h5),
             const Gap(8),
-            Text('Nhập tiêu đề và mô tả cho tin đăng của bạn', style: AppTextStyles.bodySmall),
+            Text(
+              'Nhập tiêu đề và mô tả cho tin đăng của bạn',
+              style: AppTextStyles.bodySmall,
+            ),
             const Gap(24),
-            
+
             // Tiêu đề
             _buildTextField(
               controller: _titleController,
@@ -634,7 +761,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               maxLines: 2,
             ),
             const Gap(20),
-            
+
             // Mô tả
             _buildTextField(
               controller: _descriptionController,
@@ -643,7 +770,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               maxLines: 6,
             ),
             const Gap(20),
-            
+
             // Loại giao dịch
             Text('Loại giao dịch *', style: AppTextStyles.labelLarge),
             const Gap(12),
@@ -654,7 +781,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     label: 'Bán',
                     icon: FontAwesomeIcons.store,
                     isSelected: _transactionType == TransactionType.sale,
-                    onSelected: () => setState(() => _transactionType = TransactionType.sale),
+                    onSelected: () =>
+                        setState(() => _transactionType = TransactionType.sale),
                   ),
                 ),
                 const Gap(12),
@@ -663,13 +791,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     label: 'Cho thuê',
                     icon: FontAwesomeIcons.calendar,
                     isSelected: _transactionType == TransactionType.rent,
-                    onSelected: () => setState(() => _transactionType = TransactionType.rent),
+                    onSelected: () =>
+                        setState(() => _transactionType = TransactionType.rent),
                   ),
                 ),
               ],
             ),
             const Gap(24),
-            
+
             // Loại hình
             Text('Loại hình bất động sản *', style: AppTextStyles.labelLarge),
             const Gap(12),
@@ -684,7 +813,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   return _buildCategoryChip(
                     category: category,
                     isSelected: isSelected,
-                    onSelected: () => setState(() => _selectedCategory = category),
+                    onSelected: () =>
+                        setState(() => _selectedCategory = category),
                   );
                 }).toList(),
               ),
@@ -703,9 +833,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         children: [
           Text('Địa điểm', style: AppTextStyles.h5),
           const Gap(8),
-          Text('Chọn địa điểm của bất động sản', style: AppTextStyles.bodySmall),
+          Text(
+            'Chọn địa điểm của bất động sản',
+            style: AppTextStyles.bodySmall,
+          ),
           const Gap(24),
-          
+
           // Tỉnh/Thành phố
           _buildDropdown<VietnamProvince>(
             label: 'Tỉnh/Thành phố *',
@@ -726,7 +859,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             },
           ),
           const Gap(20),
-          
+
           // Quận/Huyện
           _buildDropdown<VietnamDistrict>(
             label: 'Quận/Huyện *',
@@ -746,7 +879,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             enabled: _selectedProvince != null,
           ),
           const Gap(20),
-          
+
           // Phường/Xã
           _buildDropdown<VietnamWard>(
             label: 'Phường/Xã *',
@@ -757,14 +890,250 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             enabled: _selectedDistrict != null,
           ),
           const Gap(20),
-          
+
           // Tên đường/Số nhà
           _buildTextField(
             controller: _streetController,
             label: 'Tên đường/Số nhà *',
             hint: 'VD: 123 Nguyễn Huệ',
+            onChanged: (value) =>
+                setState(() {}), // Trigger rebuild để hiển thị map selector
           ),
+          const Gap(24),
+
+          // Chọn vị trí trên bản đồ (chỉ hiển thị khi đã chọn đủ địa chỉ)
+          if (_selectedProvince != null &&
+              _selectedDistrict != null &&
+              _selectedWard != null &&
+              _streetController.text.trim().isNotEmpty)
+            _buildMapSelectorSection(),
         ],
+      ),
+    );
+  }
+
+  /// Widget hiển thị section chọn vị trí trên bản đồ
+  Widget _buildMapSelectorSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Vị trí trên bản đồ',
+          style: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const Gap(8),
+        Text(
+          'Chọn vị trí chính xác trên bản đồ để lưu tọa độ (tùy chọn)',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const Gap(12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _selectedLatitude != null && _selectedLongitude != null
+                ? AppColors.success.withValues(alpha: 0.1)
+                : AppColors.surfaceVariant,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _selectedLatitude != null && _selectedLongitude != null
+                  ? AppColors.success
+                  : AppColors.border,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_selectedLatitude != null && _selectedLongitude != null) ...[
+                Row(
+                  children: [
+                    const FaIcon(
+                      FontAwesomeIcons.circleCheck,
+                      color: AppColors.success,
+                      size: 20,
+                    ),
+                    const Gap(8),
+                    Expanded(
+                      child: Text(
+                        'Đã chọn vị trí',
+                        style: AppTextStyles.labelMedium.copyWith(
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Gap(8),
+                Text(
+                  'Lat: ${_selectedLatitude!.toStringAsFixed(6)}',
+                  style: AppTextStyles.bodySmall,
+                ),
+                Text(
+                  'Lng: ${_selectedLongitude!.toStringAsFixed(6)}',
+                  style: AppTextStyles.bodySmall,
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    const FaIcon(
+                      FontAwesomeIcons.mapLocationDot,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                    const Gap(8),
+                    Expanded(
+                      child: Text(
+                        'Chưa chọn vị trí',
+                        style: AppTextStyles.labelMedium.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const Gap(12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _openMapSelector,
+                  icon: const FaIcon(FontAwesomeIcons.map, size: 16),
+                  label: Text(
+                    _selectedLatitude != null && _selectedLongitude != null
+                        ? 'Thay đổi vị trí'
+                        : 'Chọn vị trí trên bản đồ',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Lấy tọa độ mặc định dựa trên tên thành phố
+  /// Fallback khi geocoding thất bại
+  LatLng _getDefaultLocationByCity(String cityName) {
+    // Normalize city name để so sánh
+    final normalizedName = cityName.toLowerCase().trim();
+
+    // Tọa độ các thành phố lớn ở Việt Nam
+    if (normalizedName.contains('hồ chí minh') ||
+        normalizedName.contains('ho chi minh') ||
+        normalizedName.contains('tp. hồ chí minh') ||
+        normalizedName.contains('tp hồ chí minh') ||
+        normalizedName == 'hcm' ||
+        normalizedName == 'sài gòn' ||
+        normalizedName.contains('sai gon')) {
+      return const LatLng(10.7769, 106.7009); // TP. Hồ Chí Minh
+    }
+
+    if (normalizedName.contains('hà nội') ||
+        normalizedName.contains('ha noi') ||
+        normalizedName.contains('hanoi')) {
+      return const LatLng(21.0285, 105.8542); // Hà Nội
+    }
+
+    if (normalizedName.contains('đà nẵng') ||
+        normalizedName.contains('da nang') ||
+        normalizedName.contains('danang')) {
+      return const LatLng(16.0544, 108.2022); // Đà Nẵng
+    }
+
+    if (normalizedName.contains('hải phòng') ||
+        normalizedName.contains('hai phong')) {
+      return const LatLng(20.8449, 106.6881); // Hải Phòng
+    }
+
+    if (normalizedName.contains('cần thơ') ||
+        normalizedName.contains('can tho')) {
+      return const LatLng(10.0452, 105.7469); // Cần Thơ
+    }
+
+    // Mặc định: Trung tâm Việt Nam (nếu không nhận diện được)
+    return const LatLng(16.0544, 108.2022); // Đà Nẵng (trung tâm địa lý)
+  }
+
+  /// Mở bottom sheet để chọn vị trí trên map
+  Future<void> _openMapSelector() async {
+    if (_selectedProvince == null ||
+        _selectedDistrict == null ||
+        _selectedWard == null ||
+        _streetController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng chọn đầy đủ địa chỉ trước'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    // Tìm tọa độ ban đầu từ địa chỉ đã nhập (ưu tiên sử dụng thông tin đã nhập)
+    LatLng? initialCenter;
+
+    // Thử geocode với các mức độ khác nhau (từ chi tiết đến tổng quát)
+    final geocodeAttempts = [
+      // 1. Địa chỉ đầy đủ (nếu có street)
+      if (_streetController.text.trim().isNotEmpty)
+        '${_streetController.text.trim()}, ${_selectedWard!.name}, ${_selectedDistrict!.name}, ${_selectedProvince!.name}',
+      // 2. Quận + Thành phố
+      '${_selectedDistrict!.name}, ${_selectedProvince!.name}',
+      // 3. Chỉ Thành phố
+      _selectedProvince!.name,
+    ];
+
+    // Thử từng mức độ cho đến khi tìm được
+    for (final addressString in geocodeAttempts) {
+      try {
+        final result = await NominatimService.geocodeAddress(addressString);
+        if (result != null &&
+            result.containsKey('lat') &&
+            result.containsKey('lon')) {
+          initialCenter = LatLng(result['lat']!, result['lon']!);
+          break; // Tìm được rồi, dừng lại
+        }
+      } catch (e) {
+        // Tiếp tục thử mức độ tiếp theo
+        continue;
+      }
+    }
+
+    // Nếu vẫn không tìm được, dùng fallback dựa trên tên thành phố
+    initialCenter ??= _getDefaultLocationByCity(_selectedProvince!.name);
+
+    if (!mounted) return;
+
+    final mapController = MapController();
+    LatLng? selectedLocation =
+        _selectedLatitude != null && _selectedLongitude != null
+        ? LatLng(_selectedLatitude!, _selectedLongitude!)
+        : null;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _MapSelectorBottomSheet(
+        mapController: mapController,
+        initialCenter: initialCenter ?? const LatLng(21.0285, 105.8542),
+        selectedLocation: selectedLocation,
+        onLocationSelected: (location) {
+          setState(() {
+            _selectedLatitude = location.latitude;
+            _selectedLongitude = location.longitude;
+          });
+        },
       ),
     );
   }
@@ -778,23 +1147,26 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         children: [
           Text('Giá và diện tích', style: AppTextStyles.h5),
           const Gap(8),
-          Text('Nhập thông tin giá và diện tích', style: AppTextStyles.bodySmall),
+          Text(
+            'Nhập thông tin giá và diện tích',
+            style: AppTextStyles.bodySmall,
+          ),
           const Gap(24),
-          
+
           // Giá
           _buildTextField(
             controller: _priceController,
             label: 'Giá *',
             hint: 'VD: 5000000000',
             keyboardType: TextInputType.number,
-            suffixText: _priceUnit == PriceUnit.total 
-                ? 'VNĐ' 
-                : _priceUnit == PriceUnit.perM2 
-                    ? 'VNĐ/m²' 
-                    : 'VNĐ/tháng',
+            suffixText: _priceUnit == PriceUnit.total
+                ? 'VNĐ'
+                : _priceUnit == PriceUnit.perM2
+                ? 'VNĐ/m²'
+                : 'VNĐ/tháng',
           ),
           const Gap(12),
-          
+
           // Đơn vị giá
           Text('Đơn vị giá', style: AppTextStyles.labelLarge),
           const Gap(12),
@@ -804,7 +1176,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 child: _buildChoiceChip(
                   label: 'Tổng giá',
                   isSelected: _priceUnit == PriceUnit.total,
-                  onSelected: () => setState(() => _priceUnit = PriceUnit.total),
+                  onSelected: () =>
+                      setState(() => _priceUnit = PriceUnit.total),
                 ),
               ),
               const Gap(12),
@@ -812,7 +1185,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 child: _buildChoiceChip(
                   label: 'Giá/m²',
                   isSelected: _priceUnit == PriceUnit.perM2,
-                  onSelected: () => setState(() => _priceUnit = PriceUnit.perM2),
+                  onSelected: () =>
+                      setState(() => _priceUnit = PriceUnit.perM2),
                 ),
               ),
               const Gap(12),
@@ -820,13 +1194,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 child: _buildChoiceChip(
                   label: 'Giá/tháng',
                   isSelected: _priceUnit == PriceUnit.perMonth,
-                  onSelected: () => setState(() => _priceUnit = PriceUnit.perMonth),
+                  onSelected: () =>
+                      setState(() => _priceUnit = PriceUnit.perMonth),
                 ),
               ),
             ],
           ),
           const Gap(24),
-          
+
           // Diện tích
           _buildTextField(
             controller: _areaController,
@@ -849,9 +1224,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         children: [
           Text('Thông tin chi tiết', style: AppTextStyles.h5),
           const Gap(8),
-          Text('Các thông tin bổ sung (tùy chọn)', style: AppTextStyles.bodySmall),
+          Text(
+            'Các thông tin bổ sung (tùy chọn)',
+            style: AppTextStyles.bodySmall,
+          ),
           const Gap(24),
-          
+
           Row(
             children: [
               Expanded(
@@ -874,7 +1252,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             ],
           ),
           const Gap(20),
-          
+
           _buildTextField(
             controller: _soTangController,
             label: 'Số tầng',
@@ -882,7 +1260,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             keyboardType: TextInputType.number,
           ),
           const Gap(20),
-          
+
           // Hướng nhà
           _buildDropdown<String>(
             label: 'Hướng nhà',
@@ -893,7 +1271,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             allowNull: true,
           ),
           const Gap(20),
-          
+
           // Hướng ban công
           _buildDropdown<String>(
             label: 'Hướng ban công',
@@ -904,7 +1282,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             allowNull: true,
           ),
           const Gap(20),
-          
+
           Row(
             children: [
               Expanded(
@@ -927,7 +1305,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             ],
           ),
           const Gap(20),
-          
+
           _buildTextField(
             controller: _phapLyController,
             label: 'Pháp lý',
@@ -947,59 +1325,164 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Hình ảnh', style: AppTextStyles.h5),
-          const Gap(8),
-          Text('Thêm hình ảnh cho tin đăng (tối thiểu 1 ảnh, tối đa 10 ảnh)', 
-            style: AppTextStyles.bodySmall),
           const Gap(24),
-          
-          // Image Grid
-          if (_selectedImages.isEmpty)
-            _buildEmptyImagePlaceholder()
-          else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1,
-              ),
-              itemCount: _selectedImages.length + (_selectedImages.length < 10 ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index < _selectedImages.length) {
-                  return _buildImageItem(_selectedImages[index], index);
-                } else {
-                  return _buildAddImageButton();
-                }
-              },
-            ),
+
+          // Phần 1: Ảnh chính
+          Text('Ảnh chính *', style: AppTextStyles.labelLarge),
+          const Gap(8),
+          Text(
+            'Chọn hoặc chụp 1 ảnh chính cho tin đăng',
+            style: AppTextStyles.bodySmall,
+          ),
+          const Gap(12),
+          _buildMainImageSection(),
+
+          const Gap(32),
+
+          // Phần 2: Ảnh phụ
+          Text('Ảnh phụ', style: AppTextStyles.labelLarge),
+          const Gap(8),
+          Text(
+            'Thêm các ảnh phụ (tối đa 10 ảnh)',
+            style: AppTextStyles.bodySmall,
+          ),
+          const Gap(12),
+          _buildAdditionalImagesSection(),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyImagePlaceholder() {
-    return GestureDetector(
-      onTap: _pickImages,
-      child: Container(
-        height: 200,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
+  Widget _buildMainImageSection() {
+    if (_mainImage == null) {
+      return GestureDetector(
+        onTap: _pickMainImage,
+        child: Container(
+          height: 200,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceVariant,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColors.border,
+              style: BorderStyle.solid,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FaIcon(
+                FontAwesomeIcons.image,
+                size: 48,
+                color: AppColors.textHint,
+              ),
+              const Gap(12),
+              Text('Thêm ảnh chính', style: AppTextStyles.labelLarge),
+              const Gap(4),
+              Text(
+                'Chạm để chọn hoặc chụp ảnh',
+                style: AppTextStyles.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border, style: BorderStyle.solid),
+          child: Image.file(
+            _mainImage!,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: 200,
+          ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            FaIcon(FontAwesomeIcons.image, size: 48, color: AppColors.textHint),
-            const Gap(12),
-            Text('Thêm hình ảnh', style: AppTextStyles.labelLarge),
-            const Gap(4),
-            Text('Chạm để chọn ảnh', style: AppTextStyles.bodySmall),
-          ],
+        Positioned(
+          top: 8,
+          left: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'Ảnh chính',
+              style: AppTextStyles.labelSmall.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         ),
+        Positioned(
+          top: 8,
+          right: 8,
+          child: GestureDetector(
+            onTap: _removeMainImage,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: AppColors.error,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, size: 20, color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdditionalImagesSection() {
+    if (_selectedImages.isEmpty) {
+      return GestureDetector(
+        onTap: _pickImages,
+        child: Container(
+          height: 120,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceVariant,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.border,
+              style: BorderStyle.solid,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FaIcon(
+                FontAwesomeIcons.images,
+                size: 32,
+                color: AppColors.textHint,
+              ),
+              const Gap(8),
+              Text('Thêm ảnh phụ', style: AppTextStyles.bodyMedium),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1,
       ),
+      itemCount: _selectedImages.length + (_selectedImages.length < 10 ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index < _selectedImages.length) {
+          return _buildImageItem(_selectedImages[index], index);
+        } else {
+          return _buildAddImageButton();
+        }
+      },
     );
   }
 
@@ -1046,7 +1529,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            FaIcon(FontAwesomeIcons.plus, size: 32, color: AppColors.textSecondary),
+            FaIcon(
+              FontAwesomeIcons.plus,
+              size: 32,
+              color: AppColors.textSecondary,
+            ),
             const Gap(8),
             Text('Thêm', style: AppTextStyles.labelSmall),
           ],
@@ -1065,6 +1552,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     String? suffixText,
     Widget? suffixIcon,
     bool enabled = true,
+    void Function(String)? onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1076,10 +1564,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           maxLines: maxLines,
           keyboardType: keyboardType,
           enabled: enabled,
+          onChanged: onChanged,
           style: AppTextStyles.bodyMedium,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint),
+            hintStyle: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.textHint,
+            ),
             suffixText: suffixText,
             suffixIcon: suffixIcon,
             filled: true,
@@ -1096,7 +1587,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.primary, width: 2),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
           ),
         ),
       ],
@@ -1125,7 +1619,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 20, color: isSelected ? Colors.white : AppColors.textSecondary),
+              Icon(
+                icon,
+                size: 20,
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+              ),
               const Gap(8),
             ],
             Text(
@@ -1196,10 +1694,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   value: null,
                   child: Text('Không chọn', style: AppTextStyles.bodyMedium),
                 ),
-              ...items.map((item) => DropdownMenuItem<T>(
-                value: item,
-                child: Text(displayText(item), style: AppTextStyles.bodyMedium),
-              )),
+              ...items.map(
+                (item) => DropdownMenuItem<T>(
+                  value: item,
+                  child: Text(
+                    displayText(item),
+                    style: AppTextStyles.bodyMedium,
+                  ),
+                ),
+              ),
             ],
             onChanged: enabled ? onChanged : null,
             decoration: const InputDecoration(
@@ -1211,6 +1714,196 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Bottom sheet để chọn vị trí trên map
+class _MapSelectorBottomSheet extends StatefulWidget {
+  final MapController mapController;
+  final LatLng initialCenter;
+  final LatLng? selectedLocation;
+  final Function(LatLng) onLocationSelected;
+
+  const _MapSelectorBottomSheet({
+    required this.mapController,
+    required this.initialCenter,
+    this.selectedLocation,
+    required this.onLocationSelected,
+  });
+
+  @override
+  State<_MapSelectorBottomSheet> createState() =>
+      _MapSelectorBottomSheetState();
+}
+
+class _MapSelectorBottomSheetState extends State<_MapSelectorBottomSheet> {
+  LatLng? _currentSelection;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentSelection = widget.selectedLocation;
+    // Center map khi mở
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.mapController.move(widget.initialCenter, 15.0);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.9,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    const FaIcon(
+                      FontAwesomeIcons.mapLocationDot,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                    const Gap(12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Chọn vị trí trên bản đồ',
+                            style: AppTextStyles.h6.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (_currentSelection != null) ...[
+                            const Gap(4),
+                            Text(
+                              'Lat: ${_currentSelection!.latitude.toStringAsFixed(6)}, '
+                              'Lng: ${_currentSelection!.longitude.toStringAsFixed(6)}',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const FaIcon(FontAwesomeIcons.xmark, size: 20),
+                    ),
+                  ],
+                ),
+              ),
+              const Gap(16),
+
+              // Map
+              Expanded(
+                child: FlutterMap(
+                  mapController: widget.mapController,
+                  options: MapOptions(
+                    initialCenter: widget.initialCenter,
+                    initialZoom: 15.0,
+                    onTap: (tapPosition, point) {
+                      setState(() {
+                        _currentSelection = point;
+                      });
+                    },
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.example.android_app',
+                    ),
+                    if (_currentSelection != null)
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _currentSelection!,
+                            width: 50,
+                            height: 50,
+                            child: const FaIcon(
+                              FontAwesomeIcons.locationPin,
+                              color: AppColors.error,
+                              size: 40,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+
+              // Confirm button
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  boxShadow: AppShadows.top,
+                ),
+                child: SafeArea(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _currentSelection != null
+                          ? () {
+                              widget.onLocationSelected(_currentSelection!);
+                              Navigator.pop(context);
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const FaIcon(FontAwesomeIcons.check, size: 18),
+                          const Gap(8),
+                          Text(
+                            'Xác nhận vị trí',
+                            style: AppTextStyles.labelLarge.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

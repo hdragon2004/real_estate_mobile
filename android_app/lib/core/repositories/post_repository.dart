@@ -60,9 +60,9 @@ class PostRepository {
     double? maxPrice,
     double? minArea,
     double? maxArea,
-    int? cityId,
-    int? districtId,
-    int? wardId,
+    String? cityName, // Thay đổi từ cityId sang cityName (text search)
+    String? districtName, // Thay đổi từ districtId sang districtName (text search)
+    String? wardName, // Thay đổi từ wardId sang wardName (text search)
     String? query,
   }) async {
     try {
@@ -73,9 +73,9 @@ class PostRepository {
       if (maxPrice != null) queryParams['maxPrice'] = maxPrice;
       if (minArea != null) queryParams['minArea'] = minArea;
       if (maxArea != null) queryParams['maxArea'] = maxArea;
-      if (cityId != null) queryParams['cityId'] = cityId;
-      if (districtId != null) queryParams['districtId'] = districtId;
-      if (wardId != null) queryParams['wardId'] = wardId;
+      if (cityName != null && cityName.isNotEmpty) queryParams['cityName'] = cityName;
+      if (districtName != null && districtName.isNotEmpty) queryParams['districtName'] = districtName;
+      if (wardName != null && wardName.isNotEmpty) queryParams['wardName'] = wardName;
       if (query != null && query.isNotEmpty) queryParams['q'] = query;
 
       final response = await _apiClient.get(
@@ -124,6 +124,36 @@ class PostRepository {
   Future<void> deletePost(int id) async {
     try {
       await _apiClient.dio.delete('${ApiConstants.posts}/$id');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Tìm kiếm posts trong bán kính từ một điểm trên bản đồ
+  /// Sử dụng Haversine formula để tính khoảng cách
+  /// 
+  /// [centerLat]: Vĩ độ của điểm trung tâm
+  /// [centerLng]: Kinh độ của điểm trung tâm
+  /// [radiusInKm]: Bán kính tìm kiếm (km)
+  Future<List<PostModel>> searchByRadius({
+    required double centerLat,
+    required double centerLng,
+    required double radiusInKm,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        ApiConstants.postSearchByRadius,
+        data: {
+          'centerLat': centerLat,
+          'centerLng': centerLng,
+          'radiusInKm': radiusInKm,
+        },
+      );
+
+      if (response is List) {
+        return response.map((json) => PostModel.fromJson(json)).toList();
+      }
+      return [];
     } catch (e) {
       rethrow;
     }

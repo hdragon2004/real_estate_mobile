@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/services/image_picker_service.dart';
 import '../../../core/repositories/message_repository.dart';
 import '../../../core/services/auth_storage_service.dart';
+import '../../../core/services/signalr_service.dart';
 import '../../../core/utils/image_url_helper.dart' as image_helper;
 
 /// Model cho Message
@@ -47,6 +48,9 @@ class ChatScreen extends StatefulWidget {
   final String? userAvatar;
   final int? otherUserId;
   final int? postId;
+  final String? postTitle;
+  final double? postPrice;
+  final String? postAddress;
 
   const ChatScreen({
     super.key,
@@ -55,6 +59,9 @@ class ChatScreen extends StatefulWidget {
     this.userAvatar,
     this.otherUserId,
     this.postId,
+    this.postTitle,
+    this.postPrice,
+    this.postAddress,
   });
 
   @override
@@ -65,6 +72,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   final MessageRepository _messageRepository = MessageRepository();
+  final SignalRService _signalRService = SignalRService();
   
   bool _isLoading = false;
   List<MessageModel> _messages = [];
@@ -73,8 +81,109 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserId();
-    _loadMessages();
+    _initializeChat();
+  }
+
+  Future<void> _initializeChat() async {
+    await _loadUserId();
+    await _loadMessages();
+    _setupSignalR();
+    // Gửi message tự động sau khi đã load messages xong
+    await _sendPostInfoMessageIfNeeded();
+  }
+
+  /// Tự động gửi message với thông tin post nếu mở chat từ post details và chưa có tin nhắn nào
+  Future<void> _sendPostInfoMessageIfNeeded() async {
+    // Chỉ gửi nếu có thông tin post và chưa có tin nhắn nào
+    if (widget.postTitle != null && 
+        widget.postTitle!.isNotEmpty &&
+        _messages.isEmpty &&
+        _currentUserId != null &&
+        widget.otherUserId != null &&
+        mounted) {
+      // Tạo message với thông tin post
+      final postInfo = StringBuffer();
+      postInfo.writeln('📋 ${widget.postTitle}');
+      if (widget.postPrice != null && widget.postPrice! > 0) {
+        postInfo.writeln('💰 Giá: ${_formatPrice(widget.postPrice!)}');
+      }
+      if (widget.postAddress != null && widget.postAddress!.isNotEmpty) {
+        postInfo.writeln('📍 Địa chỉ: ${widget.postAddress}');
+      }
+      
+      // Gửi message tự động
+      _messageController.text = postInfo.toString().trim();
+      await _sendMessage();
+    }
+  }
+
+  String _formatPrice(double price) {
+    if (price >= 1000000000) {
+      return '${(price / 1000000000).toStringAsFixed(1)} tỷ';
+    } else if (price >= 1000000) {
+      return '${(price / 1000000).toStringAsFixed(0)} triệu';
+    } else {
+      return '${price.toStringAsFixed(0)} đ';
+    }
+  }
+
+  /// Thiết lập SignalR để nhận tin nhắn real-time
+  Future<void> _setupSignalR() async {
+    // Đảm bảo MessageHub đã kết nối
+    if (!_signalRService.isMessageHubConnected) {
+      await _signalRService.connectMessageHub();
+    }
+
+    // Đăng ký callback để nhận tin nhắn real-time
+    _signalRService.onMessageReceived = (Map<String, dynamic> messageData) {
+      // Kiểm tra xem tin nhắn có phải cho conversation này không
+      // ConversationId chỉ dựa trên SenderId và ReceiverId, không có PostId
+      final senderId = messageData['senderId'];
+      final receiverId = messageData['receiverId'];
+      final conversationId = messageData['conversationId'];
+      
+      // Kiểm tra user match
+      final isUserMatch = (senderId == widget.otherUserId && receiverId == _currentUserId) ||
+                          (senderId == _currentUserId && receiverId == widget.otherUserId);
+      
+      // Tạo ConversationId từ currentUserId và otherUserId để so sánh
+      String? expectedConversationId;
+      if (_currentUserId != null && widget.otherUserId != null) {
+        final minId = _currentUserId! < widget.otherUserId! 
+            ? _currentUserId! 
+            : widget.otherUserId!;
+        final maxId = _currentUserId! > widget.otherUserId! 
+            ? _currentUserId! 
+            : widget.otherUserId!;
+        expectedConversationId = '$minId' '_' '$maxId';
+      }
+      
+      // Kiểm tra ConversationId match
+      final isConversationMatch = conversationId != null && 
+                                   conversationId == expectedConversationId;
+      
+      // Chỉ xử lý nếu tin nhắn thuộc conversation hiện tại
+      if (_currentUserId != null && 
+          widget.otherUserId != null &&
+          isUserMatch &&
+          isConversationMatch) {
+        
+        // Kiểm tra xem message đã tồn tại chưa (tránh duplicate)
+        final messageId = messageData['id']?.toString();
+        if (messageId != null && 
+            !_messages.any((m) => m.id == messageId)) {
+          
+          // Thêm message mới vào list
+          final newMessage = MessageModel.fromJson(messageData);
+          if (mounted) {
+            setState(() {
+              _messages.add(newMessage);
+            });
+            _scrollToBottom();
+          }
+        }
+      }
+    };
   }
 
   Future<void> _loadUserId() async {
@@ -85,16 +194,19 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadMessages() async {
-    if (widget.otherUserId == null || widget.postId == null || _currentUserId == null) {
+    if (widget.otherUserId == null || _currentUserId == null) {
       return;
     }
 
     setState(() => _isLoading = true);
     try {
+      // Backend endpoint: GET /api/messages/conversation/{otherUserId}
+      // ConversationId được tạo từ senderId và receiverId (không có postId)
+      // Một conversation có thể chứa tin nhắn về nhiều PostId khác nhau
       final messages = await _messageRepository.getMessages(
         senderId: _currentUserId!,
         receiverId: widget.otherUserId!,
-        postId: widget.postId!,
+        postId: widget.postId, // Không còn bắt buộc, chỉ để tương thích
       );
 
       if (!mounted) return;
@@ -113,6 +225,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    // Không disconnect SignalR vì có thể đang dùng ở màn hình khác
+    // Chỉ xóa callback để tránh memory leak
+    _signalRService.onMessageReceived = null;
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -120,7 +235,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
-    if (_currentUserId == null || widget.otherUserId == null || widget.postId == null) {
+    if (_currentUserId == null || widget.otherUserId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Không thể gửi tin nhắn')),
       );
@@ -144,16 +259,20 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
 
     try {
-      // Gửi message qua API
+      // Gửi message qua API (backend sẽ tự động gửi qua SignalR cho receiver)
+      // postId có thể null nếu tin nhắn không liên quan đến post
       await _messageRepository.sendMessage(
         senderId: _currentUserId!,
         receiverId: widget.otherUserId!,
-        postId: widget.postId!,
+        postId: widget.postId ?? 0, // Nếu null thì dùng 0, backend sẽ xử lý
         content: content,
       );
 
-      // Reload messages để có message ID chính xác từ server
-      await _loadMessages();
+      // Không cần reload vì:
+      // 1. Optimistic update đã thêm message vào UI
+      // 2. Backend sẽ gửi lại qua SignalR với message ID chính xác
+      // 3. Nếu cần, có thể reload để đảm bảo sync
+      // await _loadMessages();
     } catch (e) {
       // Nếu gửi thất bại, xóa message tạm
       setState(() {
@@ -263,6 +382,68 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
+          // Post info card (nếu có thông tin post)
+          if (widget.postTitle != null && widget.postTitle!.isNotEmpty)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Thông tin bài đăng',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (widget.postTitle != null && widget.postTitle!.isNotEmpty)
+                    Text(
+                      widget.postTitle!,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  if (widget.postPrice != null && widget.postPrice! > 0) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '💰 Giá: ${_formatPrice(widget.postPrice!)}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                  if (widget.postAddress != null && widget.postAddress!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '📍 ${widget.postAddress}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
           // Messages list
           Expanded(
             child: _isLoading

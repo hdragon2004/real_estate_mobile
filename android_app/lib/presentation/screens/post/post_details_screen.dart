@@ -10,14 +10,16 @@ import '../../../core/repositories/post_repository.dart';
 import '../../../core/services/favorite_service.dart';
 import '../../../core/services/auth_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_shadows.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/image_url_helper.dart';
+import '../../widgets/common/user_avatar.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/loading_indicator.dart';
+import '../../widgets/appointment/appointment_booking_section.dart';
 import 'image_gallery_screen.dart';
-import 'map_screen.dart';
+import 'post_owner_screen.dart';
+import '../chat/chat_screen.dart';
 
 /// Màn hình Chi tiết bất động sản
 class PostDetailsScreen extends StatefulWidget {
@@ -44,7 +46,10 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   PostModel? _property;
   bool _isLoading = false;
   int _currentImageIndex = 0;
-  bool _showFloatingButtons = true;
+
+  // UI state
+  bool _isDetailsExpanded = false;
+  bool _isDescriptionExpanded = false;
 
   @override
   void initState() {
@@ -52,7 +57,6 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     _property = widget.initialProperty;
     _isLoading = widget.initialProperty == null;
     _loadPropertyDetail(showLoader: widget.initialProperty == null);
-    _scrollController.addListener(_onScroll);
   }
 
   @override
@@ -60,39 +64,6 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     _imageController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _onScroll() {
-    if (_titleKey.currentContext == null) {
-      setState(() {
-        _showFloatingButtons = true;
-      });
-      return;
-    }
-
-    final RenderBox? titleBox =
-        _titleKey.currentContext?.findRenderObject() as RenderBox?;
-    if (titleBox == null) {
-      setState(() {
-        _showFloatingButtons = true;
-      });
-      return;
-    }
-
-    final titlePosition = titleBox.localToGlobal(Offset.zero);
-    final screenHeight = MediaQuery.of(context).size.height;
-    final imageHeight = screenHeight * 0.3;
-    final appBarHeight = kToolbarHeight + MediaQuery.of(context).padding.top;
-    final threshold = imageHeight + appBarHeight;
-
-    // Ẩn floating buttons khi scroll qua tiêu đề (khi tiêu đề đã lên trên cùng)
-    final shouldShow = titlePosition.dy > threshold;
-
-    if (shouldShow != _showFloatingButtons) {
-      setState(() {
-        _showFloatingButtons = !shouldShow;
-      });
-    }
   }
 
   Future<void> _loadPropertyDetail({bool showLoader = false}) async {
@@ -140,6 +111,99 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     HapticFeedback.lightImpact();
     await _favoriteService.toggleFavorite(property, userId);
     setState(() {});
+  }
+
+  /// Navigate đến màn hình chat với chủ bài post
+  Future<void> _navigateToChat(PostModel property) async {
+    // Kiểm tra đăng nhập trước khi chat
+    final currentUserId = await AuthStorageService.getUserId();
+    if (currentUserId == null) {
+      _showLoginRequiredDialog(
+        'Bạn cần đăng nhập để nhắn tin với chủ bài đăng.',
+      );
+      return;
+    }
+
+    // Kiểm tra user có phải là chủ bài post không
+    if (property.userId == currentUserId) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bạn không thể nhắn tin với chính mình'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    // Lấy thông tin chủ bài post
+    final postOwnerId = property.userId;
+    final postOwnerName = property.user?.name;
+    final postOwnerAvatar = property.user?.avatarUrl;
+
+    // Tạo địa chỉ đầy đủ từ các thành phần
+    final addressParts = <String>[];
+    if (property.streetName.isNotEmpty) {
+      addressParts.add(property.streetName);
+    }
+    if (property.wardName != null && property.wardName!.isNotEmpty) {
+      addressParts.add(property.wardName!);
+    }
+    if (property.districtName != null && property.districtName!.isNotEmpty) {
+      addressParts.add(property.districtName!);
+    }
+    if (property.cityName != null && property.cityName!.isNotEmpty) {
+      addressParts.add(property.cityName!);
+    }
+    // Tạo địa chỉ đầy đủ từ các thành phần
+    String? fullAddress;
+    if (property.fullAddress != null && property.fullAddress!.isNotEmpty) {
+      // Ưu tiên dùng fullAddress từ Google Maps nếu có
+      fullAddress = property.fullAddress;
+    } else {
+      // Nếu không có, tạo từ các thành phần
+      final addressParts = <String>[];
+      if (property.streetName.isNotEmpty) {
+        addressParts.add(property.streetName);
+      }
+      if (property.wardName != null && property.wardName!.isNotEmpty) {
+        addressParts.add(property.wardName!);
+      }
+      if (property.districtName != null && property.districtName!.isNotEmpty) {
+        addressParts.add(property.districtName!);
+      }
+      if (property.cityName != null && property.cityName!.isNotEmpty) {
+        addressParts.add(property.cityName!);
+      }
+      fullAddress = addressParts.isNotEmpty ? addressParts.join(', ') : null;
+    }
+
+    // Tạo ConversationId chỉ từ userId (không có postId)
+    final minId = currentUserId < postOwnerId 
+        ? currentUserId 
+        : postOwnerId;
+    final maxId = currentUserId > postOwnerId 
+        ? currentUserId 
+        : postOwnerId;
+    final conversationId = '$minId' '_' '$maxId';
+
+    // Navigate đến ChatScreen
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+          chatId: conversationId,
+          otherUserId: postOwnerId,
+          postId: property.id, // Vẫn truyền để hiển thị thông tin post và gửi message tự động
+          userName: postOwnerName,
+          userAvatar: postOwnerAvatar,
+          postTitle: property.title,
+          postPrice: property.price,
+          postAddress: fullAddress,
+        ),
+      ),
+    );
   }
 
   Future<void> _showLoginRequiredDialog(String message) async {
@@ -232,13 +296,121 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     }
   }
 
-  void _openMap() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MapScreen(propertyId: widget.propertyId),
-      ),
-    );
+  /// Mở Google Maps với vị trí của bài post
+  Future<void> _openGoogleMaps() async {
+    final property = _property;
+    if (property == null) return;
+
+    String googleMapsUrl;
+
+    // Ưu tiên 1: Sử dụng tọa độ nếu có (chính xác nhất)
+    if (property.latitude != null && property.longitude != null) {
+      googleMapsUrl =
+          'https://maps.google.com/?q=${property.latitude},${property.longitude}';
+    } else {
+      // Ưu tiên 2: Sử dụng fullAddress nếu có
+      String address = '';
+      if (property.fullAddress != null && property.fullAddress!.isNotEmpty) {
+        address = property.fullAddress!;
+      } else if (property.displayAddress.isNotEmpty) {
+        address = property.displayAddress;
+      } else {
+        // Tạo địa chỉ từ các thành phần
+        final parts = <String>[];
+        if (property.streetName.isNotEmpty) {
+          parts.add(property.streetName);
+        }
+        if (property.wardName != null && property.wardName!.isNotEmpty) {
+          parts.add(property.wardName!);
+        }
+        if (property.districtName != null &&
+            property.districtName!.isNotEmpty) {
+          parts.add(property.districtName!);
+        }
+        if (property.cityName != null && property.cityName!.isNotEmpty) {
+          parts.add(property.cityName!);
+        }
+        address = parts.join(', ');
+      }
+
+      if (address.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không có thông tin địa chỉ để hiển thị trên bản đồ'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+      // Mở với địa chỉ - dùng format đơn giản
+      googleMapsUrl =
+          'https://maps.google.com/?q=${Uri.encodeComponent(address)}';
+    }
+
+    // Mở Google Maps
+    try {
+      Uri uri;
+
+      // Nếu có tọa độ, thử dùng geo: URI scheme cho Android (ưu tiên mở Google Maps app)
+      if (property.latitude != null && property.longitude != null) {
+        try {
+          uri = Uri.parse(
+            'geo:${property.latitude},${property.longitude}?q=${property.latitude},${property.longitude}',
+          );
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+            return;
+          }
+        } catch (e) {
+          // Nếu geo: không hoạt động, fallback về https
+        }
+      }
+
+      // Dùng https URL
+      uri = Uri.parse(googleMapsUrl);
+
+      // Thử mở với externalApplication (ưu tiên mở app)
+      if (await canLaunchUrl(uri)) {
+        final launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+
+        if (!launched && mounted) {
+          // Nếu không mở được app, thử mở trong browser
+          await launchUrl(uri, mode: LaunchMode.platformDefault);
+        }
+      } else {
+        // Nếu canLaunchUrl trả về false, vẫn thử mở (có thể do Android 11+ package visibility)
+        try {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } catch (e) {
+          // Nếu externalApplication không được, thử platformDefault
+          try {
+            await launchUrl(uri, mode: LaunchMode.platformDefault);
+          } catch (e2) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  'Không thể mở Google Maps. Vui lòng cài đặt Google Maps app.',
+                ),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi khi mở Google Maps: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   List<String> _buildImageList(PostModel property) {
@@ -305,16 +477,24 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                 SliverToBoxAdapter(
                   child: _buildPrimaryInfo(property, key: _titleKey),
                 ),
-                SliverToBoxAdapter(child: _buildQuickStats(property)),
                 SliverToBoxAdapter(child: _buildDetailsSection(property)),
                 SliverToBoxAdapter(child: _buildDescription(property)),
-                SliverToBoxAdapter(child: _buildLocation(property)),
+                SliverToBoxAdapter(child: _buildAddressAndMap(property)),
+                SliverToBoxAdapter(child: _buildFloorPlanSection(property)),
                 SliverToBoxAdapter(child: _buildContactCard(property)),
+                SliverToBoxAdapter(
+                  child: AppointmentBookingSection(
+                    propertyId: property.id,
+                    propertyTitle: property.title,
+                    ownerName: property.user?.name,
+                    ownerPhone: property.user?.phone,
+                    ownerEmail: property.user?.email,
+                  ),
+                ),
                 const SliverToBoxAdapter(child: Gap(100)),
               ],
             ),
-            // Floating buttons (message, call) - chỉ hiển thị khi ở trên
-            if (_showFloatingButtons) _buildFloatingButtons(property),
+            // Sticky Bottom Action Bar
           ],
         ),
       ),
@@ -327,20 +507,30 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     bool isFavorite,
   ) {
     final screenHeight = MediaQuery.of(context).size.height;
-    final imageHeight = screenHeight * 0.3; // 30% màn hình
+    final expandedHeight = screenHeight * 0.55; // 55% màn hình
 
     return SliverAppBar(
-      expandedHeight: imageHeight,
+      expandedHeight: expandedHeight,
+      collapsedHeight: kToolbarHeight,
       pinned: true,
       backgroundColor: AppColors.background,
       surfaceTintColor: Colors.transparent,
-      leading: IconButton(
-        icon: const FaIcon(FontAwesomeIcons.arrowLeft, color: Colors.white),
-        onPressed: () => Navigator.pop(context),
-      ),
-      title: Text(
-        property.categoryName ?? 'Chi tiết',
-        style: AppTextStyles.h6.copyWith(color: Colors.white),
+      leading: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.3),
+            shape: BoxShape.circle,
+          ),
+          child: IconButton(
+            icon: const FaIcon(
+              FontAwesomeIcons.arrowLeft,
+              color: Colors.white,
+              size: 18,
+            ),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
       ),
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
@@ -426,168 +616,165 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         ),
       ),
       actions: [
-        IconButton(
-          icon: FaIcon(
-            isFavorite ? FontAwesomeIcons.solidHeart : FontAwesomeIcons.heart,
-            color: isFavorite ? AppColors.error : Colors.white,
+        // Favorite button với overlay
+        SafeArea(
+          child: Container(
+            margin: const EdgeInsets.only(right: 8, top: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: FaIcon(
+                isFavorite
+                    ? FontAwesomeIcons.solidHeart
+                    : FontAwesomeIcons.heart,
+                color: isFavorite ? AppColors.error : Colors.white,
+                size: 18,
+              ),
+              tooltip: 'Yêu thích',
+              onPressed: () => _toggleFavorite(property),
+            ),
           ),
-          tooltip: 'Yêu thích',
-          onPressed: () => _toggleFavorite(property),
         ),
-        IconButton(
-          icon: const FaIcon(FontAwesomeIcons.share, color: Colors.white),
-          tooltip: 'Chia sẻ',
-          onPressed: () {
-            // TODO: Implement share functionality
-          },
+        // Chat button với overlay
+        SafeArea(
+          child: Container(
+            margin: const EdgeInsets.only(right: 8, top: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const FaIcon(
+                FontAwesomeIcons.message,
+                color: Colors.white,
+                size: 18,
+              ),
+              tooltip: 'Chat',
+              onPressed: () => _navigateToChat(property),
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildFloatingButtons(PostModel property) {
-    final user = property.user;
-    return Positioned(
-      bottom: 20,
-      left: 20,
-      right: 20,
-      child: Row(
-        children: [
-          Expanded(
-            child: AppButton(
-              text: 'Email',
-              icon: FontAwesomeIcons.envelope,
-              onPressed: () => _launchMail(user?.email),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: AppButton(
-              text: 'Gọi điện',
-              icon: FontAwesomeIcons.phone,
-              backgroundColor: Colors.green,
-              onPressed: () => _launchPhone(user?.phone),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildPrimaryInfo(PostModel property, {Key? key}) {
-    return Padding(
+    return AnimatedSlide(
       key: key,
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(property.title, style: AppTextStyles.h4),
-          const Gap(12),
-          Row(
-            children: [
-              _InfoPill(
-                icon: FontAwesomeIcons.locationDot,
-                label:
-                    property.ward?.name ??
-                    property.wardName ??
-                    'Không xác định',
-              ),
-              const Gap(8),
-              _InfoPill(
-                icon: FontAwesomeIcons.tag,
-                label: property.categoryName ?? 'Danh mục',
-              ),
-            ],
-          ),
-          const Gap(16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                Formatters.formatPriceWithUnit(
-                  property.price,
-                  property.priceUnit,
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeOutCubic,
+      offset: const Offset(0, 0.2),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 600),
+        opacity: 1.0,
+        child: Transform.translate(
+          offset: const Offset(0, -40), // Overlapping với hero image
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                Text(
+                  property.title,
+                  style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.bold),
                 ),
-                style: AppTextStyles.priceLarge,
-              ),
-              const Gap(12),
-              Text(
-                Formatters.formatRelative(property.created),
-                style: AppTextStyles.bodySmall,
-              ),
-            ],
+                const Gap(8),
+                // Category và Status
+                Row(
+                  children: [
+                    if ((property.categoryName != null &&
+                            property.categoryName!.isNotEmpty) ||
+                        (property.category != null &&
+                            property.category!.name.isNotEmpty))
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          property.categoryName ??
+                              property.category?.name ??
+                              '',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    if ((property.categoryName != null &&
+                            property.categoryName!.isNotEmpty) ||
+                        (property.category != null &&
+                            property.category!.name.isNotEmpty))
+                      const SizedBox(width: 8),
+                    Text(
+                      property.transactionType == TransactionType.sale
+                          ? 'For Sale'
+                          : 'For Rent',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const Gap(16),
+                // Price
+                Text(
+                  Formatters.formatPriceWithUnit(
+                    property.price,
+                    property.priceUnit,
+                  ),
+                  style: AppTextStyles.priceLarge.copyWith(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Gap(16),
+                // Key Stats: Bed, Bath, Garage
+                Row(
+                  children: [
+                    if (property.soPhongNgu != null)
+                      Expanded(
+                        child: _KeyStatItem(
+                          icon: FontAwesomeIcons.bed,
+                          label: '${property.soPhongNgu} Bedrooms',
+                        ),
+                      ),
+                    if (property.soPhongNgu != null &&
+                        property.soPhongTam != null)
+                      const SizedBox(width: 12),
+                    if (property.soPhongTam != null)
+                      Expanded(
+                        child: _KeyStatItem(
+                          icon: FontAwesomeIcons.bath,
+                          label: '${property.soPhongTam} Bathrooms',
+                        ),
+                      ),
+                    if (property.soPhongTam != null) const SizedBox(width: 12),
+                    Expanded(
+                      child: _KeyStatItem(
+                        icon: FontAwesomeIcons.car,
+                        label: '1 Garages', // TODO: Get from property data
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const Gap(16),
-          _buildFeaturesRow(property),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickStats(PostModel property) {
-    final stats = <_QuickStat>[
-      _QuickStat(
-        label: 'Diện tích',
-        value: Formatters.formatArea(property.areaSize),
-        icon: FontAwesomeIcons.ruler,
-      ),
-      if (property.soPhongNgu != null)
-        _QuickStat(
-          label: 'Phòng ngủ',
-          value: '${property.soPhongNgu}',
-          icon: FontAwesomeIcons.bed,
         ),
-      if (property.soPhongTam != null)
-        _QuickStat(
-          label: 'Phòng tắm',
-          value: '${property.soPhongTam}',
-          icon: FontAwesomeIcons.bath,
-        ),
-      if (property.soTang != null)
-        _QuickStat(
-          label: 'Số tầng',
-          value: '${property.soTang}',
-          icon: FontAwesomeIcons.layerGroup,
-        ),
-      if (property.huongNha != null)
-        _QuickStat(
-          label: 'Hướng nhà',
-          value: property.huongNha!,
-          icon: FontAwesomeIcons.compass,
-        ),
-      if (property.phapLy != null)
-        _QuickStat(
-          label: 'Pháp lý',
-          value: property.phapLy!,
-          icon: FontAwesomeIcons.gavel,
-        ),
-    ];
-
-    if (stats.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          const spacing = 12.0;
-          final maxW = constraints.maxWidth;
-          int columns = 3;
-          if (maxW < 360) {
-            columns = 2;
-          } else if (maxW >= 360 && maxW < 600) {
-            columns = 3;
-          } else {
-            columns = 4;
-          }
-          final itemWidth = (maxW - spacing * (columns - 1)) / columns;
-          return Wrap(
-            spacing: spacing,
-            runSpacing: spacing,
-            children: stats
-                .map((stat) => _QuickStatCard(stat: stat, width: itemWidth))
-                .toList(),
-          );
-        },
       ),
     );
   }
@@ -598,13 +785,40 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Mô tả chi tiết', style: AppTextStyles.h5),
+          Row(
+            children: [
+              Text('Mô tả', style: AppTextStyles.h5),
+              const Spacer(),
+              if (!_isDescriptionExpanded)
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _isDescriptionExpanded = true;
+                    });
+                  },
+                  child: Text(
+                    'Xem thêm',
+                    style: AppTextStyles.labelLarge.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           const Gap(12),
-          Text(
-            property.description,
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.6,
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: Text(
+              property.description,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+                height: 1.6,
+              ),
+              maxLines: _isDescriptionExpanded ? null : 3,
+              overflow: _isDescriptionExpanded
+                  ? TextOverflow.visible
+                  : TextOverflow.fade,
             ),
           ),
         ],
@@ -612,56 +826,239 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     );
   }
 
-  Widget _buildLocation(PostModel property) {
+  Widget _buildAddressAndMap(PostModel property) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Vị trí', style: AppTextStyles.h5),
+          Row(
+            children: [
+              Text('Địa chỉ', style: AppTextStyles.h5),
+              const Spacer(),
+              // Nút mở Google Maps
+              TextButton.icon(
+                onPressed: _openGoogleMaps,
+                icon: const FaIcon(
+                  FontAwesomeIcons.locationArrow,
+                  size: 14,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  'Mở Google Maps',
+                  style: AppTextStyles.labelLarge.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFF4285F4), // Google Maps blue
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
           const Gap(12),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: AppShadows.card,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const FaIcon(
-                      FontAwesomeIcons.locationDot,
-                      color: AppColors.primary,
-                    ),
-                    const Gap(8),
-                    Expanded(
-                      child: Text(
-                        property.displayAddress,
-                        style: AppTextStyles.bodyMedium,
-                      ),
-                    ),
-                  ],
-                ),
-                const Gap(12),
-                AppButton(
-                  text: 'Xem trên bản đồ',
-                  onPressed: _openMap,
-                  isOutlined: true,
-                  icon: FontAwesomeIcons.map,
-                ),
-              ],
+          // Full Address
+          InkWell(
+            onTap: _openGoogleMaps,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                property.fullAddress ?? property.displayAddress,
+                style: AppTextStyles.bodyMedium,
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFloorPlanSection(PostModel property) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('Mặt bằng', style: AppTextStyles.h5),
+              const Spacer(),
+              TextButton(
+                onPressed: () => _showFloorPlanSheet(property),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Xem mặt bằng',
+                      style: AppTextStyles.labelLarge.copyWith(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const Gap(4),
+                    const FaIcon(
+                      FontAwesomeIcons.chevronRight,
+                      size: 12,
+                      color: AppColors.primary,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Gap(12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const FaIcon(
+                          FontAwesomeIcons.bed,
+                          size: 16,
+                          color: AppColors.textSecondary,
+                        ),
+                        const Gap(8),
+                        Text('670 Sqft', style: AppTextStyles.bodyMedium),
+                      ],
+                    ),
+                    const Gap(12),
+                    Row(
+                      children: [
+                        const FaIcon(
+                          FontAwesomeIcons.tag,
+                          size: 16,
+                          color: AppColors.textSecondary,
+                        ),
+                        const Gap(8),
+                        Text('\$1,600', style: AppTextStyles.bodyMedium),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Gap(24),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const FaIcon(
+                          FontAwesomeIcons.bath,
+                          size: 16,
+                          color: AppColors.textSecondary,
+                        ),
+                        const Gap(8),
+                        Text('530 Sqft', style: AppTextStyles.bodyMedium),
+                      ],
+                    ),
+                    const Gap(12),
+                    Row(
+                      children: [
+                        const FaIcon(
+                          FontAwesomeIcons.ruler,
+                          size: 16,
+                          color: AppColors.textSecondary,
+                        ),
+                        const Gap(8),
+                        Text('1345 Sqft', style: AppTextStyles.bodyMedium),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFloorPlanSheet(PostModel property) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.4,
+        minChildSize: 0.2,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // Handle
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Title
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text('Floor Plans', style: AppTextStyles.h5),
+                ),
+                const Gap(16),
+                // Content
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    children: [
+                      Text('First Floor', style: AppTextStyles.h6),
+                      const Gap(12),
+                      Container(
+                        height: 200,
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Floor Plan Image',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Gap(20),
+                      // Add more floor plans here
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildDetailsSection(PostModel property) {
     final hasPerM2 = property.priceUnit == PriceUnit.perM2;
+    final pricePerSqft = property.areaSize > 0
+        ? property.price / property.areaSize
+        : 0.0;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
       child: Column(
@@ -672,125 +1069,127 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
               Text('Chi tiết', style: AppTextStyles.h5),
               const Spacer(),
               TextButton(
-                onPressed: () => _showMoreDetails(property),
-                child: Text(
-                  'Xem thêm',
-                  style: AppTextStyles.labelLarge.copyWith(
-                    color: AppColors.primary,
-                  ),
+                onPressed: () {
+                  setState(() {
+                    _isDetailsExpanded = !_isDetailsExpanded;
+                  });
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Xem chi tiết',
+                      style: AppTextStyles.labelLarge.copyWith(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const Gap(4),
+                    AnimatedRotation(
+                      turns: _isDetailsExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 300),
+                      child: const FaIcon(
+                        FontAwesomeIcons.chevronDown,
+                        size: 12,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const Gap(8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: AppShadows.card,
-            ),
-            child: Column(
-              children: [
-                _DetailRow(label: 'Mã tin', value: property.id.toString()),
-                _DetailRow(
-                  label: 'Giá',
-                  value: Formatters.formatPriceWithUnit(
-                    property.price,
-                    property.priceUnit,
-                  ),
+          const Gap(12),
+          Column(
+            children: [
+              _DetailRow(
+                label: 'Mã bất động sản:',
+                value: property.id.toString(),
+              ),
+              const Gap(12),
+              _DetailRow(
+                label: 'Giá chính:',
+                value: Formatters.formatPriceWithUnit(
+                  property.price,
+                  property.priceUnit,
                 ),
-                if (hasPerM2)
-                  _DetailRow(
-                    label: 'Đơn giá',
-                    value: Formatters.formatPriceWithUnit(
-                      property.price,
-                      property.priceUnit,
-                    ),
-                  ),
+              ),
+              if (hasPerM2 || pricePerSqft > 0) ...[
+                const Gap(12),
                 _DetailRow(
-                  label: 'Loại bất động sản',
-                  value: property.categoryName ?? 'Không xác định',
+                  label: 'Đơn giá theo diện tích:',
+                  value: '\$${pricePerSqft.toStringAsFixed(0)}/sq ft',
                 ),
-                _DetailRow(
-                  label: 'Diện tích',
-                  value: Formatters.formatArea(property.areaSize),
-                ),
-                if (property.soTang != null)
-                  _DetailRow(label: 'Số tầng', value: '${property.soTang}'),
-                if (property.huongNha != null)
-                  _DetailRow(label: 'Hướng nhà', value: property.huongNha!),
-                if (property.phapLy != null)
-                  _DetailRow(label: 'Pháp lý', value: property.phapLy!),
               ],
-            ),
+              const Gap(12),
+              _DetailRow(
+                label: 'Loại bất động sản:',
+                value:
+                    property.categoryName ?? property.category?.name ?? 'N/A',
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                child: _isDetailsExpanded
+                    ? Column(
+                        children: [
+                          const Gap(12),
+                          _DetailRow(
+                            label: 'Diện tích',
+                            value: Formatters.formatArea(property.areaSize),
+                          ),
+                          if (property.soTang != null) ...[
+                            const Gap(12),
+                            _DetailRow(
+                              label: 'Số tầng',
+                              value: '${property.soTang}',
+                            ),
+                          ],
+                          if (property.duongVao != null) ...[
+                            const Gap(12),
+                            _DetailRow(
+                              label: 'Đường vào',
+                              value: '${property.duongVao} m',
+                            ),
+                          ],
+                          if (property.huongNha != null &&
+                              property.huongNha!.isNotEmpty) ...[
+                            const Gap(12),
+                            _DetailRow(
+                              label: 'Hướng nhà',
+                              value: property.huongNha!,
+                            ),
+                          ],
+                          if (property.huongBanCong != null &&
+                              property.huongBanCong!.isNotEmpty) ...[
+                            const Gap(12),
+                            _DetailRow(
+                              label: 'Hướng ban công',
+                              value: property.huongBanCong!,
+                            ),
+                          ],
+                          if (property.matTien != null) ...[
+                            const Gap(12),
+                            _DetailRow(
+                              label: 'Mặt tiền',
+                              value: '${property.matTien} m',
+                            ),
+                          ],
+                          if (property.phapLy != null &&
+                              property.phapLy!.isNotEmpty) ...[
+                            const Gap(12),
+                            _DetailRow(
+                              label: 'Pháp lý',
+                              value: property.phapLy!,
+                            ),
+                          ],
+                        ],
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
           ),
         ],
       ),
-    );
-  }
-
-  void _showMoreDetails(PostModel property) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Thông tin chi tiết', style: AppTextStyles.h5),
-                const Gap(12),
-                _DetailRow(label: 'Mã tin', value: property.id.toString()),
-                _DetailRow(label: 'Tiêu đề', value: property.title),
-                _DetailRow(
-                  label: 'Danh mục',
-                  value: property.categoryName ?? 'Không xác định',
-                ),
-                _DetailRow(label: 'Địa chỉ', value: property.displayAddress),
-                _DetailRow(
-                  label: 'Diện tích',
-                  value: Formatters.formatArea(property.areaSize),
-                ),
-                if (property.soPhongNgu != null)
-                  _DetailRow(
-                    label: 'Phòng ngủ',
-                    value: '${property.soPhongNgu}',
-                  ),
-                if (property.soPhongTam != null)
-                  _DetailRow(
-                    label: 'Phòng tắm',
-                    value: '${property.soPhongTam}',
-                  ),
-                if (property.soTang != null)
-                  _DetailRow(label: 'Số tầng', value: '${property.soTang}'),
-                if (property.matTien != null)
-                  _DetailRow(label: 'Mặt tiền', value: '${property.matTien} m'),
-                if (property.duongVao != null)
-                  _DetailRow(
-                    label: 'Đường vào',
-                    value: '${property.duongVao} m',
-                  ),
-                if (property.huongNha != null)
-                  _DetailRow(label: 'Hướng nhà', value: property.huongNha!),
-                if (property.huongBanCong != null)
-                  _DetailRow(
-                    label: 'Hướng ban công',
-                    value: property.huongBanCong!,
-                  ),
-                if (property.phapLy != null)
-                  _DetailRow(label: 'Pháp lý', value: property.phapLy!),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -802,240 +1201,89 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Thông tin liên hệ', style: AppTextStyles.h5),
-          const Gap(12),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: AppShadows.card,
-            ),
-            child: Column(
+          const Gap(16),
+          InkWell(
+            onTap: () {
+              if (user != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PostOwnerScreen(
+                      userId: property.userId,
+                      userName: user.name,
+                      userAvatar: user.avatarUrl,
+                      userEmail: user.email,
+                      userPhone: user.phone,
+                      userRole: user.role,
+                      postId: property.id,
+                    ),
+                  ),
+                );
+              }
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundImage: user?.avatarUrl != null
-                          ? NetworkImage(
-                              ImageUrlHelper.resolveImageUrl(user!.avatarUrl!),
-                            )
-                          : null,
-                      child: user?.avatarUrl == null
-                          ? Text(
-                              (user?.name ?? 'U')[0].toUpperCase(),
-                              style: AppTextStyles.h5.copyWith(
-                                color: Colors.white,
-                              ),
-                            )
-                          : null,
-                    ),
-                    const Gap(12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user?.name ?? 'Chủ tin',
-                            style: AppTextStyles.h6,
-                          ),
-                          const Gap(4),
-                          Text(
-                            'Người đăng',
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => _launchMail(user?.email),
-                      icon: const FaIcon(
-                        FontAwesomeIcons.envelope,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => _launchPhone(user?.phone),
-                      icon: const FaIcon(
-                        FontAwesomeIcons.phone,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
+                UserAvatarWithFallback(
+                  avatarUrl: user?.avatarUrl,
+                  name: user?.name ?? 'Người dùng',
+                  radius: 32,
+                  fontSize: 20,
                 ),
-                const Divider(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppButton(
-                        text: 'Email',
-                        icon: FontAwesomeIcons.envelope,
-                        onPressed: () => _launchMail(user?.email),
+                const Gap(16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user?.name ?? 'Môi giới',
+                        style: AppTextStyles.h6.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: AppButton(
-                        text: 'Gọi điện',
-                        icon: FontAwesomeIcons.phone,
-                        backgroundColor: Colors.green,
-                        onPressed: () => _launchPhone(user?.phone),
+                      const Gap(4),
+                      Text(
+                        user?.role ?? 'Môi giới',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => _launchMail(user?.email),
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
                     ),
-                  ],
+                    child: const FaIcon(
+                      FontAwesomeIcons.envelope,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => _launchPhone(user?.phone),
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const FaIcon(
+                      FontAwesomeIcons.phone,
+                      color: AppColors.success,
+                      size: 18,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoPill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _InfoPill({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FaIcon(icon, size: 16, color: AppColors.textSecondary),
-          const Gap(6),
-          Text(label, style: AppTextStyles.labelSmall),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickStat {
-  final String label;
-  final String value;
-  final IconData icon;
-
-  _QuickStat({required this.label, required this.value, required this.icon});
-}
-
-class _QuickStatCard extends StatelessWidget {
-  final _QuickStat stat;
-  final double? width;
-
-  const _QuickStatCard({required this.stat, this.width});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: width ?? 150,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.card,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FaIcon(stat.icon, color: AppColors.primary, size: 20),
-          const Gap(8),
-          Text(stat.value, style: AppTextStyles.h6),
-          const Gap(4),
-          Text(stat.label, style: AppTextStyles.bodySmall),
-        ],
-      ),
-    );
-  }
-}
-
-Widget _buildFeaturesRow(PostModel property) {
-  final items = <_FeatureItem>[];
-  if (property.soPhongNgu != null) {
-    items.add(
-      _FeatureItem(
-        icon: FontAwesomeIcons.bed,
-        label: '${property.soPhongNgu} Phòng ngủ',
-      ),
-    );
-  }
-  if (property.soPhongTam != null) {
-    items.add(
-      _FeatureItem(
-        icon: FontAwesomeIcons.bath,
-        label: '${property.soPhongTam} Phòng tắm',
-      ),
-    );
-  }
-  items.add(
-    _FeatureItem(
-      icon: FontAwesomeIcons.ruler,
-      label: Formatters.formatArea(property.areaSize),
-    ),
-  );
-  if (property.soTang != null) {
-    items.add(
-      _FeatureItem(
-        icon: FontAwesomeIcons.layerGroup,
-        label: '${property.soTang} Tầng',
-      ),
-    );
-  }
-  if (items.isEmpty) return const SizedBox.shrink();
-  return SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      children: [
-        for (int i = 0; i < items.length; i++) ...[
-          if (i != 0) const SizedBox(width: 12),
-          items[i],
-        ],
-      ],
-    ),
-  );
-}
-
-class _FeatureItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _FeatureItem({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: AppShadows.small,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: FaIcon(icon, size: 16, color: AppColors.primary),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(label, style: AppTextStyles.labelLarge),
         ],
       ),
     );
@@ -1050,19 +1298,54 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w500),
+        ),
+      ],
+    );
+  }
+}
+
+class _KeyStatItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _KeyStatItem({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
+          FaIcon(icon, size: 16, color: AppColors.textSecondary),
+          const Gap(8),
+          Flexible(
             child: Text(
               label,
               style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textSecondary,
+                color: AppColors.textPrimary,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          Text(value, style: AppTextStyles.bodyMedium),
         ],
       ),
     );
