@@ -1,18 +1,18 @@
 import axiosClient from './axiosClient';
+import { unwrapResponse, unwrapListResponse } from './responseHelper';
 
 export const messageService = {
     // Gửi tin nhắn mới
     sendMessage: async (messageData) => {
         try {
             const response = await axiosClient.post('/api/messages', messageData);
-            return response.data;
+            return unwrapResponse(response);
         } catch (error) {
-            if (error.response?.data) {
-                // If the server returns a specific error message
-                throw new Error(error.response.data);
-            } else if (error.response?.data?.message) {
-                // If the server returns an object with a message property
-                throw new Error(error.response.data.message);
+            const errorData = error.response?.data;
+            if (errorData?.message) {
+                throw new Error(errorData.message);
+            } else if (errorData) {
+                throw new Error(typeof errorData === 'string' ? errorData : 'Không thể gửi tin nhắn');
             } else {
                 throw new Error('Không thể gửi tin nhắn. Vui lòng thử lại sau.');
             }
@@ -23,9 +23,10 @@ export const messageService = {
     getConversation: async (user1Id, user2Id, postId) => {
         try {
             const response = await axiosClient.get(`/api/messages/${user1Id}/${user2Id}/${postId}`);
-            return response.data;
+            return unwrapListResponse(response);
         } catch (error) {
-            throw error.response?.data || error.message;
+            const errorData = error.response?.data;
+            throw new Error(errorData?.message || error.message || 'Không thể lấy cuộc hội thoại');
         }
     },
 
@@ -33,9 +34,10 @@ export const messageService = {
     getUserMessages: async (userId) => {
         try {
             const response = await axiosClient.get(`/api/messages/user/${userId}`);
-            return response.data;
+            return unwrapListResponse(response);
         } catch (error) {
-            throw error.response?.data || error.message;
+            const errorData = error.response?.data;
+            throw new Error(errorData?.message || error.message || 'Không thể lấy tin nhắn');
         }
     },
 
@@ -43,22 +45,23 @@ export const messageService = {
     getPostMessages: async (postId) => {
         try {
             const response = await axiosClient.get(`/api/messages/post/${postId}`);
-            return response.data;
+            return unwrapListResponse(response);
         } catch (error) {
-            throw error.response?.data || error.message;
+            const errorData = error.response?.data;
+            throw new Error(errorData?.message || error.message || 'Không thể lấy tin nhắn');
         }
     },
-    deleteConversation: async (user1Id, user2Id, postId) => {
-    try {
-        const response = await axiosClient.delete(
-            `/api/messages/conversation`,
-            { params: { user1Id, user2Id, postId } }
-        );
-        return response.data;
-    } catch (error) {
-        throw error.response?.data?.message || 'Xóa hội thoại thất bại';
-    }
-},
-
     
+    deleteConversation: async (user1Id, user2Id, postId) => {
+        try {
+            const response = await axiosClient.delete(
+                `/api/messages/conversation`,
+                { params: { user1Id, user2Id, postId } }
+            );
+            return unwrapResponse(response);
+        } catch (error) {
+            const errorData = error.response?.data;
+            throw new Error(errorData?.message || 'Xóa hội thoại thất bại');
+        }
+    },
 }; 

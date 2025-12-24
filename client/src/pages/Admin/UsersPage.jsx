@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Layout, Table, Button, Tag, Space, Modal, Select, message } from 'antd';
 import Sidebar from '../../components/Sidebar';
 import axiosPrivate from '../../api/axiosPrivate';
+import { unwrapListResponse } from '../../api/responseHelper';
 import MessageProvider from '../../components/MessageProvider';
 
 
@@ -16,9 +17,12 @@ const UsersPage = () => {
     const fetchUsers = async () => {
       try {
         const res = await axiosPrivate.get('/api/users');
-        setUsers(res.data);
+        const usersData = unwrapListResponse(res);
+        setUsers(usersData);
       } catch (err) {
-        showMessage.error('Không thể tải danh sách người dùng');
+        const errorData = err.response?.data;
+        const errorMessage = errorData?.message || errorData || 'Không thể tải danh sách người dùng';
+        showMessage.error(errorMessage);
       } finally {
         setLoading(false);
       }

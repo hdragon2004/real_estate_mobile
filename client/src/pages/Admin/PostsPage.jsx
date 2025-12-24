@@ -3,6 +3,7 @@ import { Layout, Table, Button, Tag, Space, Modal } from 'antd';
 import { EyeOutlined } from '@ant-design/icons';
 import Sidebar from '../../components/Sidebar';
 import axiosPrivate from '../../api/axiosPrivate';
+import { unwrapListResponse, unwrapResponse } from '../../api/responseHelper';
 import MessageProvider from '../../components/MessageProvider';
 import { useNavigate } from 'react-router-dom';
 
@@ -20,11 +21,14 @@ const PostsPage = () => {
     try {
       const resPending = await axiosPrivate.get('/api/posts?isApproved=false');
       const resApproved = await axiosPrivate.get('/api/posts?isApproved=true');
-      setPendingPosts(resPending.data || []);
-      setApprovedPosts(resApproved.data || []);
+      const pendingData = unwrapListResponse(resPending);
+      const approvedData = unwrapListResponse(resApproved);
+      setPendingPosts(pendingData);
+      setApprovedPosts(approvedData);
     } catch (error) {
       console.error('Error fetching posts:', error);
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Không thể tải danh sách bài viết';
+      const errorData = error.response?.data;
+      const errorMessage = errorData?.message || errorData || 'Không thể tải danh sách bài viết';
       showMessage.error(errorMessage);
     } finally {
       setLoading(false);
@@ -38,14 +42,15 @@ const PostsPage = () => {
   const handleApprove = async (postId) => {
     try {
       const response = await axiosPrivate.post(`/api/admin/posts/${postId}/approve`);
-      const approvedPost = response.data;
+      const approvedPost = unwrapResponse(response);
       // Remove from pending and add to approved
       setPendingPosts(posts => posts.filter(p => p.id !== postId));
       setApprovedPosts(posts => [approvedPost, ...posts]);
       showMessage.success('Đã duyệt bài viết thành công');
     } catch (error) {
       console.error('Error approving post:', error);
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Lỗi duyệt bài viết';
+      const errorData = error.response?.data;
+      const errorMessage = errorData?.message || errorData || 'Lỗi duyệt bài viết';
       showMessage.error(errorMessage);
     }
   };

@@ -2,6 +2,7 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../auth/AuthContext';
 import axiosPrivate from '../../api/axiosPrivate';
+import { unwrapResponse } from '../../api/responseHelper';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import './Header.css';
 import { FaCrown } from 'react-icons/fa';
@@ -39,12 +40,16 @@ const Header = () => {
       const fetchAgentProfile = async () => {
         try {
           const response = await axiosPrivate.get(`/api/users/${user.id}/agent-profile`);
-          if (response.data) {
-            setAgentProfile(response.data);
-            console.log('Agent profile fetched:', response.data);
+          const agentData = unwrapResponse(response);
+          if (agentData) {
+            setAgentProfile(agentData);
           }
         } catch (error) {
-          console.log('User has no agent profile or error:', error);
+          // 404 là bình thường nếu user chưa có agent profile, không cần log
+          // Chỉ log nếu có lỗi khác (500, network error, etc.)
+          if (error.response?.status && error.response.status !== 404) {
+            console.error('Error fetching agent profile:', error);
+          }
           setAgentProfile(null);
         }
       };

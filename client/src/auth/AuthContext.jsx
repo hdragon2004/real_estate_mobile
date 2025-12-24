@@ -1,10 +1,7 @@
-
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import axiosClient from '../api/axiosClient';
-//import axiosPrivate from '../api/axiosPrivate'; 
-
-
 import axiosPrivate from '../api/axiosPrivate';
+import { unwrapResponse } from '../api/responseHelper';
 import { toast } from 'react-hot-toast';
 
 // Tạo và export AuthContext
@@ -27,7 +24,8 @@ export const AuthProvider = ({ children }) => {
   const fetchUserProfile = async () => {
     try {
       const response = await axiosPrivate.get('/api/users/profile');
-      setUser(response.data);
+      const userData = unwrapResponse(response);
+      setUser(userData);
     } catch (error) {
       console.error('Error fetching user profile:', error);
       localStorage.removeItem('token');
@@ -43,17 +41,31 @@ export const AuthProvider = ({ children }) => {
         password,
       });
 
-      if (response.data.token) {
-        localStorage.setItem("token", response.data.token);
-        setUser(response.data.user);
+      // API trả về format: { status, message, data: { user, token } }
+      const responseData = response.data;
+      
+      // Kiểm tra nếu có data và token trong data
+      if (responseData.data && responseData.data.token) {
+        const token = responseData.data.token;
+        const user = responseData.data.user;
+        
+        localStorage.setItem("token", token);
+        setUser(user);
+        
+        // Hiển thị thông báo thành công
+        showNotification(responseData.message || "Đăng nhập thành công", "success");
+        
         return { success: true };
       }
-      // Nếu đăng nhập thất bại, server có thể trả về một chuỗi hoặc một đối tượng có trường message
-      const errorMessage = response.data?.message || response.data;
+      
+      // Nếu không có token trong data, trả về lỗi
+      const errorMessage = responseData?.message || "Không nhận được token từ server";
       return { success: false, error: errorMessage };
     } catch (error) {
       console.error("Login error:", error);
-      const errorMessage = error.response?.data || "Đăng nhập thất bại"; 
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data || 
+                          "Đăng nhập thất bại"; 
       return { success: false, error: errorMessage };
     }
   };
@@ -64,16 +76,27 @@ export const AuthProvider = ({ children }) => {
       const response = await axiosPrivate.post('/api/auth/register', userData);
       console.log('Register response:', response.data);
       
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        if (response.data.user) {
-          setUser(response.data.user);
+      // API trả về format: { status, message, data: { user, token } }
+      const responseData = response.data;
+      
+      // Kiểm tra nếu có data và token trong data
+      if (responseData.data && responseData.data.token) {
+        const token = responseData.data.token;
+        const user = responseData.data.user;
+        
+        localStorage.setItem('token', token);
+        if (user) {
+          setUser(user);
         }
+        
+        // Hiển thị thông báo thành công
+        showNotification(responseData.message || "Đăng ký thành công", "success");
+        
         return { success: true };
       } else {
         return {
           success: false,
-          error: 'Không nhận được token từ server'
+          error: responseData?.message || 'Không nhận được token từ server'
         };
       }
     } catch (error) {
@@ -98,14 +121,16 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('Updating profile...');
       const response = await axiosPrivate.put('/api/users/profile', userData);
-      console.log('Profile update response:', response.data);
-      setUser(response.data);
+      const updatedUser = unwrapResponse(response);
+      console.log('Profile update response:', updatedUser);
+      setUser(updatedUser);
       return { success: true };
     } catch (error) {
       console.error('Profile update error:', error);
+      const errorData = error.response?.data;
       return {
         success: false,
-        error: error.response?.data?.message || 'Cập nhật thông tin thất bại'
+        error: errorData?.message || 'Cập nhật thông tin thất bại'
       };
     }
   };

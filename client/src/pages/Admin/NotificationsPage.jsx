@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Layout, Table, Tag, Space, Button, Modal, Descriptions, Select } from 'antd';
 import Sidebar from '../../components/Sidebar';
 import axiosPrivate from '../../api/axiosPrivate';
+import { unwrapListResponse } from '../../api/responseHelper';
 import MessageProvider from '../../components/MessageProvider';
 
 const { Content } = Layout;
@@ -19,22 +20,23 @@ const NotificationsPage = () => {
   }, [filterType]);
 
   const fetchNotifications = async () => {
-    try {
-      const res = await axiosPrivate.get('/api/admin/notifications');
-      let data = res.data || [];
-      
-      if (filterType !== 'all') {
-        data = data.filter(n => n.type === filterType);
+      try {
+        const res = await axiosPrivate.get('/api/admin/notifications');
+        let data = unwrapListResponse(res);
+        
+        if (filterType !== 'all') {
+          data = data.filter(n => n.type === filterType);
+        }
+        
+        setNotifications(data);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+        const errorData = error.response?.data;
+        const errorMessage = errorData?.message || errorData || 'Không thể tải danh sách thông báo';
+        showMessage.error(errorMessage);
+      } finally {
+        setLoading(false);
       }
-      
-      setNotifications(data);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Không thể tải danh sách thông báo';
-      showMessage.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleDelete = async (id) => {

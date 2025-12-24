@@ -20,15 +20,18 @@ const Login = () => {
     try {
       const result = await login(email, password);
       if (result.success) {
+        // Đăng nhập thành công, redirect về trang chủ
         navigate('/');
       } else {
-        console.log('Login error:', result.error);
+        // Đăng nhập thất bại, hiển thị lỗi
         setError(result.error);
-        showNotification(result.error, 'error');
+        // showNotification đã được gọi trong AuthContext.login
       }
     } catch (error) {
       console.error('Login error:', error);
-      const errorMessage = error.response?.data || 'Có lỗi xảy ra, vui lòng thử lại';
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data || 
+                          'Có lỗi xảy ra, vui lòng thử lại';
       setError(errorMessage);
       showNotification(errorMessage, 'error');
     } finally {

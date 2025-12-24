@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Layout, Row, Col, Card, Statistic, Spin, message, Table, Tag } from 'antd';
 import Sidebar from '../../components/Sidebar';
 import axiosPrivate from '../../api/axiosPrivate';
+import { unwrapResponse, unwrapListResponse } from '../../api/responseHelper';
 import { useNavigate } from 'react-router-dom';
 
 const { Content } = Layout;
@@ -25,23 +26,33 @@ const AdminDashboard = () => {
           axiosPrivate.get('/api/admin/stats'),
           axiosPrivate.get('/api/admin/recent-posts'),
           axiosPrivate.get('/api/admin/recent-users'),
-          axiosPrivate.get('/api/admin/notifications').catch(() => ({ data: [] })),
-          axiosPrivate.get('/api/admin/messages').catch(() => ({ data: [] })),
-          axiosPrivate.get('/api/admin/saved-searches').catch(() => ({ data: [] })),
-          axiosPrivate.get('/api/admin/appointments').catch(() => ({ data: [] }))
+          axiosPrivate.get('/api/admin/notifications').catch(() => ({ data: { data: [] } })),
+          axiosPrivate.get('/api/admin/messages').catch(() => ({ data: { data: [] } })),
+          axiosPrivate.get('/api/admin/saved-searches').catch(() => ({ data: { data: [] } })),
+          axiosPrivate.get('/api/admin/appointments').catch(() => ({ data: { data: [] } }))
         ]);
+        
+        const statsData = unwrapResponse(statsRes);
+        const notificationsData = unwrapListResponse(notificationsRes);
+        const messagesData = unwrapListResponse(messagesRes);
+        const savedSearchesData = unwrapListResponse(savedSearchesRes);
+        const appointmentsData = unwrapListResponse(appointmentsRes);
+        const postsData = unwrapListResponse(postsRes);
+        const usersData = unwrapListResponse(usersRes);
+        
         setStats({
-          ...(statsRes.data || {}),
-          totalNotifications: notificationsRes.data?.length || 0,
-          totalMessages: messagesRes.data?.length || 0,
-          totalSavedSearches: savedSearchesRes.data?.length || 0,
-          totalAppointments: appointmentsRes.data?.length || 0
+          ...(statsData || {}),
+          totalNotifications: notificationsData.length,
+          totalMessages: messagesData.length,
+          totalSavedSearches: savedSearchesData.length,
+          totalAppointments: appointmentsData.length
         });
-        setRecentPosts(postsRes.data || []);
-        setRecentUsers(usersRes.data || []);
+        setRecentPosts(postsData);
+        setRecentUsers(usersData);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
-        const errorMessage = err.response?.data?.message || err.response?.data || 'Không thể tải dữ liệu thống kê';
+        const errorData = err.response?.data;
+        const errorMessage = errorData?.message || errorData || 'Không thể tải dữ liệu thống kê';
         message.error(errorMessage);
       } finally {
         setLoading(false);
@@ -101,44 +112,44 @@ const AdminDashboard = () => {
               <Row gutter={16} style={{ marginTop: 24 }}>
                 <Col span={6}>
                   <Card>
-                    <Statistic title="Tổng người dùng" value={stats.totalUsers} valueStyle={{ color: '#1890ff' }} />
+                    <Statistic title="Tổng người dùng" value={stats.totalUsers} styles={{ content: { color: '#1890ff' } }} />
                   </Card>
                 </Col>
                 <Col span={6}>
                   <Card>
-                    <Statistic title="Tổng bài viết" value={stats.totalPosts} valueStyle={{ color: '#52c41a' }} />
+                    <Statistic title="Tổng bài viết" value={stats.totalPosts} styles={{ content: { color: '#52c41a' } }} />
                   </Card>
                 </Col>
                 <Col span={6}>
                   <Card>
-                    <Statistic title="Báo cáo" value={stats.totalReports} valueStyle={{ color: '#faad14' }} />
+                    <Statistic title="Báo cáo" value={stats.totalReports} styles={{ content: { color: '#faad14' } }} />
                   </Card>
                 </Col>
                 <Col span={6}>
                   <Card>
-                    <Statistic title="Chờ duyệt" value={stats.pendingApprovals} valueStyle={{ color: '#ff4d4f' }} />
+                    <Statistic title="Chờ duyệt" value={stats.pendingApprovals} styles={{ content: { color: '#ff4d4f' } }} />
                   </Card>
                 </Col>
               </Row>
               <Row gutter={16} style={{ marginTop: 16 }}>
                 <Col span={6}>
                   <Card>
-                    <Statistic title="Thông báo" value={stats.totalNotifications || 0} valueStyle={{ color: '#722ed1' }} />
+                    <Statistic title="Thông báo" value={stats.totalNotifications || 0} styles={{ content: { color: '#722ed1' } }} />
                   </Card>
                 </Col>
                 <Col span={6}>
                   <Card>
-                    <Statistic title="Tin nhắn" value={stats.totalMessages || 0} valueStyle={{ color: '#13c2c2' }} />
+                    <Statistic title="Tin nhắn" value={stats.totalMessages || 0} styles={{ content: { color: '#13c2c2' } }} />
                   </Card>
                 </Col>
                 <Col span={6}>
                   <Card>
-                    <Statistic title="Khu vực tìm kiếm" value={stats.totalSavedSearches || 0} valueStyle={{ color: '#eb2f96' }} />
+                    <Statistic title="Khu vực tìm kiếm" value={stats.totalSavedSearches || 0} styles={{ content: { color: '#eb2f96' } }} />
                   </Card>
                 </Col>
                 <Col span={6}>
                   <Card>
-                    <Statistic title="Lịch hẹn" value={stats.totalAppointments || 0} valueStyle={{ color: '#f5222d' }} />
+                    <Statistic title="Lịch hẹn" value={stats.totalAppointments || 0} styles={{ content: { color: '#f5222d' } }} />
                   </Card>
                 </Col>
               </Row>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Layout, Table, Button, Space, Modal, Form, Input, Select, message } from 'antd';
 import Sidebar from '../../components/Sidebar';
 import axiosPrivate from '../../api/axiosPrivate';
+import { unwrapListResponse } from '../../api/responseHelper';
 
 const { Content } = Layout;
 const { Option } = Select;
@@ -24,12 +25,16 @@ const LocationPage = () => {
         axiosPrivate.get('/api/admin/districts'),
         axiosPrivate.get('/api/admin/wards'),
       ]);
-      setCities(citiesRes.data || []);
-      setDistricts(districtsRes.data || []);
-      setWards(wardsRes.data || []);
+      const citiesData = unwrapListResponse(citiesRes);
+      const districtsData = unwrapListResponse(districtsRes);
+      const wardsData = unwrapListResponse(wardsRes);
+      setCities(citiesData);
+      setDistricts(districtsData);
+      setWards(wardsData);
     } catch (error) {
       console.error('Error fetching location data:', error);
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Lỗi khi tải dữ liệu';
+      const errorData = error.response?.data;
+      const errorMessage = errorData?.message || errorData || 'Lỗi khi tải dữ liệu';
       message.error(errorMessage);
     } finally {
       setLoading(false);
@@ -77,7 +82,8 @@ const LocationPage = () => {
         }
       } catch (error) {
         console.error('Error deleting location:', error);
-        const errorMessage = error.response?.data?.message || error.response?.data || 'Lỗi khi xóa';
+        const errorData = error.response?.data;
+        const errorMessage = errorData?.message || errorData || 'Lỗi khi xóa';
         message.error(errorMessage);
       }
     }
@@ -131,7 +137,8 @@ const LocationPage = () => {
       fetchData();
     } catch (error) {
       console.error('Error in location operation:', error);
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Lỗi khi thao tác';
+      const errorData = error.response?.data;
+      const errorMessage = errorData?.message || errorData || 'Lỗi khi thao tác';
       message.error(errorMessage);
     }
   };

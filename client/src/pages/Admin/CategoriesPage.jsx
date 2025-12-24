@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Layout, Table, Button, Space, Modal, Form, Input } from 'antd';
 import Sidebar from '../../components/Sidebar';
 import axiosPrivate from '../../api/axiosPrivate';
+import { unwrapListResponse, unwrapResponse } from '../../api/responseHelper';
 import MessageProvider from '../../components/MessageProvider';
 
 const { Content } = Layout;
@@ -17,10 +18,12 @@ const CategoriesPage = () => {
     const fetchCategories = async () => {
       try {
         const res = await axiosPrivate.get('/api/admin/categories');
-        setCategories(res.data || []);
+        const categoriesData = unwrapListResponse(res);
+        setCategories(categoriesData);
       } catch (error) {
         console.error('Error fetching categories:', error);
-        const errorMessage = error.response?.data?.message || error.response?.data || 'Không thể tải danh mục';
+        const errorData = error.response?.data;
+        const errorMessage = errorData?.message || errorData || 'Không thể tải danh mục';
         showMessage.error(errorMessage);
       } finally {
         setLoading(false);
@@ -69,9 +72,10 @@ const CategoriesPage = () => {
           icon: modal.edit.icon || '',
           isActive: modal.edit.isActive !== undefined ? modal.edit.isActive : true
         });
+        const updatedCategory = unwrapResponse(response);
         setCategories(prevCategories => 
           prevCategories.map(cat => 
-            cat.id === modal.edit.id ? response.data : cat
+            cat.id === modal.edit.id ? updatedCategory : cat
           )
         );
         showMessage.success('Cập nhật danh mục thành công');
@@ -83,7 +87,8 @@ const CategoriesPage = () => {
           icon: '',
           isActive: true
         });
-        setCategories(prevCategories => [...prevCategories, response.data]);
+        const newCategory = unwrapResponse(response);
+        setCategories(prevCategories => [...prevCategories, newCategory]);
         showMessage.success('Thêm danh mục thành công');
       }
       

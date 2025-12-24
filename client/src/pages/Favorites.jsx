@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import axiosPrivate from '../api/axiosPrivate';
+import { unwrapListResponse } from '../api/responseHelper';
 import PropertyCard from '../components/property/PropertyCard';
 
 const Favorites = () => {
@@ -17,7 +18,12 @@ const Favorites = () => {
     const fetchFavorites = async () => {
         try {
             const response = await axiosPrivate.get(`/api/favorites/user/${user.id}`);
-            setFavorites(response.data);
+            const favoritesData = unwrapListResponse(response);
+            // Parse từ Favorite objects (có chứa Post) thành Post objects
+            const posts = favoritesData
+                .filter(fav => fav.post != null)
+                .map(fav => fav.post);
+            setFavorites(posts);
         } catch (error) {
             console.error('Error fetching favorites:', error);
         } finally {

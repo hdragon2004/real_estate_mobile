@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Layout, Table, Tag, Space, Button, Modal, Descriptions } from 'antd';
 import Sidebar from '../../components/Sidebar';
 import axiosPrivate from '../../api/axiosPrivate';
+import { unwrapListResponse } from '../../api/responseHelper';
 import MessageProvider from '../../components/MessageProvider';
 
 const { Content } = Layout;
@@ -17,16 +18,18 @@ const MessagesPage = () => {
   }, []);
 
   const fetchMessages = async () => {
-    try {
-      const res = await axiosPrivate.get('/api/admin/messages');
-      setMessages(res.data || []);
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Không thể tải danh sách tin nhắn';
-      showMessage.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
+      try {
+        const res = await axiosPrivate.get('/api/admin/messages');
+        const messagesData = unwrapListResponse(res);
+        setMessages(messagesData);
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+        const errorData = error.response?.data;
+        const errorMessage = errorData?.message || errorData || 'Không thể tải danh sách tin nhắn';
+        showMessage.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
   };
 
   const handleDelete = async (id) => {

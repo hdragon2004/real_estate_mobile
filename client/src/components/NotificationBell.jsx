@@ -1,9 +1,10 @@
 import { Badge, Dropdown, List, message } from 'antd';
 import { BellOutlined, CloseOutlined } from '@ant-design/icons';
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useRef } from 'react';
 import axiosPrivate from '../api/axiosPrivate'; 
 import { AuthContext } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { unwrapListResponse } from '../api/responseHelper';
 import * as signalR from '@microsoft/signalr';
 
 const NotificationBell = () => {
@@ -19,28 +20,65 @@ const NotificationBell = () => {
     return () => clearInterval(interval);
   }, [user]);
 
+  const connectionRef = useRef(null);
+
   useEffect(() => {
     if (!user) return;
+    
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl('http://localhost:5134/notificationHub')
+      .withUrl('http://localhost:5134/notificationHub', {
+        accessTokenFactory: () => token
+      })
       .build();
+    
+    connectionRef.current = connection;
+      
     connection.on('ReceiveNotification', (notification) => {
-      console.log('Nhận notification real-time:', notification); // Debug
+      console.log('Nhận notification real-time:', notification);
       setNotifications(prev => [notification, ...prev]);
       setUnreadCount(prev => prev + 1);
       setShake(true);
       setTimeout(() => setShake(false), 1000);
     });
-    connection.start();
-    return () => { connection.stop(); };
+    
+    let isMounted = true;
+    
+    connection.start()
+      .then(() => {
+        if (isMounted) {
+          console.log('SignalR connected');
+        }
+      })
+      .catch(err => {
+        // Chỉ log lỗi nếu không phải lỗi thông thường
+        if (isMounted && err.message && 
+            !err.message.includes('stopped during negotiation') &&
+            !err.message.includes('before stop() was called')) {
+          console.error('SignalR connection error:', err);
+        }
+      });
+    
+    return () => { 
+      isMounted = false;
+      if (connectionRef.current) {
+        connectionRef.current.stop().catch(() => {
+          // Ignore stop errors
+        });
+        connectionRef.current = null;
+      }
+    };
   }, [user]);
 
   const fetchNotifications = async () => {
     if (!user) return;
     try {
-      const res = await axiosPrivate.get(`api/notifications?userId=${user.id}`);
-      setNotifications(res.data);
-      setUnreadCount(res.data.filter(n => !n.isRead).length);
+      const res = await axiosPrivate.get(`/api/notifications?userId=${user.id}`);
+      const notificationsData = unwrapListResponse(res);
+      setNotifications(notificationsData);
+      setUnreadCount(notificationsData.filter(n => !n.isRead).length);
     } catch (error) {
       console.error('Lỗi khi lấy thông báo:', error);
     }

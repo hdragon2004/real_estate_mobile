@@ -3,6 +3,7 @@ import { Layout, Table, Button, Tag, Space, Modal, Descriptions } from 'antd';
 import { EyeOutlined } from '@ant-design/icons';
 import Sidebar from '../../components/Sidebar';
 import axiosPrivate from '../../api/axiosPrivate';
+import { unwrapListResponse } from '../../api/responseHelper';
 import MessageProvider from '../../components/MessageProvider';
 
 const { Content } = Layout;
@@ -17,10 +18,12 @@ const ReportsPage = () => {
     const fetchReports = async () => {
       try {
         const res = await axiosPrivate.get('/api/admin/reports');
-        setReports(res.data || []);
+        const reportsData = unwrapListResponse(res);
+        setReports(reportsData);
       } catch (error) {
         console.error('Error fetching reports:', error);
-        const errorMessage = error.response?.data?.message || error.response?.data || 'Không thể tải danh sách báo cáo';
+        const errorData = error.response?.data;
+        const errorMessage = errorData?.message || errorData || 'Không thể tải danh sách báo cáo';
         showMessage.error(errorMessage);
       } finally {
         setLoading(false);

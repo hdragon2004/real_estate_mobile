@@ -1,4 +1,5 @@
 import axiosPrivate from './axiosPrivate';
+import { unwrapResponse } from './responseHelper';
 
 export const chatService = {
     // Lấy token cho Stream Chat
@@ -9,9 +10,10 @@ export const chatService = {
                 userName,
                 userImage
             });
-            return response.data;
+            return unwrapResponse(response);
         } catch (error) {
-            throw error.response?.data || error.message;
+            const errorData = error.response?.data;
+            throw new Error(errorData?.message || error.message || 'Không thể lấy token');
         }
     },
 
@@ -19,9 +21,10 @@ export const chatService = {
     ensureUsers: async (userIds) => {
         try {
             const response = await axiosPrivate.post('/api/chat/ensure-users', { userIds });
-            return response.data;
+            return unwrapResponse(response);
         } catch (error) {
-            throw error.response?.data || error.message;
+            const errorData = error.response?.data;
+            throw new Error(errorData?.message || error.message || 'Không thể đảm bảo users');
         }
     },
 
@@ -29,12 +32,10 @@ export const chatService = {
     deleteChannel: async (type, id, hardDelete = true) => {
         try {
             const response = await axiosPrivate.delete(`/api/chat/channels/${encodeURIComponent(type)}/${encodeURIComponent(id)}?hardDelete=${hardDelete}`);
-            return response.data;
+            return unwrapResponse(response);
         } catch (error) {
-            throw error.response?.data || error.message;
+            const errorData = error.response?.data;
+            throw new Error(errorData?.message || error.message || 'Không thể xóa channel');
         }
     },
-
-
-    
 };

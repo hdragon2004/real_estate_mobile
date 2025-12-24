@@ -4,6 +4,7 @@ import axiosClient from "../api/axiosClient";
 import { useAuth } from "../auth/AuthContext";
 import "./Home.css";
 import axiosPrivate from "../api/axiosPrivate";
+import { unwrapListResponse } from "../api/responseHelper";
 import PropertyCard from "../components/property/PropertyCard";
 import { isProRole } from "../utils/roleUtils";
 
@@ -44,10 +45,14 @@ const Home = () => {
         axiosClient.get("/api/areas")
       ]);
       
-      setPosts(postsRes.data);
-      setFilteredPosts(postsRes.data);
-      setCategories(categoriesRes.data);
-      setAreas(areasRes.data);
+      const postsData = unwrapListResponse(postsRes);
+      const categoriesData = unwrapListResponse(categoriesRes);
+      const areasData = unwrapListResponse(areasRes);
+      
+      setPosts(postsData);
+      setFilteredPosts(postsData);
+      setCategories(categoriesData);
+      setAreas(areasData);
     } catch (err) {
       setError("Không thể tải dữ liệu");
       console.error("Error fetching data:", err);
