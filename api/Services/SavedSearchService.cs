@@ -3,13 +3,11 @@ using Microsoft.Extensions.Logging;
 using RealEstateHubAPI.DTOs;
 using RealEstateHubAPI.Model;
 using RealEstateHubAPI.Models;
+using RealEstateHubAPI.Utils;
 
 namespace RealEstateHubAPI.Services
 {
-    /// <summary>
-    /// Service implementation cho SavedSearch
-    /// Xử lý logic nghiệp vụ cho khu vực tìm kiếm yêu thích
-    /// </summary>
+
     public class SavedSearchService : ISavedSearchService
     {
         private readonly ApplicationDbContext _context;
@@ -23,9 +21,7 @@ namespace RealEstateHubAPI.Services
             _logger = logger;
         }
 
-        /// <summary>
-        /// Tạo SavedSearch mới cho user
-        /// </summary>
+
         public async Task<SavedSearchDto> CreateSavedSearchAsync(int userId, CreateSavedSearchDto dto)
         {
             // Validate MinPrice <= MaxPrice
@@ -45,7 +41,7 @@ namespace RealEstateHubAPI.Services
                 MaxPrice = dto.MaxPrice,
                 EnableNotification = dto.EnableNotification,
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTimeHelper.GetVietnamNow()
             };
 
             _context.SavedSearches.Add(savedSearch);
@@ -56,9 +52,7 @@ namespace RealEstateHubAPI.Services
             return MapToDto(savedSearch);
         }
 
-        /// <summary>
-        /// Lấy tất cả SavedSearch của user (chỉ active)
-        /// </summary>
+
         public async Task<IEnumerable<SavedSearchDto>> GetUserSavedSearchesAsync(int userId)
         {
             var savedSearches = await _context.SavedSearches
@@ -69,9 +63,7 @@ namespace RealEstateHubAPI.Services
             return savedSearches.Select(MapToDto);
         }
 
-        /// <summary>
-        /// Xóa SavedSearch (chỉ user sở hữu mới xóa được)
-        /// </summary>
+
         public async Task<bool> DeleteSavedSearchAsync(int savedSearchId, int userId)
         {
             var savedSearch = await _context.SavedSearches
@@ -91,10 +83,7 @@ namespace RealEstateHubAPI.Services
             return true;
         }
 
-        /// <summary>
-        /// Tìm các Post phù hợp với SavedSearch
-        /// Sử dụng Haversine formula để tính khoảng cách
-        /// </summary>
+
         public async Task<IEnumerable<PostDto>> FindMatchingPostsAsync(int savedSearchId, int userId)
         {
             // Lấy SavedSearch và kiểm tra quyền sở hữu
@@ -112,7 +101,7 @@ namespace RealEstateHubAPI.Services
                 .Include(p => p.User)
                 .Include(p => p.Images)
                 .Where(p => p.Status == "Active" &&
-                    (p.ExpiryDate == null || p.ExpiryDate > DateTime.Now) &&
+                    (p.ExpiryDate == null || p.ExpiryDate > DateTimeHelper.GetVietnamNow()) &&
                     p.Latitude != null &&
                     p.Longitude != null &&
                     p.TransactionType == savedSearch.TransactionType)
@@ -147,10 +136,7 @@ namespace RealEstateHubAPI.Services
             return matchingPosts.Select(p => MapPostToDto(p));
         }
 
-        /// <summary>
-        /// Kiểm tra và tạo thông báo cho các bài đăng mới phù hợp với SavedSearch
-        /// Được gọi khi có bài đăng mới được tạo hoặc approved
-        /// </summary>
+
         public async Task CheckAndCreateNotificationsForNewPostAsync(int postId)
         {
             var post = await _context.Posts
@@ -210,7 +196,7 @@ namespace RealEstateHubAPI.Services
                             Title = "Bài đăng mới trong khu vực quan tâm",
                             Message = $"Có bài đăng mới phù hợp với khu vực tìm kiếm của bạn: {post.Title}",
                             Type = "SavedSearch",
-                            CreatedAt = DateTime.UtcNow,
+                            CreatedAt = DateTimeHelper.GetVietnamNow(),
                             IsRead = false
                         };
 
@@ -219,9 +205,6 @@ namespace RealEstateHubAPI.Services
                         _logger.LogInformation(
                             $"Created SavedSearch notification for SavedSearch {savedSearch.Id}, Post {postId}, User {savedSearch.UserId}");
                         
-                        // Gửi notification real-time qua SignalR (nếu có hub context)
-                        // Note: Background service cần inject IHubContext qua IServiceProvider
-                        // Được xử lý trong PostController hoặc AdminController khi approve post
                     }
                 }
             }
@@ -229,10 +212,6 @@ namespace RealEstateHubAPI.Services
             await _context.SaveChangesAsync();
         }
 
-        /// <summary>
-        /// Tính khoảng cách giữa 2 điểm trên Trái Đất bằng Haversine formula
-        /// Trả về khoảng cách tính bằng km
-        /// </summary>
         private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
         {
             const double R = 6371; // Bán kính Trái Đất (km)
@@ -250,17 +229,11 @@ namespace RealEstateHubAPI.Services
             return distance;
         }
 
-        /// <summary>
-        /// Chuyển đổi độ sang radian
-        /// </summary>
         private double ToRadians(double degrees)
         {
             return degrees * (Math.PI / 180);
         }
 
-        /// <summary>
-        /// Map SavedSearch entity sang DTO
-        /// </summary>
         private SavedSearchDto MapToDto(SavedSearch savedSearch)
         {
             return new SavedSearchDto
@@ -279,9 +252,6 @@ namespace RealEstateHubAPI.Services
             };
         }
 
-        /// <summary>
-        /// Map Post entity sang PostDto
-        /// </summary>
         private PostDto MapPostToDto(Post post)
         {
             return new PostDto
@@ -290,7 +260,6 @@ namespace RealEstateHubAPI.Services
                 Title = post.Title,
                 Description = post.Description,
                 Price = post.Price,
-                PriceUnit = post.PriceUnit,
                 TransactionType = post.TransactionType,
                 Status = post.Status,
                 Created = post.Created,

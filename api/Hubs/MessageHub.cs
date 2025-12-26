@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using RealEstateHubAPI.Utils;
 using System.Security.Claims;
 
 namespace RealEstateHubAPI.Hubs
@@ -104,7 +105,7 @@ namespace RealEstateHubAPI.Hubs
                     ToUserId = toUserId,
                     Message = message,
                     PostId = postId,
-                    SentTime = DateTime.UtcNow
+                    SentTime = DateTimeHelper.GetVietnamNow()
                 });
 
                 // Xác nhận cho người gửi rằng tin nhắn đã được gửi
@@ -112,7 +113,7 @@ namespace RealEstateHubAPI.Hubs
                 {
                     ToUserId = toUserId,
                     Message = message,
-                    SentTime = DateTime.UtcNow
+                    SentTime = DateTimeHelper.GetVietnamNow()
                 });
 
                 _logger.LogInformation($"Message sent from {fromUserId} to {toUserId}");

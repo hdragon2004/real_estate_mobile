@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using RealEstateHubAPI.DTOs;
 using RealEstateHubAPI.Model;
 using RealEstateHubAPI.Models;
+using RealEstateHubAPI.Utils;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Mvc.Routing;
@@ -95,7 +96,8 @@ namespace RealEstateHubAPI.Controllers
             {
                 if (isApproved.Value)
                 {
-                    var oneDayAgo = DateTime.Now.AddDays(-1);
+                    var now = DateTimeHelper.GetVietnamNow();
+                    var oneDayAgo = now.AddDays(-1);
                     posts = posts.Where(p => p.Status == "Active" && (p.ExpiryDate == null || p.ExpiryDate > oneDayAgo));
                 }
                 else
@@ -106,8 +108,9 @@ namespace RealEstateHubAPI.Controllers
             else
             {
                 // Mặc định chỉ hiển thị bài viết đã duyệt (Active) và chưa hết hạn
+                var now = DateTimeHelper.GetVietnamNow();
                 posts = posts.Where(p => p.Status == "Active" &&
-                    (p.ExpiryDate == null || p.ExpiryDate > DateTime.Now));
+                    (p.ExpiryDate == null || p.ExpiryDate > now));
             }
 
             // Filter by transaction type
@@ -171,12 +174,13 @@ namespace RealEstateHubAPI.Controllers
                 }
 
                 // Lấy tất cả posts đã approved và còn hạn
+                var now = DateTimeHelper.GetVietnamNow();
                 var allPosts = await _context.Posts
                     .Include(p => p.Category)
                     .Include(p => p.User)
                     .Include(p => p.Images)
                     .Where(p => p.Status == "Active" &&
-                        (p.ExpiryDate == null || p.ExpiryDate > DateTime.Now) &&
+                        (p.ExpiryDate == null || p.ExpiryDate > now) &&
                         p.Latitude != null &&
                         p.Longitude != null)
                     .ToListAsync();
@@ -205,7 +209,7 @@ namespace RealEstateHubAPI.Controllers
                         Title = p.Title,
                         Description = p.Description,
                         Price = p.Price,
-                        PriceUnit = p.PriceUnit,
+                        // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
                         TransactionType = p.TransactionType,
                         Status = p.Status,
                         Created = p.Created,
@@ -325,7 +329,7 @@ namespace RealEstateHubAPI.Controllers
                     limit = 5; windowDays = 7; break;
             }
 
-            var cutoff = DateTime.Now.AddDays(-windowDays);
+            var cutoff = DateTimeHelper.GetVietnamNow().AddDays(-windowDays);
             var countInWindow = _context.Posts
                 .Where(p => p.UserId == dto.UserId && p.Created >= cutoff)
                 .Count();
@@ -385,14 +389,16 @@ namespace RealEstateHubAPI.Controllers
                 }
 
                 // Tính toán thời gian hết hạn dựa trên role (user đã được verify ở trên)
+                // Sử dụng DateTimeHelper để đảm bảo timezone đúng
                 DateTime? expiryDate = null;
                 var roleNameForExpiry = user.Role ?? "User";
+                var now = DateTimeHelper.GetVietnamNow();
                 expiryDate = roleNameForExpiry switch
                 {
-                    "Pro_1" => DateTime.Now.AddDays(30),
-                    "Pro_3" => DateTime.Now.AddDays(90),
-                    "Pro_12" => DateTime.Now.AddDays(365),
-                    _ => DateTime.Now.AddDays(7)
+                    "Pro_1" => now.AddDays(30),
+                    "Pro_3" => now.AddDays(90),
+                    "Pro_12" => now.AddDays(365),
+                    _ => now.AddDays(7)
                 };
 
                 var post = new Post
@@ -401,11 +407,11 @@ namespace RealEstateHubAPI.Controllers
                     Description = dto.Description,
                     Price = dto.Price,
                     TransactionType = transactionType,
-                    PriceUnit = dto.PriceUnit,
+                    // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
                     Status = "Pending", // Luôn là "Pending" khi tạo mới, chỉ admin mới có thể thay đổi
                     Street_Name = dto.Street_Name,
                     Area_Size = dto.Area_Size,
-                    Created = DateTime.Now,
+                    Created = DateTimeHelper.GetVietnamNow(),
                     CategoryId = dto.CategoryId,
                     UserId = GetUserId() ?? dto.UserId,
                     IsApproved = false, // Giữ lại để tương thích ngược, nhưng ưu tiên dùng Status
@@ -624,7 +630,7 @@ namespace RealEstateHubAPI.Controllers
             post.Title = updateDto.Title;
             post.Description = updateDto.Description;
             post.Price = updateDto.Price;
-            post.PriceUnit = updateDto.PriceUnit;
+            // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
             post.TransactionType = updateDto.TransactionType;
             post.Status = updateDto.Status; 
             post.Street_Name = updateDto.Street_Name;
@@ -816,7 +822,8 @@ namespace RealEstateHubAPI.Controllers
                 }
 
                 // Only return Active posts (approved posts) for public search
-                query = query.Where(p => p.Status == "Active" && (p.ExpiryDate == null || p.ExpiryDate > DateTime.Now.AddDays(-1)));
+                var now = DateTimeHelper.GetVietnamNow();
+                query = query.Where(p => p.Status == "Active" && (p.ExpiryDate == null || p.ExpiryDate > now.AddDays(-1)));
 
                 var posts = await query.ToListAsync();
                 
@@ -916,7 +923,8 @@ namespace RealEstateHubAPI.Controllers
             // Nếu không phải bài viết của chính mình, chỉ hiển thị các bài đã duyệt (Active)
             if (!isOwnPosts)
             {
-                var oneDayAgo = DateTime.Now.AddDays(-1);
+                var now = DateTimeHelper.GetVietnamNow();
+                var oneDayAgo = now.AddDays(-1);
                 query = query.Where(p => p.Status == "Active" && (p.ExpiryDate == null || p.ExpiryDate > oneDayAgo));
             }
 
@@ -954,8 +962,8 @@ namespace RealEstateHubAPI.Controllers
                     UserId = userId.Value,
                     FormData = dto.FormData,
                     CurrentStep = dto.CurrentStep,
-                    CreatedAt = DateTime.Now,
-                    LastModified = DateTime.Now
+                    CreatedAt = DateTimeHelper.GetVietnamNow(),
+                    LastModified = DateTimeHelper.GetVietnamNow()
                 };
 
                 var cacheEntryOptions = new MemoryCacheEntryOptions()
@@ -1058,7 +1066,7 @@ namespace RealEstateHubAPI.Controllers
                 {
                     existingDraft.FormData = dto.FormData;
                     existingDraft.CurrentStep = dto.CurrentStep;
-                    existingDraft.LastModified = DateTime.Now;
+                    existingDraft.LastModified = DateTimeHelper.GetVietnamNow();
 
                     var cacheEntryOptions = new MemoryCacheEntryOptions()
                         .SetSlidingExpiration(TimeSpan.FromDays(7));

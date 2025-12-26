@@ -10,7 +10,9 @@ namespace RealEstateHubAPI.Models
         public ReportType Type { get; set; }
         public string? Other { get; set; }
         public string? Phone { get; set; }
-        public DateTime CreatedReport { get; set; } = DateTime.Now;
+        // Note: Default value sẽ được set trong constructor hoặc khi tạo entity
+        // Sử dụng DateTimeHelper.GetVietnamNow() khi tạo mới
+        public DateTime CreatedReport { get; set; }
         public bool IsHandled { get; set; }
 
         public User? User { get; set; }

@@ -12,7 +12,7 @@ using RealEstateHubAPI.Model;
 namespace RealEstateHubAPI.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251216141147_InitDatabase")]
+    [Migration("20251225144846_InitDatabase")]
     partial class InitDatabase
     {
         /// <inheritdoc />
@@ -78,6 +78,9 @@ namespace RealEstateHubAPI.Migrations
 
                     b.Property<string>("ConversationId")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ImageUrl")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsRead")
@@ -172,9 +175,6 @@ namespace RealEstateHubAPI.Migrations
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("PriceUnit")
-                        .HasColumnType("int");
 
                     b.Property<int?>("SoPhongNgu")
                         .HasColumnType("int");

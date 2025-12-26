@@ -5,6 +5,7 @@ using RealEstateHubAPI.DTOs;
 using RealEstateHubAPI.Hubs;
 using RealEstateHubAPI.Model;
 using RealEstateHubAPI.Models;
+using RealEstateHubAPI.Utils;
 
 namespace RealEstateHubAPI.Services
 {
@@ -28,7 +29,7 @@ namespace RealEstateHubAPI.Services
         {
             // Validate: AppointmentTime phải trong tương lai
             // Frontend gửi local time, cần so sánh với local time hiện tại
-            var now = DateTime.Now; // Local time để so sánh với local time từ frontend
+            var now = DateTimeHelper.GetVietnamNow(); // Vietnam local time để so sánh với local time từ frontend
             if (dto.AppointmentTime <= now)
             {
                 throw new ArgumentException("AppointmentTime must be in the future");
@@ -61,7 +62,7 @@ namespace RealEstateHubAPI.Services
                 ReminderMinutes = dto.ReminderMinutes,
                 IsNotified = false,
                 Status = AppointmentStatus.PENDING, // Mặc định là PENDING khi tạo mới
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTimeHelper.GetVietnamNow()
             };
 
             _context.Appointments.Add(appointment);
@@ -82,7 +83,7 @@ namespace RealEstateHubAPI.Services
                 Title = "Yêu cầu lịch hẹn mới",
                 Message = $"Bạn có yêu cầu lịch hẹn '{dto.Title}' vào lúc {dto.AppointmentTime:dd/MM/yyyy HH:mm}. Vui lòng chấp nhận hoặc từ chối.",
                 Type = "AppointmentRequest",
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = DateTimeHelper.GetVietnamNow(),
                 IsRead = false
             };
 
@@ -198,7 +199,7 @@ namespace RealEstateHubAPI.Services
                 Title = "Lịch hẹn đã được chấp nhận",
                 Message = $"Lịch hẹn '{appointment.Title}' vào lúc {appointment.AppointmentTime:dd/MM/yyyy HH:mm} đã được chấp nhận.",
                 Type = "AppointmentConfirmed",
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = DateTimeHelper.GetVietnamNow(),
                 IsRead = false
             };
 
@@ -258,7 +259,7 @@ namespace RealEstateHubAPI.Services
                 Title = "Lịch hẹn đã bị từ chối",
                 Message = $"Lịch hẹn '{appointment.Title}' vào lúc {appointment.AppointmentTime:dd/MM/yyyy HH:mm} đã bị từ chối.",
                 Type = "AppointmentRejected",
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = DateTimeHelper.GetVietnamNow(),
                 IsRead = false
             };
 
@@ -291,7 +292,8 @@ namespace RealEstateHubAPI.Services
 
         public async Task<IEnumerable<Appointment>> GetDueAppointmentsAsync()
         {
-            var now = DateTime.UtcNow;
+            // Sử dụng Vietnam time để so sánh với AppointmentTime (cũng là Vietnam time)
+            var now = DateTimeHelper.GetVietnamNow();
 
             // Chỉ gửi reminder cho appointments đã được chấp nhận (ACCEPTED)
             var dueAppointments = await _context.Appointments

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using RealEstateHubAPI.DTOs;
+using RealEstateHubAPI.Utils;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
 
@@ -95,7 +96,7 @@ namespace RealEstateHubAPI.Services
 - Loại BĐS: {dto.Category ?? "Không xác định"}
 - Nhu cầu: {(dto.TransactionType == "Rent" ? "Cho thuê" : "Bán")}
 - Địa chỉ: {dto.Address ?? "Không rõ"}
-- Giá: {(dto.Price ?? 0).ToString("0.##")} {(dto.PriceUnit == 0 ? "tỷ" : "triệu")} VNĐ
+- Giá: {CurrencyFormatter.FormatCurrencyWithUnit(dto.Price ?? 0)}
 - Diện tích: {(dto.AreaSize ?? 0).ToString("0.##")} m²
 - Số phòng ngủ: {dto.Bedrooms ?? 0}
 - Số phòng tắm: {dto.Bathrooms ?? 0}
@@ -677,7 +678,7 @@ Ràng buộc xuất:
 Loại: {dto.Category ?? "N/A"}
 Nhu cầu: {(dto.TransactionType == "Rent" ? "Cho thuê" : "Bán")}
 Địa chỉ: {dto.Address ?? "N/A"}
-Giá: {(dto.Price ?? 0).ToString("0.##")} {(dto.PriceUnit == 0 ? "tỷ" : "triệu")} VNĐ
+Giá: {CurrencyFormatter.FormatCurrencyWithUnit(dto.Price ?? 0)}
 Diện tích: {(dto.AreaSize ?? 0).ToString("0.##")} m²
 Phòng ngủ: {dto.Bedrooms ?? 0}
 Phòng tắm: {dto.Bathrooms ?? 0}
@@ -783,7 +784,7 @@ Dữ liệu bất động sản:
 - Loại: {dto.Category ?? "N/A"}
 - Nhu cầu: {(dto.TransactionType == "Rent" ? "Cho thuê" : "Bán")}
 - Địa chỉ: {dto.Address ?? "N/A"}
-- Giá: {(dto.Price ?? 0).ToString("0.##")} {(dto.PriceUnit == 0 ? "tỷ" : "triệu")} VNĐ
+- Giá: {CurrencyFormatter.FormatCurrencyWithUnit(dto.Price ?? 0)}
 - Diện tích: {(dto.AreaSize ?? 0).ToString("0.##")} m²
 - Phòng ngủ: {dto.Bedrooms ?? 0}, Phòng tắm: {dto.Bathrooms ?? 0}
 - Tầng: {dto.Floors ?? 0}, Hướng: {dto.Direction ?? "N/A"}

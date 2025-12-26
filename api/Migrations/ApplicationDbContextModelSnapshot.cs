@@ -77,6 +77,9 @@ namespace RealEstateHubAPI.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("IsRead")
                         .HasColumnType("bit");
 
@@ -169,9 +172,6 @@ namespace RealEstateHubAPI.Migrations
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("PriceUnit")
-                        .HasColumnType("int");
 
                     b.Property<int?>("SoPhongNgu")
                         .HasColumnType("int");

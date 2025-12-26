@@ -25,7 +25,7 @@ namespace RealEstateHubAPI.Models
         public int ReminderMinutes { get; set; }
         public bool IsNotified { get; set; } = false;
         public AppointmentStatus Status { get; set; } = AppointmentStatus.PENDING; // Mặc định là PENDING
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; }
 
         // Navigation properties
         [ForeignKey("UserId")]

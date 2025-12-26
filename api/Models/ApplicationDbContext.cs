@@ -61,9 +61,6 @@ namespace RealEstateHubAPI.Model
                 .Property(p => p.TransactionType)
                 .HasConversion<int>();
 
-            modelBuilder.Entity<Post>()
-                .Property(p => p.PriceUnit)
-                .HasConversion<int>();
 
             modelBuilder.Entity<Post>()
                 .Property(p => p.Status)

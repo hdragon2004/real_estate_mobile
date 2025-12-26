@@ -2,6 +2,7 @@ using RealEstateHubAPI.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
 using RealEstateHubAPI.Model;
+using RealEstateHubAPI.Utils;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.AspNetCore.Hosting;
 using System.IO;
@@ -309,7 +310,7 @@ namespace RealEstateHubAPI.Services
                     Message = $"Giao dịch của bạn đã được xử lý thành công. Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!",
                     Type = "payment_success",
                     IsRead = false,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTimeHelper.GetVietnamNow()
                 });
                 
                 _logger.LogInformation($"Added payment_success notification for user {userId}");
@@ -330,7 +331,7 @@ namespace RealEstateHubAPI.Services
                         Message = $"Tài khoản của bạn đã được nâng cấp lên {planName}.",
                         Type = "membership_upgrade",
                         IsRead = false,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTimeHelper.GetVietnamNow()
                     });
                     _logger.LogInformation($"Added membership/role upgrade notification for user {userId}");
                 }

@@ -19,7 +19,11 @@ namespace RealEstateHubAPI.Model
 
         public string Content { get; set; }
 
-        public DateTime SentTime { get; set; } = DateTime.Now;
+        public string? ImageUrl { get; set; } 
+        
+        // Note: Default value sẽ được set trong constructor hoặc khi tạo entity
+        // Sử dụng DateTimeHelper.GetVietnamNow() khi tạo mới
+        public DateTime SentTime { get; set; }
         
         public bool IsRead { get; set; } = false;
         

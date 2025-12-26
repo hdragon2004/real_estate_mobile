@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.SignalR;
 using RealEstateHubAPI.Hubs;
 using RealEstateHubAPI.Model;
 using RealEstateHubAPI.Models;
+using RealEstateHubAPI.Utils;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,8 +30,9 @@ public class ExpireNotificationService : BackgroundService
                 var hub = scope.ServiceProvider.GetRequiredService<IHubContext<NotificationHub>>();
 
                 // Sắp hết hạn
+                var now = DateTimeHelper.GetVietnamNow();
                 var soonExpiredPosts = await context.Posts
-                    .Where(p => p.ExpiryDate != null && p.ExpiryDate > DateTime.Now && p.ExpiryDate <= DateTime.Now.AddDays(1))
+                    .Where(p => p.ExpiryDate != null && p.ExpiryDate > now && p.ExpiryDate <= now.AddDays(1))
                     .ToListAsync();
 
                 foreach (var post in soonExpiredPosts)
@@ -54,7 +56,7 @@ public class ExpireNotificationService : BackgroundService
                             Message = $"Bài đăng '{post.Title}' của bạn sẽ hết hạn vào {post.ExpiryDate:dd/MM/yyyy}.",
                             Type = "expire",
                             IsRead = false,
-                            CreatedAt = DateTime.Now
+                            CreatedAt = DateTimeHelper.GetVietnamNow()
                         };
                         context.Notifications.Add(notification);
                         await context.SaveChangesAsync();
@@ -64,7 +66,7 @@ public class ExpireNotificationService : BackgroundService
 
                 // Đã hết hạn
                 var expiredPosts = await context.Posts
-                    .Where(p => p.ExpiryDate != null && p.ExpiryDate <= DateTime.Now)
+                    .Where(p => p.ExpiryDate != null && p.ExpiryDate <= now)
                     .ToListAsync();
 
                 foreach (var post in expiredPosts)
@@ -88,7 +90,7 @@ public class ExpireNotificationService : BackgroundService
                             Message = $"Bài đăng '{post.Title}' của bạn đã hết hạn.",
                             Type = "expired",
                             IsRead = false,
-                            CreatedAt = DateTime.Now
+                            CreatedAt = DateTimeHelper.GetVietnamNow()
                         };
                         context.Notifications.Add(notification);
                         await context.SaveChangesAsync();

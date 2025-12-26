@@ -6,6 +6,7 @@ using RealEstateHubAPI.Hubs;
 using RealEstateHubAPI.Model;
 using RealEstateHubAPI.Models;
 using RealEstateHubAPI.Services;
+using RealEstateHubAPI.Utils;
 
 namespace RealEstateHubAPI.Services
 {
@@ -78,7 +79,7 @@ namespace RealEstateHubAPI.Services
                             Title = "Nhắc lịch hẹn",
                             Message = $"Bạn có lịch hẹn '{appointment.Title}' vào lúc {appointment.AppointmentTime:dd/MM/yyyy HH:mm}",
                             Type = "Reminder", // Loại thông báo: Nhắc lịch hẹn
-                            CreatedAt = DateTime.UtcNow,
+                            CreatedAt = DateTimeHelper.GetVietnamNow(),
                             IsRead = false
                         };
 

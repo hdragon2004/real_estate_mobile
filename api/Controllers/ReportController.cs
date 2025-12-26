@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using RealEstateHubAPI.DTOs;
 using RealEstateHubAPI.Model;
 using RealEstateHubAPI.Models;
+using RealEstateHubAPI.Utils;
 using static RealEstateHubAPI.Models.Report;
 
 namespace RealEstateHubAPI.Controllers
@@ -91,7 +92,7 @@ namespace RealEstateHubAPI.Controllers
                 Type = dto.Type,
                 Other = dto.Other,
                 Phone = dto.Phone,
-                CreatedReport = DateTime.UtcNow
+                CreatedReport = DateTimeHelper.GetVietnamNow()
             };
 
             _context.Reports.Add(report);

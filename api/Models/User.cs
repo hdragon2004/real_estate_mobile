@@ -11,7 +11,7 @@ namespace RealEstateHubAPI.Model
         [Required(AllowEmptyStrings = true)]
         public string Password { get; set; } = "";
         public string? AvatarUrl { get; set; }
-        public DateTime Create { get; set; } = DateTime.Now;
+        public DateTime Create { get; set; }
         public bool IsLocked { get; set; }
 
         public string Role { get; set; } = "User";

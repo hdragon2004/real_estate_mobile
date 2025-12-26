@@ -17,6 +17,7 @@ namespace RealEstateHubAPI.DTOs
         public string? PostUserName { get; set; }
         public string? ConversationId { get; set; }
         public string Content { get; set; }
+        public string? ImageUrl { get; set; } // URL của hình ảnh (nếu tin nhắn là hình ảnh)
         public DateTime SentTime { get; set; }
         public bool IsRead { get; set; } = false;
     }
@@ -28,9 +29,10 @@ namespace RealEstateHubAPI.DTOs
         
         public int? PostId { get; set; } // Optional - có thể chat không liên quan đến post
         
-        [Required(ErrorMessage = "Content is required")]
         [StringLength(1000, ErrorMessage = "Message content cannot exceed 1000 characters")]
-        public string Content { get; set; }
+        public string? Content { get; set; } // Optional - có thể rỗng nếu có ImageUrl
+        
+        public string? ImageUrl { get; set; } // Optional - URL của hình ảnh (nếu tin nhắn là hình ảnh)
     }
 
     public class TypingIndicatorDto

@@ -12,7 +12,7 @@ namespace RealEstateHubAPI.DTOs
         public string Title { get; set; }
         public string Description { get; set; }
         public decimal Price { get; set; }
-        public PriceUnit PriceUnit { get; set; }
+        // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
         public TransactionType TransactionType { get; set; }
         public string Status { get; set; }
         public DateTime Created { get; set; }
@@ -61,8 +61,7 @@ namespace RealEstateHubAPI.DTOs
         [Required]
         public decimal Price { get; set; }
         
-        [Required]
-        public PriceUnit PriceUnit { get; set; }
+        // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
         [Required]
         public TransactionType TransactionType  { get; set; }
         [Required]
@@ -115,8 +114,7 @@ namespace RealEstateHubAPI.DTOs
         [Required]
         public decimal Price { get; set; }
 
-        [Required]
-        public PriceUnit PriceUnit { get; set; }
+        // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
         [Required]
         public TransactionType TransactionType { get; set; }
         public string? Status { get; set; }

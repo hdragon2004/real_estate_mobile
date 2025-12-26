@@ -28,7 +28,9 @@ namespace RealEstateHubAPI.Models
         /// - "Reminder": Nhắc lịch hẹn (Appointment reminder)
         /// </summary>
         public string Type { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        // Note: Default value sẽ được set trong constructor hoặc khi tạo entity
+        // Sử dụng DateTimeHelper.GetVietnamNow() khi tạo mới
+        public DateTime CreatedAt { get; set; }
         public bool IsRead { get; set; } = false;
 
         // Navigation properties

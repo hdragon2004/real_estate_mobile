@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using RealEstateHubAPI.Model;
 using RealEstateHubAPI.Models;
 using RealEstateHubAPI.Repositories;
+using RealEstateHubAPI.Utils;
 using System.Security.Claims;
 
 namespace RealEstateHubAPI.Controllers
@@ -76,7 +77,7 @@ namespace RealEstateHubAPI.Controllers
                 {
                     UserId = userId,
                     PostId = postId,
-                    CreatedFavorite = DateTime.Now
+                    CreatedFavorite = DateTimeHelper.GetVietnamNow()
                 };
 
                 _context.Favorites.Add(favorite);

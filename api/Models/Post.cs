@@ -16,11 +16,14 @@ namespace RealEstateHubAPI.Model
         
         public decimal Price { get; set; }
         
-        public PriceUnit PriceUnit { get; set; }
+        // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
+        // Sử dụng CurrencyFormatter.FormatCurrency(Price) để hiển thị
        
         public TransactionType TransactionType { get; set; }
         public string Status { get; set; } = "Pending"; 
-        public DateTime Created { get; set; } = DateTime.Now;
+        // Note: Default value sẽ được set trong constructor hoặc khi tạo entity
+        // Sử dụng DateTimeHelper.GetVietnamNow() khi tạo mới
+        public DateTime Created { get; set; }
         public float Area_Size { get; set; }
         public string Street_Name { get; set; }
         public string? ImageURL { get; set; } 

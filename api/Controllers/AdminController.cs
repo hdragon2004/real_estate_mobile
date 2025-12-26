@@ -9,6 +9,7 @@ using RealEstateHubAPI.Repositories;
 using RealEstateHubAPI.DTOs;
 using RealEstateHubAPI.seeds;
 using RealEstateHubAPI.Services;
+using RealEstateHubAPI.Utils;
 using Microsoft.Extensions.Logging;
 
 namespace RealEstateHubAPI.Controllers
@@ -99,12 +100,13 @@ namespace RealEstateHubAPI.Controllers
             
             // Set expiry date based on user's role
             var roleName = post.User.Role ?? "User";
+            var now = DateTimeHelper.GetVietnamNow();
             post.ExpiryDate = roleName switch
             {
-                "Pro_1" => DateTime.Now.AddDays(30),
-                "Pro_3" => DateTime.Now.AddDays(90),
-                "Pro_12" => DateTime.Now.AddDays(365),
-                _ => DateTime.Now.AddDays(7)
+                "Pro_1" => now.AddDays(30),
+                "Pro_3" => now.AddDays(90),
+                "Pro_12" => now.AddDays(365),
+                _ => now.AddDays(7)
             };
             
             await _context.SaveChangesAsync();
@@ -121,7 +123,7 @@ namespace RealEstateHubAPI.Controllers
                 Message = $"Tin đăng '{post.Title}' của bạn đã được admin duyệt thành công.",
                 Type = "approved",
                 IsRead = false,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTimeHelper.GetVietnamNow()
             };
             _context.Notifications.Add(notification);
             await _context.SaveChangesAsync();
@@ -229,7 +231,7 @@ namespace RealEstateHubAPI.Controllers
                 Message = $"Tin đăng '{post.Title}' của bạn đã bị từ chối bởi admin.",
                 Type = "PostRejected",
                 IsRead = false,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTimeHelper.GetVietnamNow()
             };
             _context.Notifications.Add(notification);
             await _context.SaveChangesAsync();

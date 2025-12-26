@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RealEstateHubAPI.DTOs;
 using RealEstateHubAPI.Services;
+using RealEstateHubAPI.Utils;
 using System.Security.Claims;
 
 namespace RealEstateHubAPI.Controllers
@@ -53,8 +54,8 @@ namespace RealEstateHubAPI.Controllers
                 }
 
                 // Validate: AppointmentTime phải trong tương lai
-                // Frontend gửi local time, cần so sánh với local time hiện tại
-                if (dto.AppointmentTime <= DateTime.Now)
+                // Frontend gửi local time, cần so sánh với local time hiện tại (Vietnam time)
+                if (dto.AppointmentTime <= DateTimeHelper.GetVietnamNow())
                 {
                     return BadRequestResponse("AppointmentTime must be in the future");
                 }

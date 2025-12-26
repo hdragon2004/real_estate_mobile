@@ -31,7 +31,7 @@ namespace RealEstateHubAPI.Models
         public decimal? MaxPrice { get; set; }
         public bool EnableNotification { get; set; } = true;
         public bool IsActive { get; set; } = true;
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; }
 
         // Navigation properties
         [ForeignKey("UserId")]

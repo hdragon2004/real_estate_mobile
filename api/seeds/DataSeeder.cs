@@ -302,7 +302,7 @@ namespace RealEstateHubAPI.seeds
                             Title = "Biệt thự sang trọng tại Ba Đình, Hà Nội",
                             Description = "Biệt thự 3 tầng, diện tích 200m², thiết kế hiện đại, nội thất cao cấp. Vị trí đắc địa, gần trung tâm, tiện ích đầy đủ. Pháp lý đầy đủ, sổ đỏ chính chủ.",
                             Price = 15.5m,
-                            PriceUnit = PriceUnit.Tỷ,
+                            // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
                             TransactionType = TransactionType.Sale,
                             Status = "Active", // Đã duyệt - hiển thị công khai
                             Area_Size = 200f,
@@ -332,7 +332,7 @@ namespace RealEstateHubAPI.seeds
                             Title = "Căn hộ cao cấp Quận 1, TP. HCM - View đẹp",
                             Description = "Căn hộ 2PN 2WC, diện tích 75m², view thành phố tuyệt đẹp. Nội thất đầy đủ, bếp hiện đại. Tòa nhà có bảo vệ 24/7, thang máy, gym, hồ bơi. Gần trung tâm, tiện đi lại.",
                             Price = 8.5m,
-                            PriceUnit = PriceUnit.Tỷ,
+                            // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
                             TransactionType = TransactionType.Sale,
                             Status = "Active", // Đã duyệt - hiển thị công khai
                             Area_Size = 75f,
@@ -360,7 +360,7 @@ namespace RealEstateHubAPI.seeds
                             Title = "Nhà phố 4 tầng cho thuê tại Hoàn Kiếm",
                             Description = "Nhà phố 4 tầng, diện tích 100m², mặt tiền 5m. Phù hợp làm văn phòng hoặc kinh doanh. Vị trí đẹp, đông dân cư, tiềm năng kinh doanh cao.",
                             Price = 25m,
-                            PriceUnit = PriceUnit.Triệu,
+                            // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
                             TransactionType = TransactionType.Rent,
                             Status = "Active", // Đã duyệt - hiển thị công khai
                             Area_Size = 100f,
@@ -385,7 +385,7 @@ namespace RealEstateHubAPI.seeds
                             Title = "Đất nền dự án Quận 2, TP. HCM - Sổ hồng",
                             Description = "Đất nền 150m² trong dự án đã hoàn thiện hạ tầng. Vị trí đẹp, gần trường học, bệnh viện, trung tâm thương mại. Pháp lý rõ ràng, sổ hồng riêng.",
                             Price = 12m,
-                            PriceUnit = PriceUnit.Tỷ,
+                            // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
                             TransactionType = TransactionType.Sale,
                             Status = "Active", // Đã duyệt - hiển thị công khai
                             Area_Size = 150f,
@@ -409,7 +409,7 @@ namespace RealEstateHubAPI.seeds
                             Title = "Phòng trọ sạch sẽ, đầy đủ tiện nghi tại Đà Nẵng",
                             Description = "Phòng trọ 25m², có điều hòa, nóng lạnh, wifi, giường tủ. Khu vực yên tĩnh, an ninh tốt. Gần trường học, chợ, bệnh viện. Phù hợp sinh viên, công nhân.",
                             Price = 3.5m,
-                            PriceUnit = PriceUnit.Triệu,
+                            // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
                             TransactionType = TransactionType.Rent,
                             Status = "Pending", // Chờ duyệt - không hiển thị công khai
                             Area_Size = 25f,
@@ -431,7 +431,7 @@ namespace RealEstateHubAPI.seeds
                             Title = "Văn phòng cho thuê mặt tiền Quận 1",
                             Description = "Văn phòng 80m², mặt tiền đường lớn, thiết kế hiện đại. Phù hợp công ty, văn phòng đại diện. Có chỗ đậu xe, thang máy, bảo vệ. Giá thuê hợp lý.",
                             Price = 30m,
-                            PriceUnit = PriceUnit.Triệu,
+                            // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
                             TransactionType = TransactionType.Rent,
                             Status = "Active", // Đã duyệt - hiển thị công khai
                             Area_Size = 80f,
@@ -455,7 +455,7 @@ namespace RealEstateHubAPI.seeds
                             Title = "Shop house kinh doanh Quận 2 - Vị trí đẹp",
                             Description = "Shop house 2 tầng, diện tích 120m², mặt tiền 6m. Tầng 1 kinh doanh, tầng 2 ở. Vị trí đông dân cư, tiềm năng kinh doanh cao. Pháp lý đầy đủ.",
                             Price = 18m,
-                            PriceUnit = PriceUnit.Tỷ,
+                            // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
                             TransactionType = TransactionType.Sale,
                             Status = "Active", // Đã duyệt - hiển thị công khai
                             Area_Size = 120f,
@@ -480,7 +480,7 @@ namespace RealEstateHubAPI.seeds
                             Title = "Căn hộ studio cho thuê ngắn hạn - Quận 1",
                             Description = "Căn hộ studio 35m², đầy đủ nội thất, wifi, điều hòa. Phù hợp người đi công tác, du lịch. Gần trung tâm, tiện đi lại. Giá thuê theo tháng.",
                             Price = 8m,
-                            PriceUnit = PriceUnit.Triệu,
+                            // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
                             TransactionType = TransactionType.Rent,
                             Status = "Rejected", // Bị từ chối - không hiển thị công khai nhưng vẫn lưu trong database
                             Area_Size = 35f,
@@ -503,7 +503,7 @@ namespace RealEstateHubAPI.seeds
                             Title = "Nhà phố 3 tầng tại Quận 3, TP. HCM",
                             Description = "Nhà phố 3 tầng, diện tích 90m², mặt tiền 4m. Vị trí đẹp, gần trường học. Pháp lý đầy đủ, sổ hồng.",
                             Price = 7.5m,
-                            PriceUnit = PriceUnit.Tỷ,
+                            // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
                             TransactionType = TransactionType.Sale,
                             Status = "Pending", // Chờ duyệt
                             Area_Size = 90f,
@@ -530,7 +530,7 @@ namespace RealEstateHubAPI.seeds
                             Title = "Căn hộ 1PN tại Quận 7, TP. HCM",
                             Description = "Căn hộ 1PN 1WC, diện tích 50m², view đẹp. Nội thất cơ bản, gần trung tâm thương mại.",
                             Price = 4.2m,
-                            PriceUnit = PriceUnit.Tỷ,
+                            // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
                             TransactionType = TransactionType.Sale,
                             Status = "Pending", // Chờ duyệt
                             Area_Size = 50f,
@@ -557,7 +557,7 @@ namespace RealEstateHubAPI.seeds
                             Title = "Đất nền không pháp lý tại Quận 2",
                             Description = "Đất nền 200m², giá rẻ. Cần bán gấp.",
                             Price = 5m,
-                            PriceUnit = PriceUnit.Tỷ,
+                            // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
                             TransactionType = TransactionType.Sale,
                             Status = "Rejected", // Bị từ chối
                             Area_Size = 200f,

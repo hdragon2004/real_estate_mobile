@@ -8,7 +8,7 @@ namespace RealEstateHubAPI.DTOs
         public string? TransactionType { get; set; } // "Sale" | "Rent"
         public string? Address { get; set; }
         public decimal? Price { get; set; }
-        public int? PriceUnit { get; set; } // 0: Tỷ, 1: Triệu
+        // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
         public decimal? AreaSize { get; set; }
         public int? Bedrooms { get; set; }
         public int? Bathrooms { get; set; }
