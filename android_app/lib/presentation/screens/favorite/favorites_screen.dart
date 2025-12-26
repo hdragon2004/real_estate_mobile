@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../widgets/common/post_card.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/confirmation_dialog.dart';
+import '../../widgets/common/loading_indicator.dart';
 import '../post/post_details_screen.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/services/favorite_service.dart';
@@ -20,6 +21,45 @@ class FavoritesScreen extends StatefulWidget {
 
 class _FavoritesScreenState extends State<FavoritesScreen> {
   final FavoriteService _favoriteService = FavoriteService();
+  bool _isLoading = true;
+  bool _isInitialLoad = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    if (_isInitialLoad) {
+      setState(() => _isLoading = true);
+    }
+
+    try {
+      final userId = await AuthStorageService.getUserId();
+      if (userId == null) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _isInitialLoad = false;
+          });
+        }
+        return;
+      }
+      
+      await _favoriteService.loadFavorites(userId);
+    } catch (e) {
+      // Error đã được xử lý bởi BaseService.handleError
+      // Đảm bảo loading state được reset
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isInitialLoad = false;
+        });
+      }
+    }
+  }
 
   Future<void> _removeFavorite(PostModel property) async {
     final confirmed = await ConfirmationDialog.show(
@@ -31,7 +71,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
 
     if (confirmed == true) {
-      _favoriteService.removeFavorite(property.id);
+      final userId = await AuthStorageService.getUserId();
+      await _favoriteService.removeFavorite(property.id, userId);
     }
   }
 
@@ -45,8 +86,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       body: FutureBuilder<int?>(
         future: AuthStorageService.getUserId(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+          if (snapshot.connectionState == ConnectionState.waiting || _isLoading) {
+            return const LoadingIndicator(message: 'Đang tải danh sách yêu thích...');
           }
           
           final userId = snapshot.data;
@@ -96,29 +137,33 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 );
               }
 
-              return ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: favorites.length,
-                itemBuilder: (context, index) {
-                  final property = favorites[index];
-                  return PostCard(
-                    property: property,
-                    isFavorite: true,
-                    margin: EdgeInsets.only(bottom: index < favorites.length - 1 ? 16 : 0),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => PostDetailsScreen(
-                            propertyId: property.id.toString(),
-                            initialProperty: property,
+              return RefreshIndicator(
+                onRefresh: _loadFavorites,
+                color: AppColors.primary,
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: favorites.length,
+                  itemBuilder: (context, index) {
+                    final property = favorites[index];
+                    return PostCard(
+                      property: property,
+                      isFavorite: true,
+                      margin: EdgeInsets.only(bottom: index < favorites.length - 1 ? 16 : 0),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PostDetailsScreen(
+                              propertyId: property.id.toString(),
+                              initialProperty: property,
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                    onFavoriteTap: () => _removeFavorite(property),
-                  );
-                },
+                        );
+                      },
+                      onFavoriteTap: () => _removeFavorite(property),
+                    );
+                  },
+                ),
               );
             },
           );

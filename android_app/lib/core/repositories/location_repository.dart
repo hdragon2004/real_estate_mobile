@@ -1,85 +1,54 @@
-import '../network/api_client.dart';
 import '../constants/api_constants.dart';
 import '../models/location_model.dart';
+import 'base_repository.dart';
+import 'api_response.dart';
 
-class LocationRepository {
-  final ApiClient _apiClient = ApiClient();
-
-  /// Lấy danh sách cities từ API backend - KHÔNG dùng database local
-  Future<List<CityModel>> getCities() async {
-    try {
-      // Gọi API endpoint để lấy cities từ backend
-      final response = await _apiClient.get(ApiConstants.cities);
-
-      if (response is List) {
-        // Parse response từ API thành CityModel
-        return response.map((json) => CityModel.fromJson(json)).toList();
-      }
-      return [];
-    } catch (e) {
-      rethrow;
-    }
+class LocationRepository extends BaseRepository {
+  /// Lấy danh sách cities
+  Future<ApiResponse<List<CityModel>>> getCities() async {
+    return await handleRequestListWithResponse<CityModel>(
+      request: () => apiClient.get(ApiConstants.cities),
+      fromJson: (json) => CityModel.fromJson(json),
+    );
   }
 
-  Future<CityModel> getCityById(int id) async {
-    try {
-      final response = await _apiClient.get('${ApiConstants.cities}/$id');
-      return CityModel.fromJson(response);
-    } catch (e) {
-      rethrow;
-    }
+  /// Lấy city theo ID
+  Future<ApiResponse<CityModel>> getCityById(int id) async {
+    return await handleRequestWithResponse<CityModel>(
+      request: () => apiClient.get('${ApiConstants.cities}/$id'),
+      fromJson: (json) => CityModel.fromJson(json),
+    );
   }
 
-  Future<List<DistrictModel>> getDistricts() async {
-    try {
-      final response = await _apiClient.get(ApiConstants.districts);
-
-      if (response is List) {
-        return response.map((json) => DistrictModel.fromJson(json)).toList();
-      }
-      return [];
-    } catch (e) {
-      rethrow;
-    }
+  /// Lấy danh sách districts
+  Future<ApiResponse<List<DistrictModel>>> getDistricts() async {
+    return await handleRequestListWithResponse<DistrictModel>(
+      request: () => apiClient.get(ApiConstants.districts),
+      fromJson: (json) => DistrictModel.fromJson(json),
+    );
   }
 
-  Future<List<DistrictModel>> getDistrictsByCity(int cityId) async {
-    try {
-      final response = await _apiClient.get('${ApiConstants.cities}/$cityId/districts');
-
-      if (response is List) {
-        return response.map((json) => DistrictModel.fromJson(json)).toList();
-      }
-      return [];
-    } catch (e) {
-      rethrow;
-    }
+  /// Lấy danh sách districts theo city
+  Future<ApiResponse<List<DistrictModel>>> getDistrictsByCity(int cityId) async {
+    return await handleRequestListWithResponse<DistrictModel>(
+      request: () => apiClient.get('${ApiConstants.cities}/$cityId/districts'),
+      fromJson: (json) => DistrictModel.fromJson(json),
+    );
   }
 
-  Future<List<WardModel>> getWards() async {
-    try {
-      final response = await _apiClient.get(ApiConstants.wards);
-
-      if (response is List) {
-        return response.map((json) => WardModel.fromJson(json)).toList();
-      }
-      return [];
-    } catch (e) {
-      rethrow;
-    }
+  /// Lấy danh sách wards
+  Future<ApiResponse<List<WardModel>>> getWards() async {
+    return await handleRequestListWithResponse<WardModel>(
+      request: () => apiClient.get(ApiConstants.wards),
+      fromJson: (json) => WardModel.fromJson(json),
+    );
   }
 
-  Future<List<WardModel>> getWardsByDistrict(int districtId) async {
-    try {
-      final response = await _apiClient.get('${ApiConstants.districts}/$districtId/wards');
-
-      if (response is List) {
-        return response.map((json) => WardModel.fromJson(json)).toList();
-      }
-      return [];
-    } catch (e) {
-      rethrow;
-    }
+  /// Lấy danh sách wards theo district
+  Future<ApiResponse<List<WardModel>>> getWardsByDistrict(int districtId) async {
+    return await handleRequestListWithResponse<WardModel>(
+      request: () => apiClient.get('${ApiConstants.districts}/$districtId/wards'),
+      fromJson: (json) => WardModel.fromJson(json),
+    );
   }
 }
-

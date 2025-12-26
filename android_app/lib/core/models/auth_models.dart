@@ -1,3 +1,5 @@
+import '../utils/datetime_helper.dart';
+
 class AuthResponse {
   final String token;
   final User user;
@@ -38,14 +40,18 @@ class User {
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? '',
-      email: json['email'] ?? '',
-      phone: json['phone'],
-      avatarUrl: json['avatarUrl'],
-      role: json['role'] ?? 'User',
-      isLocked: json['isLocked'] ?? false,
-      create: json['create'] != null ? DateTime.parse(json['create']) : null,
+      id: json['id'] ?? json['Id'] ?? 0,
+      name: json['name'] ?? json['Name'] ?? '',
+      email: json['email'] ?? json['Email'] ?? '',
+      phone: json['phone'] ?? json['Phone'],
+      avatarUrl: json['avatarUrl'] ?? json['AvatarUrl'],
+      role: json['role'] ?? json['Role'] ?? 'User',
+      isLocked: json['isLocked'] ?? json['IsLocked'] ?? false,
+      create: json['create'] != null 
+          ? DateTimeHelper.fromBackendString(json['create'] as String)
+          : json['Create'] != null 
+              ? DateTimeHelper.fromBackendString(json['Create'] as String)
+              : null,
     );
   }
 

@@ -1,4 +1,7 @@
+import '../utils/datetime_helper.dart';
+
 enum TransactionType { sale, rent }
+@Deprecated('PriceUnit is deprecated. Use Formatters.formatCurrency instead')
 enum PriceUnit { total, perM2, perMonth }
 
 class PostImage {
@@ -10,9 +13,9 @@ class PostImage {
 
   factory PostImage.fromJson(Map<String, dynamic> json) {
     return PostImage(
-      id: json['id'],
-      url: json['url'] ?? '',
-      postId: json['postId'],
+      id: json['id'] ?? json['Id'],
+      url: json['url'] ?? json['Url'] ?? '',
+      postId: json['postId'] ?? json['PostId'],
     );
   }
 }
@@ -22,7 +25,6 @@ class PostModel {
   final String title;
   final String description;
   final double price;
-  final PriceUnit priceUnit;
   final TransactionType transactionType;
   final String status;
   final DateTime created;
@@ -63,7 +65,6 @@ class PostModel {
     required this.title,
     required this.description,
     required this.price,
-    required this.priceUnit,
     required this.transactionType,
     required this.status,
     required this.created,
@@ -104,12 +105,11 @@ class PostModel {
       title: json['title'] ?? '',
       description: json['description'] ?? '',
       price: (json['price'] ?? 0).toDouble(),
-      priceUnit: _parsePriceUnit(json['priceUnit']),
       transactionType: _parseTransactionType(json['transactionType']),
       status: json['status'] ?? json['Status'] ?? 'Pending', // Hỗ trợ cả camelCase và PascalCase, mặc định là Pending
       created: json['created'] != null
-          ? DateTime.parse(json['created'])
-          : DateTime.now(),
+          ? DateTimeHelper.fromBackendString(json['created'] as String)
+          : DateTimeHelper.getVietnamNow(),
       areaSize: (json['area_Size'] ?? json['areaSize'] ?? 0).toDouble(),
       streetName: json['street_Name'] ?? json['streetName'] ?? '',
       userId: json['userId'] ?? 0,
@@ -121,7 +121,7 @@ class PostModel {
       userName: json['userName'],
       isApproved: json['isApproved'] ?? false,
       expiryDate: json['expiryDate'] != null
-          ? DateTime.parse(json['expiryDate'])
+          ? DateTimeHelper.fromBackendString(json['expiryDate'] as String)
           : null,
       soPhongNgu: json['soPhongNgu'],
       soPhongTam: json['soPhongTam'],
@@ -131,7 +131,9 @@ class PostModel {
       matTien: json['matTien']?.toDouble(),
       duongVao: json['duongVao']?.toDouble(),
       phapLy: json['phapLy'],
-      images: (json['images'] as List<dynamic>?)
+      images: (json['images'] as List<dynamic>? ??
+              json['imageUrls'] as List<dynamic>? ??
+              json['ImageUrls'] as List<dynamic>?)
               ?.map((e) => PostImage.fromJson(e))
               .toList() ??
           [],
@@ -162,30 +164,6 @@ class PostModel {
     return TransactionType.sale;
   }
 
-  static PriceUnit _parsePriceUnit(dynamic value) {
-    if (value == null) return PriceUnit.total;
-    if (value is int) {
-      switch (value) {
-        case 1:
-          return PriceUnit.perM2;
-        case 2:
-          return PriceUnit.perMonth;
-        default:
-          return PriceUnit.total;
-      }
-    }
-    if (value is String) {
-      switch (value.toLowerCase()) {
-        case 'perm2':
-          return PriceUnit.perM2;
-        case 'permonth':
-          return PriceUnit.perMonth;
-        default:
-          return PriceUnit.total;
-      }
-    }
-    return PriceUnit.total;
-  }
 
   String get firstImageUrl {
     // Ưu tiên dùng ImageURL (ảnh chính) từ backend

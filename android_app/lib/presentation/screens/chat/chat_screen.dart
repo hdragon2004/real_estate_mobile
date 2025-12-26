@@ -1,45 +1,14 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import '../../../core/services/image_picker_service.dart';
-import '../../../core/repositories/message_repository.dart';
+import '../../../core/services/post_service.dart';
+import '../../../core/services/message_service.dart';
 import '../../../core/services/auth_storage_service.dart';
 import '../../../core/services/signalr_service.dart';
+import '../../../core/models/message_model.dart';
 import '../../../core/utils/image_url_helper.dart' as image_helper;
-
-/// Model cho Message
-class MessageModel {
-  final String id;
-  final String senderId;
-  final String content;
-  final DateTime timestamp;
-  final MessageType type;
-  final String? imageUrl;
-
-  MessageModel({
-    required this.id,
-    required this.senderId,
-    required this.content,
-    required this.timestamp,
-    this.type = MessageType.text,
-    this.imageUrl,
-  });
-
-  factory MessageModel.fromJson(Map<String, dynamic> json) {
-    return MessageModel(
-      id: json['id'].toString(),
-      senderId: json['senderId'].toString(),
-      content: json['content'] as String? ?? '',
-      timestamp: json['sentTime'] != null
-          ? DateTime.parse(json['sentTime'] as String)
-          : DateTime.now(),
-      type: MessageType.text,
-    );
-  }
-}
-
-enum MessageType {
-  text,
-  image,
-}
+import '../../../core/utils/formatters.dart';
+import '../../../core/utils/datetime_helper.dart';
+import '../../widgets/common/choose_photo.dart';
 
 /// Màn hình Chat 1-1
 class ChatScreen extends StatefulWidget {
@@ -71,17 +40,33 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
-  final MessageRepository _messageRepository = MessageRepository();
+  final MessageService _messageService = MessageService();
+  final PostService _postService = PostService();
   final SignalRService _signalRService = SignalRService();
   
   bool _isLoading = false;
   List<MessageModel> _messages = [];
   int? _currentUserId;
+  Map<String, dynamic>? _lastSentMessage; // Lưu tin nhắn cuối cùng đã gửi
+  File? _selectedImageFile; // Ảnh đã chọn nhưng chưa gửi
+  bool _isUploadingImage = false; // Đang upload ảnh
+  bool _hasText = false; // Track xem có text trong input không
 
   @override
   void initState() {
     super.initState();
     _initializeChat();
+    // Listen to text changes để update button state
+    _messageController.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    final hasText = _messageController.text.trim().isNotEmpty;
+    if (_hasText != hasText) {
+      setState(() {
+        _hasText = hasText;
+      });
+    }
   }
 
   Future<void> _initializeChat() async {
@@ -105,7 +90,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final postInfo = StringBuffer();
       postInfo.writeln('📋 ${widget.postTitle}');
       if (widget.postPrice != null && widget.postPrice! > 0) {
-        postInfo.writeln('💰 Giá: ${_formatPrice(widget.postPrice!)}');
+        postInfo.writeln('💰 Giá: ${Formatters.formatCurrency(widget.postPrice!)} VNĐ');
       }
       if (widget.postAddress != null && widget.postAddress!.isNotEmpty) {
         postInfo.writeln('📍 Địa chỉ: ${widget.postAddress}');
@@ -117,15 +102,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  String _formatPrice(double price) {
-    if (price >= 1000000000) {
-      return '${(price / 1000000000).toStringAsFixed(1)} tỷ';
-    } else if (price >= 1000000) {
-      return '${(price / 1000000).toStringAsFixed(0)} triệu';
-    } else {
-      return '${price.toStringAsFixed(0)} đ';
-    }
-  }
+  // _formatPrice đã được thay thế bằng Formatters.formatCurrency
 
   /// Thiết lập SignalR để nhận tin nhắn real-time
   Future<void> _setupSignalR() async {
@@ -203,7 +180,7 @@ class _ChatScreenState extends State<ChatScreen> {
       // Backend endpoint: GET /api/messages/conversation/{otherUserId}
       // ConversationId được tạo từ senderId và receiverId (không có postId)
       // Một conversation có thể chứa tin nhắn về nhiều PostId khác nhau
-      final messages = await _messageRepository.getMessages(
+      final messages = await _messageService.getMessages(
         senderId: _currentUserId!,
         receiverId: widget.otherUserId!,
         postId: widget.postId, // Không còn bắt buộc, chỉ để tương thích
@@ -225,6 +202,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    // Remove text change listener
+    _messageController.removeListener(_onTextChanged);
     // Không disconnect SignalR vì có thể đang dùng ở màn hình khác
     // Chỉ xóa callback để tránh memory leak
     _signalRService.onMessageReceived = null;
@@ -246,11 +225,13 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.clear();
 
     // Optimistic update - thêm message vào UI ngay
+    // Sử dụng DateTimeHelper để đảm bảo timezone đúng
+    final now = DateTimeHelper.getVietnamNow();
     final tempMessage = MessageModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: now.millisecondsSinceEpoch.toString(),
       senderId: _currentUserId.toString(),
       content: content,
-      timestamp: DateTime.now(),
+      timestamp: now,
     );
 
     setState(() {
@@ -259,20 +240,20 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
 
     try {
-      // Gửi message qua API (backend sẽ tự động gửi qua SignalR cho receiver)
-      // postId có thể null nếu tin nhắn không liên quan đến post
-      await _messageRepository.sendMessage(
+      await _messageService.sendMessage(
         senderId: _currentUserId!,
         receiverId: widget.otherUserId!,
         postId: widget.postId ?? 0, // Nếu null thì dùng 0, backend sẽ xử lý
         content: content,
+        imageUrl: null, 
       );
 
-      // Không cần reload vì:
-      // 1. Optimistic update đã thêm message vào UI
-      // 2. Backend sẽ gửi lại qua SignalR với message ID chính xác
-      // 3. Nếu cần, có thể reload để đảm bảo sync
-      // await _loadMessages();
+      // Lưu thông tin tin nhắn mới để truyền về ChatListScreen khi pop
+      // Sẽ được sử dụng trong dispose hoặc khi pop
+      _lastSentMessage = {
+        'content': content,
+        'timestamp': DateTimeHelper.getVietnamNow(),
+      };
     } catch (e) {
       // Nếu gửi thất bại, xóa message tạm
       setState(() {
@@ -289,26 +270,112 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _pickImage() async {
+    // Chọn nguồn ảnh (camera hoặc gallery)
+    final source = await showImageSourceDialog(context);
+    if (source == null) return;
+
+    // Chọn/chụp ảnh dựa trên nguồn đã chọn
+    File? imageFile;
+    if (source == 'camera') {
+      imageFile = await _postService.takePicture(context);
+    } else if (source == 'gallery') {
+      final images = await _postService.pickMultipleImagesFromGallery(
+        context,
+        maxImages: 1,
+      );
+      if (images.isNotEmpty) {
+        imageFile = images.first;
+      }
+    }
+    
+    if (imageFile != null && mounted) {
+      setState(() {
+        _selectedImageFile = imageFile;
+      });
+    }
+  }
+
+  void _removeSelectedImage() {
+    setState(() {
+      _selectedImageFile = null;
+    });
+  }
+
   Future<void> _sendImage() async {
-    final image = await ImagePickerService.showImageSourceDialog(context);
-    if (image != null) {
-      // TODO: Upload ảnh lên server và gửi URL trong message
-      if (_currentUserId == null) return;
-      final message = MessageModel(
+    if (_currentUserId == null || widget.otherUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không thể gửi hình ảnh')),
+      );
+      return;
+    }
+
+    if (_selectedImageFile == null) {
+      // Nếu chưa chọn ảnh, mở dialog chọn ảnh
+      await _pickImage();
+      return;
+    }
+
+    setState(() => _isUploadingImage = true);
+
+    try {
+      // Upload ảnh lên server
+      final imageUrl = await _messageService.uploadMessageImage(_selectedImageFile!.path);
+      
+      if (imageUrl.isEmpty) {
+        throw Exception('Không nhận được URL ảnh từ server');
+      }
+
+      // Lấy content từ text field (có thể rỗng)
+      final content = _messageController.text.trim();
+   
+      final messageContent = content.isNotEmpty ? content : '';
+      
+      final tempMessage = MessageModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         senderId: _currentUserId.toString(),
-        content: 'Đã gửi ảnh',
-        timestamp: DateTime.now(),
+        content: messageContent, // Có thể rỗng nếu chỉ gửi ảnh
+        timestamp: DateTimeHelper.getVietnamNow(),
         type: MessageType.image,
-        imageUrl: image.path, // TODO: Thay bằng URL từ server
+        imageUrl: imageUrl,
       );
 
       setState(() {
-        _messages.add(message);
+        _messages.add(tempMessage);
+        _selectedImageFile = null; // Xóa ảnh đã chọn
+        _messageController.clear(); // Xóa text input
       });
-
       _scrollToBottom();
-      // TODO: Gửi message qua API/WebSocket
+
+      await _messageService.sendMessage(
+        senderId: _currentUserId!,
+        receiverId: widget.otherUserId!,
+        postId: widget.postId ?? 0,
+        content: messageContent, 
+        imageUrl: imageUrl,
+      );
+
+      // Lưu thông tin tin nhắn mới để truyền về ChatListScreen khi pop
+      _lastSentMessage = {
+        'content': messageContent,
+        'timestamp': DateTimeHelper.getVietnamNow(),
+        'imageUrl': imageUrl,
+      };
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi gửi hình ảnh: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingImage = false);
+      }
     }
   }
 
@@ -334,6 +401,21 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // Truyền thông tin tin nhắn cuối cùng về ChatListScreen nếu có
+            if (_lastSentMessage != null && widget.otherUserId != null) {
+              Navigator.pop(context, {
+                'otherUserId': widget.otherUserId,
+                'lastMessage': _lastSentMessage!['content'],
+                'lastMessageTime': _lastSentMessage!['timestamp'],
+              });
+            } else {
+              Navigator.pop(context);
+            }
+          },
+        ),
         title: Row(
           children: [
             CircleAvatar(
@@ -422,7 +504,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   if (widget.postPrice != null && widget.postPrice! > 0) ...[
                     const SizedBox(height: 4),
                     Text(
-                      '💰 Giá: ${_formatPrice(widget.postPrice!)}',
+                      '💰 Giá: ${Formatters.formatCurrency(widget.postPrice!)} VNĐ',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey.shade700,
@@ -474,48 +556,126 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
           ),
           // Input area
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.shade300,
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.image),
-                  onPressed: _sendImage,
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: 'Nhập tin nhắn...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Preview ảnh đã chọn (nếu có)
+              if (_selectedImageFile != null)
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      // Preview ảnh nhỏ
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          _selectedImageFile!,
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                        ),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+                      const SizedBox(width: 8),
+                      // Text thông báo
+                      Expanded(
+                        child: Text(
+                          'Ảnh đã chọn. Nhập nội dung (tùy chọn) và nhấn gửi.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade700,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    maxLines: null,
-                    textCapitalization: TextCapitalization.sentences,
+                      // Nút xóa ảnh
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: _removeSelectedImage,
+                        color: Colors.grey.shade700,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
-                  color: Theme.of(context).colorScheme.primary,
+              // Input field và buttons
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.shade300,
+                      blurRadius: 4,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.image),
+                      onPressed: _pickImage,
+                      color: _selectedImageFile != null 
+                          ? Theme.of(context).colorScheme.primary 
+                          : Colors.grey,
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _messageController,
+                        enabled: !_isUploadingImage,
+                        onChanged: (text) {
+                          setState(() {
+                            _hasText = text.trim().isNotEmpty;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          hintText: _selectedImageFile != null 
+                              ? 'Nhập nội dung (tùy chọn)...' 
+                              : 'Nhập tin nhắn...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                        ),
+                        maxLines: null,
+                        textCapitalization: TextCapitalization.sentences,
+                      ),
+                    ),
+                    IconButton(
+                      icon: _isUploadingImage
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              Icons.send,
+                              color: (_selectedImageFile != null || _hasText)
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Colors.grey,
+                            ),
+                      onPressed: (_isUploadingImage || 
+                                 (_selectedImageFile == null && !_hasText))
+                          ? null
+                          : (_selectedImageFile != null ? _sendImage : _sendMessage),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -553,20 +713,49 @@ class _MessageBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (message.type == MessageType.image && message.imageUrl != null)
+            if (message.imageUrl != null && message.imageUrl!.isNotEmpty)
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
-                  message.imageUrl!,
+                  image_helper.ImageUrlHelper.resolveImageUrl(message.imageUrl!),
                   width: double.infinity,
+                  height: 200,
                   fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      height: 200,
+                      color: Colors.grey.shade200,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 200,
+                      color: Colors.grey.shade200,
+                      child: const Center(
+                        child: Icon(Icons.broken_image, size: 48),
+                      ),
+                    );
+                  },
                 ),
-              )
-            else
-              Text(
-                message.content,
-                style: TextStyle(
-                  color: isOwn ? Colors.white : Colors.black87,
+              ),
+            if (message.content.isNotEmpty && 
+                !(message.imageUrl != null && message.content == '[Hình ảnh]'))
+              Padding(
+                padding: EdgeInsets.only(top: message.imageUrl != null ? 8.0 : 0),
+                child: Text(
+                  message.content,
+                  style: TextStyle(
+                    color: isOwn ? Colors.white : Colors.black87,
+                  ),
                 ),
               ),
             const SizedBox(height: 4),

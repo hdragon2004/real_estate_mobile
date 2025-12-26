@@ -1,6 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Service để quản lý lưu trữ token xác thực một cách an toàn
 class AuthStorageService {
   static const _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(

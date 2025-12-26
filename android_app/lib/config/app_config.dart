@@ -28,10 +28,10 @@ class AppConfig {
   // ============================================
   /// Ngrok domain từ file ngrok.yml
   /// Domain này tương ứng với tunnel có addr: 5134 (android-api)
-  static String get ngrokDomain => dotenv.get('NGROK_DOMAIN', fallback: 'colourful-carina-syringeful.ngrok-free.dev');
+  static String get ngrokDomain => dotenv.get('NGROK_DOMAIN');
   
   /// Protocol cho ngrok (http hoặc https)
-  static String get ngrokProtocol => dotenv.get('NGROK_PROTOCOL', fallback: 'https');
+  static String get ngrokProtocol => dotenv.get('NGROK_PROTOCOL');
   
   // ============================================
   // CẤU HÌNH LOCAL (khi connectionMode = 'local')
@@ -79,13 +79,5 @@ class AppConfig {
   /// Timeout cho các request (giây)
   static int get connectTimeout => int.tryParse(dotenv.get('CONNECT_TIMEOUT', fallback: '30')) ?? 30;
   static int get receiveTimeout => int.tryParse(dotenv.get('RECEIVE_TIMEOUT', fallback: '30')) ?? 30;
-
-  // ============================================
-  // GOOGLE MAPS / PLACES API
-  // ============================================
-  /// Google Places API Key
-  /// Lấy từ: https://console.cloud.google.com/apis/credentials
-  /// Cần bật: Places API, Geocoding API
-  static String get googlePlacesApiKey => dotenv.get('GOOGLE_PLACES_API_KEY', fallback: 'YOUR_GOOGLE_PLACES_API_KEY_HERE');
 }
 

@@ -6,8 +6,8 @@ class CityModel {
 
   factory CityModel.fromJson(Map<String, dynamic> json) {
     return CityModel(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? '',
+      id: json['id'] ?? json['Id'] ?? 0,
+      name: json['name'] ?? json['Name'] ?? '',
     );
   }
 }
@@ -25,9 +25,9 @@ class DistrictModel {
 
   factory DistrictModel.fromJson(Map<String, dynamic> json) {
     return DistrictModel(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? '',
-      cityId: json['cityId'] ?? 0,
+      id: json['id'] ?? json['Id'] ?? 0,
+      name: json['name'] ?? json['Name'] ?? '',
+      cityId: json['cityId'] ?? json['CityId'] ?? 0,
     );
   }
 }
@@ -45,9 +45,9 @@ class WardModel {
 
   factory WardModel.fromJson(Map<String, dynamic> json) {
     return WardModel(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? '',
-      districtId: json['districtId'] ?? 0,
+      id: json['id'] ?? json['Id'] ?? 0,
+      name: json['name'] ?? json['Name'] ?? '',
+      districtId: json['districtId'] ?? json['DistrictId'] ?? 0,
     );
   }
 }

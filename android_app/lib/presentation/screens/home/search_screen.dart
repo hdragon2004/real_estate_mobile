@@ -5,7 +5,7 @@ import '../../widgets/common/post_card.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../../core/models/post_model.dart';
-import '../../../core/repositories/post_repository.dart';
+import '../../../core/services/post_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/services/favorite_service.dart';
@@ -25,7 +25,7 @@ class SearchScreen extends StatefulWidget {
 class SearchScreenState extends State<SearchScreen> {
   final _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  final PostRepository _postRepository = PostRepository();
+  final PostService _postService = PostService();
   final FavoriteService _favoriteService = FavoriteService();
   
   bool _isLoading = false;
@@ -58,7 +58,7 @@ class SearchScreenState extends State<SearchScreen> {
   Future<void> _loadAllPosts() async {
     setState(() => _isLoading = true);
     try {
-      final posts = await _postRepository.getPosts(isApproved: true);
+      final posts = await _postService.getPosts(isApproved: true);
       if (!mounted) return;
       setState(() {
         _allPosts = posts;
@@ -215,7 +215,7 @@ class SearchScreenState extends State<SearchScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final results = await _postRepository.searchPosts(query: query.trim());
+      final results = await _postService.searchPosts(query: query.trim());
       if (!mounted) return;
       
       setState(() {
@@ -266,7 +266,7 @@ class SearchScreenState extends State<SearchScreen> {
       if (filters.containsKey('centerLat') &&
           filters.containsKey('centerLng') &&
           filters.containsKey('radiusInKm')) {
-        results = await _postRepository.searchByRadius(
+        results = await _postService.searchByRadius(
           centerLat: filters['centerLat'] as double,
           centerLng: filters['centerLng'] as double,
           radiusInKm: filters['radiusInKm'] as double,
@@ -298,7 +298,7 @@ class SearchScreenState extends State<SearchScreen> {
           _applyFiltersToResults();
         } else if (hasImportantFilters) {
           // Nếu có filters nhưng chưa có _allPosts, gọi API search
-          results = await _postRepository.searchPosts(
+          results = await _postService.searchPosts(
             categoryId: filters['categoryId'] as int?,
             minPrice: filters['minPrice'] as double?,
             maxPrice: filters['maxPrice'] as double?,

@@ -1,42 +1,30 @@
-import '../network/api_client.dart';
 import '../constants/api_constants.dart';
 import '../models/category_model.dart';
+import 'base_repository.dart';
+import 'api_response.dart';
 
-class CategoryRepository {
-  final ApiClient _apiClient = ApiClient();
-
-  Future<List<CategoryModel>> getCategories() async {
-    try {
-      final response = await _apiClient.get(ApiConstants.categories);
-
-      if (response is List) {
-        return response.map((json) => CategoryModel.fromJson(json)).toList();
-      }
-      return [];
-    } catch (e) {
-      rethrow;
-    }
+class CategoryRepository extends BaseRepository {
+  /// Lấy danh sách tất cả categories
+  Future<ApiResponse<List<CategoryModel>>> getCategories() async {
+    return await handleRequestListWithResponse<CategoryModel>(
+      request: () => apiClient.get(ApiConstants.categories),
+      fromJson: (json) => CategoryModel.fromJson(json),
+    );
   }
 
-  Future<List<CategoryModel>> getActiveCategories() async {
-    try {
-      final response = await _apiClient.get(ApiConstants.categoriesAll);
-
-      if (response is List) {
-        return response.map((json) => CategoryModel.fromJson(json)).toList();
-      }
-      return [];
-    } catch (e) {
-      rethrow;
-    }
+  /// Lấy danh sách categories đang active
+  Future<ApiResponse<List<CategoryModel>>> getActiveCategories() async {
+    return await handleRequestListWithResponse<CategoryModel>(
+      request: () => apiClient.get(ApiConstants.categoriesAll),
+      fromJson: (json) => CategoryModel.fromJson(json),
+    );
   }
 
-  Future<CategoryModel> getCategoryById(int id) async {
-    try {
-      final response = await _apiClient.get('${ApiConstants.categories}/$id');
-      return CategoryModel.fromJson(response);
-    } catch (e) {
-      rethrow;
-    }
+  /// Lấy category theo ID
+  Future<ApiResponse<CategoryModel>> getCategoryById(int id) async {
+    return await handleRequestWithResponse<CategoryModel>(
+      request: () => apiClient.get('${ApiConstants.categories}/$id'),
+      fromJson: (json) => CategoryModel.fromJson(json),
+    );
   }
 }

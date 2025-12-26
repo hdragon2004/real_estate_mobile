@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/models/post_model.dart';
-import '../../../core/repositories/post_repository.dart';
+import '../../../core/services/post_service.dart';
 import '../../../core/services/auth_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -21,7 +21,7 @@ class PostUserScreen extends StatefulWidget {
 
 class _PostUserScreenState extends State<PostUserScreen>
     with SingleTickerProviderStateMixin {
-  final PostRepository _postRepository = PostRepository();
+  final PostService _postService = PostService();
   List<PostModel> _allPosts = [];
   bool _isLoading = true;
   String? _errorMessage;
@@ -57,7 +57,7 @@ class _PostUserScreenState extends State<PostUserScreen>
         return;
       }
 
-      final posts = await _postRepository.getPostsByUser(userId);
+      final posts = await _postService.getPostsByUser(userId);
       
       // Debug: In ra để kiểm tra dữ liệu
       debugPrint('[PostUserScreen] Loaded ${posts.length} posts');

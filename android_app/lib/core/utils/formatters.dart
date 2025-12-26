@@ -28,29 +28,31 @@ class Formatters {
     return formatDate(date);
   }
 
+
+  static String formatCurrency(double amount) {
+    if (amount >= 1000000000) {
+      // >= 1 tỷ
+      return '${(amount / 1000000000).toStringAsFixed(1).replaceAll(RegExp(r'\.?0+$'), '')} tỷ';
+    } else if (amount >= 1000000) {
+      // >= 1 triệu
+      return '${(amount / 1000000).toStringAsFixed(1).replaceAll(RegExp(r'\.?0+$'), '')} triệu';
+    } else if (amount >= 1000) {
+      // >= 1 nghìn
+      return '${(amount / 1000).toStringAsFixed(1).replaceAll(RegExp(r'\.?0+$'), '')} nghìn';
+    } else {
+      return amount.toStringAsFixed(0);
+    }
+  }
+
+  /// Format số tiền với đơn vị VNĐ
+  static String formatCurrencyWithUnit(double amount) {
+    return '${formatCurrency(amount)} VNĐ';
+  }
+
+  // Deprecated: Giữ lại để tương thích ngược, nhưng nên dùng formatCurrency
+  @Deprecated('Use formatCurrency instead')
   static String formatPriceWithUnit(double price, PriceUnit unit) {
-    switch (unit) {
-      case PriceUnit.perM2:
-        return '${_formatMillions(price)} /m²';
-      case PriceUnit.perMonth:
-        return '${_formatMillions(price)} /tháng';
-      case PriceUnit.total:
-        return _formatMillions(price);
-    }
-  }
-
-  static String _formatMillions(double price) {
-    if (price >= 1000) {
-      final value = price / 1000;
-      return '${_trimZero(value)} tỷ';
-    }
-    return '${_trimZero(price)} triệu';
-  }
-
-  static String _trimZero(double value) {
-    if (value == value.roundToDouble()) {
-      return value.toStringAsFixed(0);
-    }
-    return value.toStringAsFixed(1);
+    // Fallback: format tự động dựa trên giá trị
+    return formatCurrency(price);
   }
 }

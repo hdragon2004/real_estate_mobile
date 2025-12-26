@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../../core/repositories/auth_repository.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/auth_storage_service.dart';
 
@@ -39,8 +39,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final authRepo = AuthRepository();
-      final authResponse = await authRepo.register(
+      final authService = AuthService();
+      final authResponse = await authService.register(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,

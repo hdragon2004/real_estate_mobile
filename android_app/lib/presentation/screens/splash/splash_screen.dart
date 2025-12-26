@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/services/auth_storage_service.dart';
-import '../../../core/repositories/user_repository.dart';
+import '../../../core/services/user_service.dart';
 import '../../../core/network/api_client.dart';
 
 /// Màn hình Splash - Kiểm tra phiên đăng nhập và điều hướng
@@ -43,8 +43,8 @@ class _SplashScreenState extends State<SplashScreen> {
       
       // Kiểm tra token còn hợp lệ không bằng cách gọi API getProfile
       try {
-        final userRepository = UserRepository();
-        final user = await userRepository.getProfile();
+        final userService = UserService();
+        final user = await userService.getProfile();
         
         // Token hợp lệ, user đã được đăng nhập tự động → vào thẳng home
         debugPrint('[SplashScreen] Token hợp lệ cho user: ${user.email}, vào thẳng home');

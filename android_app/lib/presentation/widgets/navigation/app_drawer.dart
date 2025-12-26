@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/repositories/user_repository.dart';
+import '../../../core/services/user_service.dart';
 import '../../../core/services/auth_storage_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
@@ -25,7 +25,7 @@ class AppDrawer extends StatefulWidget {
 }
 
 class _AppDrawerState extends State<AppDrawer> {
-  final UserRepository _userRepository = UserRepository();
+  final UserService _userService = UserService();
   Map<String, dynamic>? _userInfo;
 
   @override
@@ -36,7 +36,7 @@ class _AppDrawerState extends State<AppDrawer> {
 
   Future<void> _loadUserInfo() async {
     try {
-      final user = await _userRepository.getProfile();
+      final user = await _userService.getProfile();
       if (mounted) {
         setState(() {
           _userInfo = {

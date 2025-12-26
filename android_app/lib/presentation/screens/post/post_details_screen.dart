@@ -6,7 +6,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/post_model.dart';
-import '../../../core/repositories/post_repository.dart';
+import '../../../core/services/post_service.dart';
 import '../../../core/services/favorite_service.dart';
 import '../../../core/services/auth_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -16,7 +16,7 @@ import '../../../core/utils/image_url_helper.dart';
 import '../../widgets/common/user_avatar.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/loading_indicator.dart';
-import '../../widgets/appointment/appointment_booking_section.dart';
+import '../../widgets/appointment/appointment_create_dialog.dart';
 import 'image_gallery_screen.dart';
 import 'post_owner_screen.dart';
 import '../chat/chat_screen.dart';
@@ -37,7 +37,7 @@ class PostDetailsScreen extends StatefulWidget {
 }
 
 class _PostDetailsScreenState extends State<PostDetailsScreen> {
-  final PostRepository _postRepository = PostRepository();
+  final PostService _postService = PostService();
   final FavoriteService _favoriteService = FavoriteService();
   final PageController _imageController = PageController();
   final ScrollController _scrollController = ScrollController();
@@ -77,7 +77,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         throw Exception('ID bất động sản không hợp lệ');
       }
 
-      final property = await _postRepository.getPostById(id);
+      final property = await _postService.getPostById(id);
       if (!mounted) return;
       setState(() {
         _property = property;
@@ -480,18 +480,10 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                 SliverToBoxAdapter(child: _buildDetailsSection(property)),
                 SliverToBoxAdapter(child: _buildDescription(property)),
                 SliverToBoxAdapter(child: _buildAddressAndMap(property)),
-                SliverToBoxAdapter(child: _buildFloorPlanSection(property)),
-                SliverToBoxAdapter(child: _buildContactCard(property)),
                 SliverToBoxAdapter(
-                  child: AppointmentBookingSection(
-                    propertyId: property.id,
-                    propertyTitle: property.title,
-                    ownerName: property.user?.name,
-                    ownerPhone: property.user?.phone,
-                    ownerEmail: property.user?.email,
-                  ),
+                  child: _buildContactAndAppointment(property),
                 ),
-                const SliverToBoxAdapter(child: Gap(100)),
+                const SliverToBoxAdapter(child: Gap(20)),
               ],
             ),
             // Sticky Bottom Action Bar
@@ -661,120 +653,112 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   }
 
   Widget _buildPrimaryInfo(PostModel property, {Key? key}) {
-    return AnimatedSlide(
+    return Padding(
       key: key,
-      duration: const Duration(milliseconds: 600),
-      curve: Curves.easeOutCubic,
-      offset: const Offset(0, 0.2),
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 600),
-        opacity: 1.0,
-        child: Transform.translate(
-          offset: const Offset(0, -40), // Overlapping với hero image
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title
-                Text(
-                  property.title,
-                  style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const Gap(8),
-                // Category và Status
-                Row(
-                  children: [
-                    if ((property.categoryName != null &&
-                            property.categoryName!.isNotEmpty) ||
-                        (property.category != null &&
-                            property.category!.name.isNotEmpty))
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          property.categoryName ??
-                              property.category?.name ??
-                              '',
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    if ((property.categoryName != null &&
-                            property.categoryName!.isNotEmpty) ||
-                        (property.category != null &&
-                            property.category!.name.isNotEmpty))
-                      const SizedBox(width: 8),
-                    Text(
-                      property.transactionType == TransactionType.sale
-                          ? 'For Sale'
-                          : 'For Rent',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const Gap(16),
-                // Price
-                Text(
-                  Formatters.formatPriceWithUnit(
-                    property.price,
-                    property.priceUnit,
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title
+          Text(
+            property.title,
+            style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const Gap(8),
+          // Category và Status
+          Row(
+            children: [
+              if ((property.categoryName != null &&
+                      property.categoryName!.isNotEmpty) ||
+                  (property.category != null &&
+                      property.category!.name.isNotEmpty))
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
                   ),
-                  style: AppTextStyles.priceLarge.copyWith(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    property.categoryName ??
+                        property.category?.name ??
+                        '',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-                const Gap(16),
-                // Key Stats: Bed, Bath, Garage
-                Row(
-                  children: [
-                    if (property.soPhongNgu != null)
-                      Expanded(
-                        child: _KeyStatItem(
-                          icon: FontAwesomeIcons.bed,
-                          label: '${property.soPhongNgu} Bedrooms',
-                        ),
-                      ),
-                    if (property.soPhongNgu != null &&
-                        property.soPhongTam != null)
-                      const SizedBox(width: 12),
-                    if (property.soPhongTam != null)
-                      Expanded(
-                        child: _KeyStatItem(
-                          icon: FontAwesomeIcons.bath,
-                          label: '${property.soPhongTam} Bathrooms',
-                        ),
-                      ),
-                    if (property.soPhongTam != null) const SizedBox(width: 12),
-                    Expanded(
-                      child: _KeyStatItem(
-                        icon: FontAwesomeIcons.car,
-                        label: '1 Garages', // TODO: Get from property data
-                      ),
-                    ),
-                  ],
+              if ((property.categoryName != null &&
+                      property.categoryName!.isNotEmpty) ||
+                  (property.category != null &&
+                      property.category!.name.isNotEmpty))
+                const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
                 ),
-              ],
+                decoration: BoxDecoration(
+                  color: property.transactionType == TransactionType.sale
+                      ? AppColors.success.withValues(alpha: 0.1)
+                      : AppColors.warning.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  property.transactionType == TransactionType.sale
+                      ? 'Bán'
+                      : 'Cho thuê',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: property.transactionType == TransactionType.sale
+                        ? AppColors.success
+                        : AppColors.warning,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Gap(16),
+          // Price
+          Text(
+            '${Formatters.formatCurrency(property.price)} VNĐ',
+            style: AppTextStyles.priceLarge.copyWith(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
             ),
           ),
-        ),
+          const Gap(16),
+          // Key Stats: Bed, Bath, Area, Floors
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              if (property.soPhongNgu != null)
+                _KeyStatItem(
+                  icon: FontAwesomeIcons.bed,
+                  label: '${property.soPhongNgu} PN',
+                ),
+              if (property.soPhongTam != null)
+                _KeyStatItem(
+                  icon: FontAwesomeIcons.bath,
+                  label: '${property.soPhongTam} WC',
+                ),
+              if (property.areaSize > 0)
+                _KeyStatItem(
+                  icon: FontAwesomeIcons.ruler,
+                  label: Formatters.formatArea(property.areaSize),
+                ),
+              if (property.soTang != null)
+                _KeyStatItem(
+                  icon: FontAwesomeIcons.building,
+                  label: '${property.soTang} tầng',
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -881,181 +865,11 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     );
   }
 
-  Widget _buildFloorPlanSection(PostModel property) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text('Mặt bằng', style: AppTextStyles.h5),
-              const Spacer(),
-              TextButton(
-                onPressed: () => _showFloorPlanSheet(property),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Xem mặt bằng',
-                      style: AppTextStyles.labelLarge.copyWith(
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const Gap(4),
-                    const FaIcon(
-                      FontAwesomeIcons.chevronRight,
-                      size: 12,
-                      color: AppColors.primary,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const Gap(12),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const FaIcon(
-                          FontAwesomeIcons.bed,
-                          size: 16,
-                          color: AppColors.textSecondary,
-                        ),
-                        const Gap(8),
-                        Text('670 Sqft', style: AppTextStyles.bodyMedium),
-                      ],
-                    ),
-                    const Gap(12),
-                    Row(
-                      children: [
-                        const FaIcon(
-                          FontAwesomeIcons.tag,
-                          size: 16,
-                          color: AppColors.textSecondary,
-                        ),
-                        const Gap(8),
-                        Text('\$1,600', style: AppTextStyles.bodyMedium),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const Gap(24),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const FaIcon(
-                          FontAwesomeIcons.bath,
-                          size: 16,
-                          color: AppColors.textSecondary,
-                        ),
-                        const Gap(8),
-                        Text('530 Sqft', style: AppTextStyles.bodyMedium),
-                      ],
-                    ),
-                    const Gap(12),
-                    Row(
-                      children: [
-                        const FaIcon(
-                          FontAwesomeIcons.ruler,
-                          size: 16,
-                          color: AppColors.textSecondary,
-                        ),
-                        const Gap(8),
-                        Text('1345 Sqft', style: AppTextStyles.bodyMedium),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showFloorPlanSheet(PostModel property) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.4,
-        minChildSize: 0.2,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) {
-          return Container(
-            decoration: const BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                // Handle
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                // Title
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text('Floor Plans', style: AppTextStyles.h5),
-                ),
-                const Gap(16),
-                // Content
-                Expanded(
-                  child: ListView(
-                    controller: scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    children: [
-                      Text('First Floor', style: AppTextStyles.h6),
-                      const Gap(12),
-                      Container(
-                        height: 200,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceVariant,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Floor Plan Image',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const Gap(20),
-                      // Add more floor plans here
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   Widget _buildDetailsSection(PostModel property) {
-    final hasPerM2 = property.priceUnit == PriceUnit.perM2;
-    final pricePerSqft = property.areaSize > 0
+    // Tính đơn giá theo m² nếu có diện tích (chỉ cho bán)
+    // Hoặc hiển thị giá/tháng cho cho thuê
+    final pricePerSqft = property.areaSize > 0 && property.transactionType == TransactionType.sale
         ? property.price / property.areaSize
         : 0.0;
 
@@ -1102,52 +916,62 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
           Column(
             children: [
               _DetailRow(
-                label: 'Mã bất động sản:',
-                value: property.id.toString(),
+                label: 'Diện tích:',
+                value: Formatters.formatArea(property.areaSize),
               ),
-              const Gap(12),
-              _DetailRow(
-                label: 'Giá chính:',
-                value: Formatters.formatPriceWithUnit(
-                  property.price,
-                  property.priceUnit,
-                ),
-              ),
-              if (hasPerM2 || pricePerSqft > 0) ...[
+              // Đơn giá theo m² cho bán, hoặc giá/tháng cho cho thuê
+              if (property.transactionType == TransactionType.sale && pricePerSqft > 0) ...[
                 const Gap(12),
                 _DetailRow(
-                  label: 'Đơn giá theo diện tích:',
-                  value: '\$${pricePerSqft.toStringAsFixed(0)}/sq ft',
+                  label: 'Đơn giá:',
+                  value: '${Formatters.formatCurrency(pricePerSqft)}/m²',
                 ),
               ],
-              const Gap(12),
-              _DetailRow(
-                label: 'Loại bất động sản:',
-                value:
-                    property.categoryName ?? property.category?.name ?? 'N/A',
-              ),
+              if (property.transactionType == TransactionType.rent) ...[
+                const Gap(12),
+                _DetailRow(
+                  label: 'Đơn giá:',
+                  value: '${Formatters.formatCurrency(property.price)}/tháng',
+                ),
+              ],
               AnimatedSize(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
                 child: _isDetailsExpanded
                     ? Column(
                         children: [
-                          const Gap(12),
-                          _DetailRow(
-                            label: 'Diện tích',
-                            value: Formatters.formatArea(property.areaSize),
-                          ),
+                          if (property.soPhongNgu != null) ...[
+                            const Gap(12),
+                            _DetailRow(
+                              label: 'Số phòng ngủ:',
+                              value: '${property.soPhongNgu}',
+                            ),
+                          ],
+                          if (property.soPhongTam != null) ...[
+                            const Gap(12),
+                            _DetailRow(
+                              label: 'Số phòng tắm:',
+                              value: '${property.soPhongTam}',
+                            ),
+                          ],
                           if (property.soTang != null) ...[
                             const Gap(12),
                             _DetailRow(
-                              label: 'Số tầng',
+                              label: 'Số tầng:',
                               value: '${property.soTang}',
+                            ),
+                          ],
+                          if (property.matTien != null) ...[
+                            const Gap(12),
+                            _DetailRow(
+                              label: 'Mặt tiền:',
+                              value: '${property.matTien} m',
                             ),
                           ],
                           if (property.duongVao != null) ...[
                             const Gap(12),
                             _DetailRow(
-                              label: 'Đường vào',
+                              label: 'Đường vào:',
                               value: '${property.duongVao} m',
                             ),
                           ],
@@ -1155,7 +979,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                               property.huongNha!.isNotEmpty) ...[
                             const Gap(12),
                             _DetailRow(
-                              label: 'Hướng nhà',
+                              label: 'Hướng nhà:',
                               value: property.huongNha!,
                             ),
                           ],
@@ -1163,22 +987,15 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                               property.huongBanCong!.isNotEmpty) ...[
                             const Gap(12),
                             _DetailRow(
-                              label: 'Hướng ban công',
+                              label: 'Hướng ban công:',
                               value: property.huongBanCong!,
-                            ),
-                          ],
-                          if (property.matTien != null) ...[
-                            const Gap(12),
-                            _DetailRow(
-                              label: 'Mặt tiền',
-                              value: '${property.matTien} m',
                             ),
                           ],
                           if (property.phapLy != null &&
                               property.phapLy!.isNotEmpty) ...[
                             const Gap(12),
                             _DetailRow(
-                              label: 'Pháp lý',
+                              label: 'Pháp lý:',
                               value: property.phapLy!,
                             ),
                           ],
@@ -1193,15 +1010,52 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     );
   }
 
-  Widget _buildContactCard(PostModel property) {
+  Widget _buildContactAndAppointment(PostModel property) {
     final user = property.user;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Thông tin liên hệ', style: AppTextStyles.h5),
+          // Title và Button nằm ngang với nhau
+          Row(
+            children: [
+              Expanded(
+                child: Text('Thông tin liên hệ', style: AppTextStyles.h5),
+              ),
+              ElevatedButton(
+                onPressed: () => _navigateToCreateAppointment(property),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  elevation: 0,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const FaIcon(FontAwesomeIcons.calendarPlus, size: 14),
+                    const Gap(6),
+                    Text(
+                      'Đặt lịch hẹn',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const Gap(16),
+          // Thông tin user
           InkWell(
             onTap: () {
               if (user != null) {
@@ -1287,6 +1141,23 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         ],
       ),
     );
+  }
+
+  void _navigateToCreateAppointment(PostModel property) async {
+    final result = await AppointmentCreateDialog.show(
+      context,
+      propertyId: property.id,
+      propertyTitle: property.title,
+    );
+
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã tạo lịch hẹn thành công!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 }
 

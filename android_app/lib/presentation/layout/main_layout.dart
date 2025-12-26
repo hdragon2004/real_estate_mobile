@@ -6,13 +6,17 @@ import '../screens/home/search_screen.dart';
 import '../screens/post/create_post_screen.dart';
 import '../widgets/navigation/custom_bottom_nav_bar.dart';
 import '../widgets/navigation/app_drawer.dart';
-import '../../core/repositories/user_repository.dart';
-import '../../core/repositories/message_repository.dart';
+import '../../core/services/message_service.dart';
+import '../../core/services/user_service.dart';
 import '../../core/services/auth_storage_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/models/notification_model.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../widgets/error/error_handler.dart';
+import '../widgets/common/notification_banner.dart';
+import '../screens/post/post_details_screen.dart';
+import '../screens/notification/notification_details_screen.dart';
 
 /// Layout chính với Custom Bottom Navigation Bar
 /// Thiết kế: 4 tabs - Trang chủ, Tìm kiếm, Tin nhắn, Yêu thích + Nút đăng tin (FAB)
@@ -31,8 +35,11 @@ class _MainLayoutState extends State<MainLayout> {
 
   // Scroll controller để theo dõi trạng thái scroll
   final ScrollController _scrollController = ScrollController();
-  final MessageRepository _messageRepository = MessageRepository();
+  final MessageService _messageService = MessageService();
   final NotificationService _notificationService = NotificationService();
+  
+  // Quản lý banner thông báo
+  NotificationModel? _currentNotification;
 
   // Key để truy cập SearchScreen state
   final GlobalKey<SearchScreenState> _searchScreenKey =
@@ -76,7 +83,7 @@ class _MainLayoutState extends State<MainLayout> {
 
       // Lắng nghe thông báo real-time
       _notificationService.notificationStream.listen((notification) {
-        _showNotificationSnackBar(notification);
+        _showNotificationBanner(notification);
       });
 
       // Lắng nghe tin nhắn real-time
@@ -84,80 +91,70 @@ class _MainLayoutState extends State<MainLayout> {
         // Có thể cập nhật badge tin nhắn ở đây
         _checkUnreadMessages();
       });
+
+      // Lắng nghe lỗi từ NotificationService và hiển thị cho người dùng
+      _notificationService.errorStream.listen((error) {
+        if (mounted) {
+          ErrorHandler.showError(context, error);
+        }
+      });
     } catch (e) {
-      debugPrint('[MainLayout] Error initializing notifications: $e');
+      if (mounted) {
+        ErrorHandler.showError(context, e);
+      }
     }
   }
 
-  /// Hiển thị thông báo dưới dạng SnackBar
-  void _showNotificationSnackBar(NotificationModel notification) {
+  /// Hiển thị thông báo dưới dạng Banner ở phía trên
+  void _showNotificationBanner(NotificationModel notification) {
     if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              _getNotificationIcon(notification.type),
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    notification.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  if (notification.message.isNotEmpty)
-                    Text(
-                      notification.message,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white70,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.primary,
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: 'Xem',
-          textColor: Colors.white,
-          onPressed: () {
-            // TODO: Navigate to notification details or related screen
-            // Ví dụ: nếu có postId, navigate đến post details
-            if (notification.postId != null) {
-              // Navigator.push(...)
-            }
-          },
-        ),
-      ),
-    );
+    
+    setState(() {
+      _currentNotification = notification;
+    });
   }
 
-  /// Lấy icon tương ứng với loại thông báo
-  IconData _getNotificationIcon(NotificationType type) {
-    switch (type) {
-      case NotificationType.appointment:
-        return Icons.calendar_today;
-      case NotificationType.property:
-        return Icons.home;
-      case NotificationType.message:
-        return Icons.message;
-      default:
-        return Icons.notifications;
+  /// Xử lý khi user nhấn "Xem" trên banner
+  void _handleViewNotification(NotificationModel notification) {
+    if (notification.postId != null) {
+      // Navigate đến post details
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PostDetailsScreen(
+            propertyId: notification.postId.toString(),
+          ),
+        ),
+      );
+    } else if (notification.appointmentId != null) {
+      // Navigate đến appointment details hoặc notification details
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NotificationDetailsScreen(
+            notification: notification,
+          ),
+        ),
+      );
+    } else {
+      // Navigate đến notification details
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NotificationDetailsScreen(
+            notification: notification,
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Xử lý khi banner bị dismiss
+  void _handleDismissBanner() {
+    if (mounted) {
+      setState(() {
+        _currentNotification = null;
+      });
     }
   }
 
@@ -166,7 +163,7 @@ class _MainLayoutState extends State<MainLayout> {
       final userId = await AuthStorageService.getUserId();
       if (userId == null) return;
 
-      final conversations = await _messageRepository.getConversations(userId);
+      final conversations = await _messageService.getConversations(userId);
       final hasUnread = conversations.any(
         (conv) => (conv['unreadCount'] as int? ?? 0) > 0,
       );
@@ -181,7 +178,6 @@ class _MainLayoutState extends State<MainLayout> {
     }
   }
 
-  @override
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
@@ -202,9 +198,9 @@ class _MainLayoutState extends State<MainLayout> {
 
   Future<void> _openCreatePostScreen() async {
     // Kiểm tra user đã đăng nhập chưa
-    final userRepository = UserRepository();
+    final userService = UserService();
     try {
-      await userRepository.getProfile();
+      await userService.getProfile();
       // Nếu đã đăng nhập, mở màn hình đăng tin
       if (!mounted) return;
       Navigator.push(
@@ -286,7 +282,26 @@ class _MainLayoutState extends State<MainLayout> {
           }
         },
       ),
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      body: Stack(
+        children: [
+          IndexedStack(index: _currentIndex, children: _screens),
+          // Banner thông báo ở phía trên
+          if (_currentNotification != null)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: NotificationBanner(
+                  notification: _currentNotification!,
+                  onView: () => _handleViewNotification(_currentNotification!),
+                  onDismiss: _handleDismissBanner,
+                ),
+              ),
+            ),
+        ],
+      ),
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _currentIndex,
         isScrolling: _isScrolling,

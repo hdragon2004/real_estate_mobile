@@ -2,9 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/app_text_field.dart';
-import '../../../core/services/image_picker_service.dart';
+import '../../../core/services/post_service.dart';
 import '../../widgets/profile/avatar_picker.dart';
 import '../../widgets/common/confirmation_dialog.dart';
+import '../../widgets/common/choose_photo.dart';
 
 /// Màn hình Chỉnh sửa thông tin cá nhân
 class EditProfileScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isLoading = false;
   String? _avatarUrl;
   File? _selectedImage;
+  final PostService _postService = PostService();
 
   @override
   void initState() {
@@ -44,12 +46,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickImage() async {
-    final image = await ImagePickerService.showImageSourceDialog(context);
-    if (image != null) {
+    final source = await showImageSourceDialog(context);
+    if (source == null) return;
+
+    File? imageFile;
+    
+    if (source == 'camera') {
+      imageFile = await _postService.takePicture(context);
+    } else if (source == 'gallery') {
+      final images = await _postService.pickMultipleImagesFromGallery(
+        context,
+        maxImages: 1,
+      );
+      if (images.isNotEmpty) {
+        imageFile = images.first;
+      }
+    }
+    
+    if (imageFile != null) {
       setState(() {
-        _selectedImage = image;
+        _selectedImage = imageFile;
         // TODO: Upload ảnh lên server và lấy URL
-        // _avatarUrl = await uploadImage(image);
+        // _avatarUrl = await uploadImage(imageFile);
       });
     }
   }

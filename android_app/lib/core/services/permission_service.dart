@@ -94,7 +94,6 @@ class PermissionService {
       
       return false;
     } catch (e) {
-      debugPrint('Error requesting photo library permission: $e');
       // Nếu có lỗi, thử dùng storage permission
       try {
         final storageStatus = await Permission.storage.status;

@@ -9,7 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../../core/models/saved_search_model.dart';
-import '../../../core/repositories/saved_search_repository.dart';
+import '../../../core/services/saved_search_service.dart';
 import '../../../core/services/auth_storage_service.dart';
 import '../../../core/services/nominatim_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -25,7 +25,7 @@ class SavedSearchScreen extends StatefulWidget {
 }
 
 class _SavedSearchScreenState extends State<SavedSearchScreen> {
-  final SavedSearchRepository _repository = SavedSearchRepository();
+  final SavedSearchService _savedSearchService = SavedSearchService();
   bool _isLoading = false;
   List<SavedSearchModel> _savedSearches = [];
   int? _currentUserId;
@@ -56,7 +56,7 @@ class _SavedSearchScreenState extends State<SavedSearchScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final data = await _repository.getUserSavedSearches();
+      final data = await _savedSearchService.getUserSavedSearches();
       if (!mounted) return;
 
       setState(() {
@@ -78,7 +78,7 @@ class _SavedSearchScreenState extends State<SavedSearchScreen> {
 
   Future<void> _deleteSavedSearch(SavedSearchModel savedSearch, int index) async {
     try {
-      await _repository.deleteSavedSearch(savedSearch.id);
+      await _savedSearchService.deleteSavedSearch(savedSearch.id);
       if (!mounted) return;
 
       setState(() {
@@ -385,7 +385,7 @@ class _AddSavedSearchBottomSheet extends StatefulWidget {
 
 class _AddSavedSearchBottomSheetState extends State<_AddSavedSearchBottomSheet> {
   final MapController _mapController = MapController();
-  final SavedSearchRepository _repository = SavedSearchRepository();
+  final SavedSearchService _savedSearchService = SavedSearchService();
   final TextEditingController _radiusController = TextEditingController(text: '5');
   final TextEditingController _minPriceController = TextEditingController();
   final TextEditingController _maxPriceController = TextEditingController();
@@ -601,7 +601,7 @@ class _AddSavedSearchBottomSheetState extends State<_AddSavedSearchBottomSheet> 
         locationName: _locationName,
       );
 
-      await _repository.createSavedSearch(savedSearch);
+      await _savedSearchService.createSavedSearch(savedSearch);
       if (!mounted) return;
 
       Navigator.pop(context);

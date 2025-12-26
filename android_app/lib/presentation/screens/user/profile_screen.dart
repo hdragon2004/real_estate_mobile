@@ -1,16 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../../core/services/auth_storage_service.dart';
-import '../../../core/services/device_info_service.dart';
-import '../../../core/services/image_picker_service.dart';
-import '../../../core/repositories/user_repository.dart';
+import '../../../core/services/user_service.dart';
+import '../../../core/services/post_service.dart';
 import '../../../core/models/auth_models.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../widgets/common/user_avatar.dart';
+import '../../widgets/common/choose_photo.dart';
 import 'post_user_screen.dart';
 
 /// Màn hình Thông tin tài khoản
@@ -22,7 +21,8 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final UserRepository _userRepository = UserRepository();
+  final UserService _userService = UserService();
+  final PostService _postService = PostService();
 
   bool _isUploadingAvatar = false;
   File? _tempAvatarFile; // Ảnh tạm thời khi chọn xong, chưa upload
@@ -62,7 +62,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _isNotLoggedIn = false;
       });
 
-      final user = await _userRepository.getProfile();
+      final user = await _userService.getProfile();
 
       if (!mounted) return;
       setState(() {
@@ -86,10 +86,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadAppVersion() async {
-    final appInfo = await DeviceInfoService.getAppInfo();
-    if (appInfo != null && mounted) {
+    // DeviceInfoService đã bị xóa, comment lại
+    // final appInfo = await DeviceInfoService.getAppInfo();
+    // if (appInfo != null && mounted) {
+    //   setState(() {
+    //     _appVersion = 'Phiên bản ${appInfo.version}';
+    //   });
+    // }
+    if (mounted) {
       setState(() {
-        _appVersion = 'Phiên bản ${appInfo.version}';
+        _appVersion = 'Phiên bản 1.0.0'; // Hardcode version
       });
     }
   }
@@ -106,7 +112,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      final user = await _userRepository.getProfile();
+      final user = await _userService.getProfile();
 
       if (!mounted) return;
       setState(() {
@@ -120,33 +126,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _updateAvatar() async {
     // Hiển thị bottom sheet cho phép chọn camera hoặc thư viện
-    final ImageSource? source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: AppColors.primary),
-              title: const Text('Chụp ảnh'),
-              subtitle: const Text('Chụp ảnh mới từ camera'),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: AppColors.primary),
-              title: const Text('Chọn từ thư viện'),
-              subtitle: const Text('Chọn ảnh từ thư viện'),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-
+    final source = await showImageSourceDialog(context);
     if (source == null) return;
 
     setState(() => _isUploadingAvatar = true);
@@ -159,10 +139,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       
       File? imageFile;
       
-      if (source == ImageSource.camera) {
-        imageFile = await ImagePickerService.takePicture(context);
-      } else {
-        imageFile = await ImagePickerService.pickImageFromGallery(context);
+      if (source == 'camera') {
+        imageFile = await _postService.takePicture(context);
+      } else if (source == 'gallery') {
+        final images = await _postService.pickMultipleImagesFromGallery(
+          context,
+          maxImages: 1,
+        );
+        if (images.isNotEmpty) {
+          imageFile = images.first;
+        }
       }
       
       if (!mounted) {
@@ -181,7 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
 
       // Upload avatar
-      await _userRepository.uploadAvatar(imageFile.path);
+      await _userService.uploadAvatar(imageFile.path);
       
       // Reload chỉ user data để lấy avatar mới (không hiển thị loading toàn màn hình)
       await _reloadUserData();

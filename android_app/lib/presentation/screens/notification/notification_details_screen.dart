@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/repositories/notification_repository.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
@@ -24,7 +24,7 @@ class NotificationDetailsScreen extends StatefulWidget {
 }
 
 class _NotificationDetailsScreenState extends State<NotificationDetailsScreen> {
-  final NotificationRepository _repository = NotificationRepository();
+  final NotificationService _notificationService = NotificationService();
   bool _isMarkingAsRead = false;
 
   @override
@@ -36,13 +36,13 @@ class _NotificationDetailsScreenState extends State<NotificationDetailsScreen> {
     }
   }
 
-
   Future<void> _markAsRead() async {
     if (widget.notification.isRead || _isMarkingAsRead) return;
     
     setState(() => _isMarkingAsRead = true);
     try {
-      await _repository.markAsRead(widget.notification.id);
+      // Sử dụng NotificationService để đảm bảo state được cập nhật đúng
+      await _notificationService.markAsRead(widget.notification.id);
     } catch (e) {
       debugPrint('Error marking notification as read: $e');
     } finally {

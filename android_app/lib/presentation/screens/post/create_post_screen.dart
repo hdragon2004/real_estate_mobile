@@ -6,10 +6,9 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/models/category_model.dart';
 import '../../../core/models/vietnam_address_model.dart';
-import '../../../core/repositories/post_repository.dart';
-import '../../../core/repositories/category_repository.dart';
-import '../../../core/repositories/user_repository.dart';
-import '../../../core/services/image_picker_service.dart';
+import '../../../core/utils/formatters.dart';
+import '../../../core/services/post_service.dart';
+import '../../../core/services/user_service.dart';
 import '../../../core/services/vietnam_address_service.dart';
 import '../../../core/services/nominatim_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -17,6 +16,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/loading_indicator.dart';
+import '../../widgets/common/choose_photo.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -30,9 +30,8 @@ class CreatePostScreen extends StatefulWidget {
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
   final PageController _pageController = PageController();
-  final PostRepository _postRepository = PostRepository();
-  final CategoryRepository _categoryRepository = CategoryRepository();
-  final UserRepository _userRepository = UserRepository();
+  final PostService _postService = PostService();
+  final UserService _userService = UserService();
 
   int _currentStep = 0;
   final int _totalSteps = 5;
@@ -55,7 +54,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   // Form Data
   TransactionType _transactionType = TransactionType.sale;
-  PriceUnit _priceUnit = PriceUnit.total;
+  // PriceUnit đã được bỏ - format tự động dựa trên giá trị Price
   // Status không được gửi lên - backend sẽ tự động set "Pending" khi tạo mới
   CategoryModel? _selectedCategory;
   VietnamProvince? _selectedProvince;
@@ -114,7 +113,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     setState(() => _isLoading = true);
     try {
       final results = await Future.wait([
-        _categoryRepository.getActiveCategories(),
+        _postService.getActiveCategories(),
         VietnamAddressService.fetchProvinces(),
       ]);
 
@@ -274,17 +273,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   /// Chọn/chụp ảnh chính (chỉ 1 ảnh)
   Future<void> _pickMainImage() async {
-    final source = await _showImageSourceDialog();
+    final source = await showImageSourceDialog(context);
     if (source == null || !mounted) return;
 
     File? newImage;
 
     if (source == 'camera') {
-      // Chụp ảnh từ camera
-      newImage = await ImagePickerService.takePicture(context);
+      newImage = await _postService.takePicture(context);
     } else if (source == 'gallery') {
-      // Chọn 1 ảnh từ thư viện
-      final images = await ImagePickerService.pickMultipleImagesFromGallery(
+      final images = await _postService.pickMultipleImagesFromGallery(
         context,
         maxImages: 1,
       );
@@ -302,19 +299,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   /// Chọn/chụp ảnh phụ (nhiều ảnh)
   Future<void> _pickImages() async {
-    final source = await _showImageSourceDialog();
+    final source = await showImageSourceDialog(context);
     if (source == null || !mounted) return;
 
     List<File> newImages = [];
 
     if (source == 'camera') {
-      // Chụp ảnh từ camera
-      final image = await ImagePickerService.takePicture(context);
+      final image = await _postService.takePicture(context);
       if (image != null) {
         newImages.add(image);
       }
     } else if (source == 'gallery') {
-      // Chọn nhiều ảnh từ thư viện
       final remainingSlots = 10 - _selectedImages.length;
       if (remainingSlots <= 0) {
         if (mounted) {
@@ -324,7 +319,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         }
         return;
       }
-      newImages = await ImagePickerService.pickMultipleImagesFromGallery(
+      newImages = await _postService.pickMultipleImagesFromGallery(
         context,
         maxImages: remainingSlots,
       );
@@ -343,71 +338,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
-  /// Hiển thị dialog cho phép chọn giữa camera và thư viện
-  Future<String?> _showImageSourceDialog() async {
-    return showModalBottomSheet<String>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.textHint,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              ListTile(
-                leading: FaIcon(
-                  FontAwesomeIcons.camera,
-                  color: AppColors.primary,
-                ),
-                title: Text('Chụp ảnh', style: AppTextStyles.labelLarge),
-                subtitle: Text(
-                  'Chụp ảnh mới từ camera',
-                  style: AppTextStyles.bodySmall,
-                ),
-                onTap: () => Navigator.pop(context, 'camera'),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: FaIcon(
-                  FontAwesomeIcons.images,
-                  color: AppColors.primary,
-                ),
-                title: Text(
-                  'Chọn từ thư viện',
-                  style: AppTextStyles.labelLarge,
-                ),
-                subtitle: Text(
-                  'Chọn nhiều ảnh từ thư viện',
-                  style: AppTextStyles.bodySmall,
-                ),
-                onTap: () => Navigator.pop(context, 'gallery'),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: FaIcon(
-                  FontAwesomeIcons.circleXmark,
-                  color: AppColors.textSecondary,
-                ),
-                title: Text('Hủy', style: AppTextStyles.labelLarge),
-                onTap: () => Navigator.pop(context),
-              ),
-              const Gap(8),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   void _removeMainImage() {
     setState(() {
@@ -430,7 +360,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       // Lấy thông tin user hiện tại để lấy userId
       int userId;
       try {
-        final currentUser = await _userRepository.getProfile();
+        final currentUser = await _userService.getProfile();
         userId = currentUser.id;
       } catch (e) {
         // Nếu chưa đăng nhập, yêu cầu đăng nhập
@@ -479,74 +409,68 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final fullAddress =
           '${_streetController.text.trim()}, ${_selectedWard!.name}, ${_selectedDistrict!.name}, ${_selectedProvince!.name}';
 
-      // Map PriceUnit từ Flutter enum sang API enum
-      // API chỉ có 2 giá trị: 0 = Tỷ, 1 = Triệu
-      int apiPriceUnit;
-      final priceValue = double.tryParse(_priceController.text) ?? 0;
-      switch (_priceUnit) {
-        case PriceUnit.total:
-          // Nếu giá >= 1 tỷ thì dùng Tỷ (0), ngược lại dùng Triệu (1)
-          apiPriceUnit = priceValue >= 1000000000 ? 0 : 1;
-          break;
-        case PriceUnit.perM2:
-        case PriceUnit.perMonth:
-          // Giá/m² và giá/tháng thường dùng Triệu (1)
-          apiPriceUnit = 1;
-          break;
-      }
+      final transactionTypeString = _transactionType == TransactionType.sale ? 'Sale' : 'Rent';
 
-      // Basic info
       formData.fields.addAll([
         MapEntry('Title', _titleController.text.trim()),
         MapEntry('Description', _descriptionController.text.trim()),
         MapEntry('Price', _priceController.text),
-        MapEntry('PriceUnit', apiPriceUnit.toString()),
-        MapEntry('TransactionType', _transactionType.name),
-        // Status không được gửi lên - backend sẽ tự động set "Pending" khi tạo mới
+        MapEntry('TransactionType', transactionTypeString),
         MapEntry('Street_Name', _streetController.text.trim()),
         MapEntry('Area_Size', _areaController.text),
         MapEntry('CategoryId', _selectedCategory!.id.toString()),
-        MapEntry('UserId', userId.toString()), // Thêm UserId
-        // Địa chỉ từ dropdown - API sẽ tự động tạo Ward nếu cần
-        MapEntry('FullAddress', fullAddress),
+        MapEntry('UserId', userId.toString()),
         MapEntry('CityName', _selectedProvince!.name),
         MapEntry('DistrictName', _selectedDistrict!.name),
         MapEntry('WardName', _selectedWard!.name),
+        MapEntry('FullAddress', fullAddress),
       ]);
 
-      // Thêm tọa độ nếu có
       if (_selectedLatitude != null && _selectedLongitude != null) {
-        formData.fields.add(
-          MapEntry('Latitude', _selectedLatitude!.toString()),
-        );
-        formData.fields.add(
-          MapEntry('Longitude', _selectedLongitude!.toString()),
-        );
+        formData.fields.add(MapEntry('Latitude', _selectedLatitude!.toString()));
+        formData.fields.add(MapEntry('Longitude', _selectedLongitude!.toString()));
+        // PlaceId có thể được thêm sau nếu cần tích hợp Google Places API
+        // formData.fields.add(MapEntry('PlaceId', placeId));
       }
 
-      // Optional fields
+      // Optional property details (theo Post.cs)
       if (_soPhongNguController.text.isNotEmpty) {
-        formData.fields.add(MapEntry('SoPhongNgu', _soPhongNguController.text));
+        final value = int.tryParse(_soPhongNguController.text);
+        if (value != null) {
+          formData.fields.add(MapEntry('SoPhongNgu', value.toString()));
+        }
       }
       if (_soPhongTamController.text.isNotEmpty) {
-        formData.fields.add(MapEntry('SoPhongTam', _soPhongTamController.text));
+        final value = int.tryParse(_soPhongTamController.text);
+        if (value != null) {
+          formData.fields.add(MapEntry('SoPhongTam', value.toString()));
+        }
       }
       if (_soTangController.text.isNotEmpty) {
-        formData.fields.add(MapEntry('SoTang', _soTangController.text));
+        final value = int.tryParse(_soTangController.text);
+        if (value != null) {
+          formData.fields.add(MapEntry('SoTang', value.toString()));
+        }
       }
       if (_matTienController.text.isNotEmpty) {
-        formData.fields.add(MapEntry('MatTien', _matTienController.text));
+        final value = double.tryParse(_matTienController.text);
+        if (value != null) {
+          formData.fields.add(MapEntry('MatTien', value.toString()));
+        }
       }
       if (_duongVaoController.text.isNotEmpty) {
-        formData.fields.add(MapEntry('DuongVao', _duongVaoController.text));
+        final value = double.tryParse(_duongVaoController.text);
+        if (value != null) {
+          formData.fields.add(MapEntry('DuongVao', value.toString()));
+        }
       }
-      if (_phapLyController.text.isNotEmpty) {
-        formData.fields.add(MapEntry('PhapLy', _phapLyController.text));
+      if (_phapLyController.text.trim().isNotEmpty) {
+        formData.fields.add(MapEntry('PhapLy', _phapLyController.text.trim()));
       }
-      if (_huongNha != null) {
+      if (_huongNha != null && _huongNha!.isNotEmpty) {
         formData.fields.add(MapEntry('HuongNha', _huongNha!));
       }
-      if (_huongBanCong != null) {
+      if (_huongBanCong != null && _huongBanCong!.isNotEmpty) {
         formData.fields.add(MapEntry('HuongBanCong', _huongBanCong!));
       }
 
@@ -578,7 +502,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
 
       // Submit - role mặc định là 0 (User)
-      await _postRepository.createPost(formData, role: 0);
+      await _postService.createPost(formData, role: 0);
 
       if (mounted) {
         Navigator.pop(context, true); // Return true to indicate success
@@ -1156,50 +1080,38 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           // Giá
           _buildTextField(
             controller: _priceController,
-            label: 'Giá *',
-            hint: 'VD: 5000000000',
+            label: 'Giá (VNĐ) *',
+            hint: 'VD: 5000000 (sẽ tự động format: 5 triệu)',
             keyboardType: TextInputType.number,
-            suffixText: _priceUnit == PriceUnit.total
-                ? 'VNĐ'
-                : _priceUnit == PriceUnit.perM2
-                ? 'VNĐ/m²'
-                : 'VNĐ/tháng',
+            suffixText: 'VNĐ',
+            onChanged: (value) => setState(() {}), // Trigger rebuild để hiển thị preview
           ),
-          const Gap(12),
-
-          // Đơn vị giá
-          Text('Đơn vị giá', style: AppTextStyles.labelLarge),
-          const Gap(12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildChoiceChip(
-                  label: 'Tổng giá',
-                  isSelected: _priceUnit == PriceUnit.total,
-                  onSelected: () =>
-                      setState(() => _priceUnit = PriceUnit.total),
-                ),
-              ),
-              const Gap(12),
-              Expanded(
-                child: _buildChoiceChip(
-                  label: 'Giá/m²',
-                  isSelected: _priceUnit == PriceUnit.perM2,
-                  onSelected: () =>
-                      setState(() => _priceUnit = PriceUnit.perM2),
-                ),
-              ),
-              const Gap(12),
-              Expanded(
-                child: _buildChoiceChip(
-                  label: 'Giá/tháng',
-                  isSelected: _priceUnit == PriceUnit.perMonth,
-                  onSelected: () =>
-                      setState(() => _priceUnit = PriceUnit.perMonth),
-                ),
-              ),
-            ],
-          ),
+          // Hiển thị preview format nếu đã nhập giá
+          if (_priceController.text.isNotEmpty)
+            Builder(
+              builder: (context) {
+                final priceValue = double.tryParse(_priceController.text) ?? 0;
+                if (priceValue > 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: AppColors.primary),
+                        const Gap(4),
+                        Text(
+                          'Sẽ hiển thị: ${Formatters.formatCurrency(priceValue)} VNĐ',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.primary,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
           const Gap(24),
 
           // Diện tích

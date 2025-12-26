@@ -19,7 +19,7 @@ class VietnamAddressService {
   static final Map<String, List<VietnamDistrict>> _cachedDistricts = {};
   static final Map<String, List<VietnamWard>> _cachedWards = {};
 
-  /// Fetch tất cả tỉnh/thành phố
+  /// Lấy danh sách tất cả tỉnh/thành phố
   static Future<List<VietnamProvince>> fetchProvinces() async {
     if (_cachedProvinces != null) {
       return _cachedProvinces!;
@@ -39,7 +39,7 @@ class VietnamAddressService {
     }
   }
 
-  /// Fetch quận/huyện theo mã tỉnh/thành phố
+  /// Lấy danh sách quận/huyện theo mã tỉnh/thành phố
   static Future<List<VietnamDistrict>> fetchDistricts(String provinceCode) async {
     if (_cachedDistricts.containsKey(provinceCode)) {
       return _cachedDistricts[provinceCode]!;
@@ -60,7 +60,7 @@ class VietnamAddressService {
     }
   }
 
-  /// Fetch phường/xã theo mã quận/huyện
+  /// Lấy danh sách phường/xã theo mã quận/huyện
   static Future<List<VietnamWard>> fetchWards(String districtCode) async {
     if (_cachedWards.containsKey(districtCode)) {
       return _cachedWards[districtCode]!;

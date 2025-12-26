@@ -1,10 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../../core/models/notification_model.dart';
-import '../../../core/repositories/notification_repository.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/services/auth_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -20,23 +21,58 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final NotificationRepository _repository = NotificationRepository();
-  bool _isLoading = false;
+  final NotificationService _notificationService = NotificationService();
+  bool _isLoading = true; // Bắt đầu với loading = true để hiển thị loading ngay
+  bool _isInitialLoad = true; // Flag để phân biệt lần load đầu và refresh
   List<NotificationModel> _notifications = [];
   int? _currentUserId;
+  StreamSubscription<NotificationModel>? _notificationStreamSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadNotifications();
+    // Lắng nghe thông báo real-time
+    _notificationStreamSubscription = _notificationService.notificationStream.listen((notification) {
+      if (mounted) {
+        setState(() {
+          // Kiểm tra xem thông báo đã tồn tại chưa (theo ID) để tránh duplicate
+          final existingIndex = _notifications.indexWhere((n) => n.id == notification.id);
+          if (existingIndex == -1) {
+            // Chỉ thêm nếu chưa tồn tại
+            _notifications.insert(0, notification);
+          } else {
+            // Nếu đã tồn tại, cập nhật thông báo đó
+            _notifications[existingIndex] = notification;
+          }
+          // Sắp xếp lại theo timestamp
+          _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationStreamSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadNotifications() async {
+    // Set loading ngay từ đầu (trừ khi đang refresh)
+    if (_isInitialLoad) {
+      setState(() => _isLoading = true);
+    }
+    
     // Lấy userId từ AuthStorageService
     try {
       _currentUserId = await AuthStorageService.getUserId();
       if (_currentUserId == null) {
         if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _isInitialLoad = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Vui lòng đăng nhập để xem thông báo'),
@@ -48,6 +84,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } catch (e) {
       debugPrint('Error getting user ID: $e');
       if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _isInitialLoad = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Lỗi xác thực: $e'),
@@ -56,16 +96,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       );
       return;
     }
-    
-    setState(() => _isLoading = true);
     try {
-      final data = await _repository.getNotifications(_currentUserId!);
+      await _notificationService.initialize();
+      final notifications = _notificationService.notifications;
       if (!mounted) return;
       
       setState(() {
-        _notifications = data.map((json) => NotificationModel.fromJson(json)).toList()
+        _notifications = List.from(notifications)
           ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
         _isLoading = false;
+        _isInitialLoad = false; // Đánh dấu đã load xong lần đầu
       });
     } catch (e) {
       if (!mounted) return;
@@ -82,7 +122,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _deleteNotification(NotificationModel notification, int index) async {
     try {
-      await _repository.deleteNotification(notification.id);
+      await _notificationService.deleteNotification(notification.id);
       if (!mounted) return;
       
       setState(() {
@@ -99,19 +139,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  void _handleNotificationTap(NotificationModel notification) {
+  void _handleNotificationTap(NotificationModel notification) async {
     // Điều hướng đến màn hình chi tiết thông báo
-          Navigator.push(
-            context,
-            MaterialPageRoute(
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
         builder: (context) => NotificationDetailsScreen(
           notification: notification,
-              ),
-            ),
-    ).then((_) {
-      // Refresh danh sách khi quay lại
-      _loadNotifications();
-    });
+        ),
+      ),
+    );
+    
+    // Khi quay lại, cập nhật danh sách từ NotificationService
+    // để đảm bảo sync với state đã được cập nhật (isRead, etc.)
+    if (mounted) {
+      setState(() {
+        final updatedNotifications = _notificationService.notifications;
+        _notifications = List.from(updatedNotifications)
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      });
+    }
   }
 
   IconData _getNotificationIcon(NotificationType type) {
@@ -167,7 +214,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         title: Text('Thông báo', style: AppTextStyles.h6),
       ),
       body: _isLoading
-          ? const Center(child: LoadingIndicator())
+          ? const LoadingIndicator(message: 'Đang tải thông báo...')
           : _notifications.isEmpty
               ? EmptyState(
                   icon: FontAwesomeIcons.bell,

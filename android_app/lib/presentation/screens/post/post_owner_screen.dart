@@ -3,7 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:gap/gap.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/post_model.dart';
-import '../../../core/repositories/post_repository.dart';
+import '../../../core/services/post_service.dart';
 import '../../../core/services/auth_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -40,7 +40,7 @@ class PostOwnerScreen extends StatefulWidget {
 }
 
 class _PostOwnerScreenState extends State<PostOwnerScreen> {
-  final PostRepository _postRepository = PostRepository();
+  final PostService _postService = PostService();
   List<PostModel> _userPosts = [];
   bool _isLoading = true;
   String? _errorMessage;
@@ -58,7 +58,7 @@ class _PostOwnerScreenState extends State<PostOwnerScreen> {
     });
 
     try {
-      final posts = await _postRepository.getPostsByUser(widget.userId);
+      final posts = await _postService.getPostsByUser(widget.userId);
       
       if (!mounted) return;
       setState(() {

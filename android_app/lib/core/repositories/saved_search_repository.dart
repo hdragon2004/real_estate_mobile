@@ -1,60 +1,40 @@
-import '../network/api_client.dart';
 import '../constants/api_constants.dart';
 import '../models/saved_search_model.dart';
+import 'base_repository.dart';
+import 'api_response.dart';
 
-class SavedSearchRepository {
-  final ApiClient _apiClient = ApiClient();
-
-  /// Lấy tất cả SavedSearch của user hiện tại
-  Future<List<SavedSearchModel>> getUserSavedSearches() async {
-    try {
-      final response = await _apiClient.get('${ApiConstants.savedSearches}/me');
-      
-      if (response is List) {
-        return response
-            .map((json) => SavedSearchModel.fromJson(json as Map<String, dynamic>))
-            .toList();
-      }
-      return [];
-    } catch (e) {
-      rethrow;
-    }
+class SavedSearchRepository extends BaseRepository {
+  /// Lấy danh sách saved searches của user
+  Future<ApiResponse<List<SavedSearchModel>>> getUserSavedSearches() async {
+    return await handleRequestListWithResponse<SavedSearchModel>(
+      request: () => apiClient.get('${ApiConstants.savedSearches}/me'),
+      fromJson: (json) => SavedSearchModel.fromJson(json),
+    );
   }
 
-  /// Tạo SavedSearch mới
-  Future<SavedSearchModel> createSavedSearch(SavedSearchModel savedSearch) async {
-    try {
-      final response = await _apiClient.post(
+  /// Tạo saved search mới
+  Future<ApiResponse<SavedSearchModel>> createSavedSearch(SavedSearchModel savedSearch) async {
+    return await handleRequestWithResponse<SavedSearchModel>(
+      request: () => apiClient.post(
         ApiConstants.savedSearches,
         data: savedSearch.toJson(),
-      );
-      return SavedSearchModel.fromJson(response as Map<String, dynamic>);
-    } catch (e) {
-      rethrow;
-    }
+      ),
+      fromJson: (json) => SavedSearchModel.fromJson(json),
+    );
   }
 
-  /// Xóa SavedSearch
+  /// Xóa saved search
   Future<void> deleteSavedSearch(int id) async {
-    try {
-      await _apiClient.delete('${ApiConstants.savedSearches}/$id');
-    } catch (e) {
-      rethrow;
-    }
+    return await handleVoidRequest(
+      request: () => apiClient.delete('${ApiConstants.savedSearches}/$id'),
+    );
   }
 
-  /// Lấy danh sách posts phù hợp với SavedSearch
-  Future<List<Map<String, dynamic>>> getMatchingPosts(int savedSearchId) async {
-    try {
-      final response = await _apiClient.get('${ApiConstants.savedSearches}/$savedSearchId/posts');
-      
-      if (response is List) {
-        return response.cast<Map<String, dynamic>>();
-      }
-      return [];
-    } catch (e) {
-      rethrow;
-    }
+  /// Lấy danh sách posts phù hợp với saved search
+  Future<ApiResponse<List<Map<String, dynamic>>>> getMatchingPosts(int savedSearchId) async {
+    return await handleRequestListWithResponse<Map<String, dynamic>>(
+      request: () => apiClient.get('${ApiConstants.savedSearches}/$savedSearchId/posts'),
+      fromJson: (json) => Map<String, dynamic>.from(json),
+    );
   }
 }
-

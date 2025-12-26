@@ -1,13 +1,14 @@
 import 'package:flutter/foundation.dart';
 import '../models/post_model.dart';
 import '../repositories/favorite_repository.dart';
+import '../repositories/api_exception.dart';
+import 'base_service.dart';
 
-class FavoriteService {
-  FavoriteService._();
-  static final FavoriteService _instance = FavoriteService._();
-  factory FavoriteService() => _instance;
-
-  final FavoriteRepository _repository = FavoriteRepository();
+class FavoriteService extends BaseService {
+  late FavoriteRepository _repository;
+  FavoriteService() {
+    _repository = FavoriteRepository();
+  }
   final ValueNotifier<List<PostModel>> _favoritesNotifier = ValueNotifier<List<PostModel>>([]);
 
   ValueListenable<List<PostModel>> get favoritesListenable => _favoritesNotifier;
@@ -20,17 +21,30 @@ class FavoriteService {
 
   /// Load favorites từ backend
   Future<void> loadFavorites(int userId) async {
-    try {
-      final favoritesData = await _repository.getFavoritesByUser(userId);
+    await safeApiCall(() async {
+      final response = await _repository.getFavoritesByUser(userId);
+      final favoritesData = unwrapListResponse(response);
+      
       // Parse từ Favorite objects (có chứa Post) thành PostModel
-      final posts = favoritesData
-          .where((fav) => fav['post'] != null)
-          .map((fav) => PostModel.fromJson(fav['post'] as Map<String, dynamic>))
-          .toList();
+      final posts = <PostModel>[];
+      for (final fav in favoritesData) {
+        try {
+          if (fav['post'] != null && fav['post'] is Map<String, dynamic>) {
+            final postJson = fav['post'] as Map<String, dynamic>;
+            final post = PostModel.fromJson(postJson);
+            posts.add(post);
+          }
+        } catch (e) {
+          handleError(ApiException(
+            statusCode: 0,
+            message: 'Lỗi parse post: ${e.toString()}',
+            originalError: e,
+          ));
+        }
+      }
+      
       _favoritesNotifier.value = posts;
-    } catch (e) {
-      debugPrint('Error loading favorites: $e');
-    }
+    });
   }
 
   /// Toggle favorite - đồng bộ với backend (nếu có userId) hoặc chỉ local
@@ -39,16 +53,14 @@ class FavoriteService {
     
     // Nếu có userId, đồng bộ với backend
     if (userId != null) {
-      try {
+      await safeApiCall(() async {
         if (isCurrentlyFavorite) {
           await _repository.removeFavorite(userId, property.id);
         } else {
-          await _repository.addFavorite(userId, property.id);
+          final response = await _repository.addFavorite(userId, property.id);
+          unwrapResponse(response);
         }
-      } catch (e) {
-        debugPrint('Error toggling favorite: $e');
-        // Fallback về local nếu lỗi
-      }
+      });
     }
     
     // Update local state
@@ -65,12 +77,7 @@ class FavoriteService {
   Future<void> removeFavorite(int postId, [int? userId]) async {
     // Nếu có userId, đồng bộ với backend
     if (userId != null) {
-      try {
-        await _repository.removeFavorite(userId, postId);
-      } catch (e) {
-        debugPrint('Error removing favorite: $e');
-        // Fallback về local nếu lỗi
-      }
+      await safeApiCall(() => _repository.removeFavorite(userId, postId));
     }
     
     // Update local state
@@ -81,15 +88,13 @@ class FavoriteService {
 
   /// Add favorite
   Future<void> addFavorite(PostModel property, int userId) async {
-    try {
-      await _repository.addFavorite(userId, property.id);
+    await safeApiCall(() async {
+      final response = await _repository.addFavorite(userId, property.id);
+      unwrapResponse(response);
       final favorites = List<PostModel>.from(_favoritesNotifier.value)
         ..insert(0, property);
       _favoritesNotifier.value = favorites;
-    } catch (e) {
-      debugPrint('Error adding favorite: $e');
-      rethrow;
-    }
+    });
   }
 
   void upsert(PostModel property) {

@@ -4,7 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
-import '../../../core/repositories/auth_repository.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/auth_storage_service.dart';
 
@@ -37,8 +37,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final authRepo = AuthRepository();
-      final authResponse = await authRepo.login(
+      final authService = AuthService();
+      final authResponse = await authService.login(
         _emailController.text.trim(),
         _passwordController.text,
       );

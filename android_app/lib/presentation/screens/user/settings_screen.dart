@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../widgets/common/confirmation_dialog.dart';
-import 'device_info_demo_screen.dart';
-import '../../../core/services/device_info_service.dart';
+// import 'device_info_demo_screen.dart'; // DeviceInfoDemoScreen không còn hoạt động
+// import '../../../core/services/device_info_service.dart'; // DeviceInfoService đã bị xóa
 
 /// Màn hình Cài đặt ứng dụng
 class SettingsScreen extends StatefulWidget {
@@ -25,10 +25,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadAppVersion() async {
-    final appInfo = await DeviceInfoService.getAppInfoString();
     if (mounted) {
       setState(() {
-        _appVersion = appInfo;
+        _appVersion = 'App Version 1.0.0';
       });
     }
   }
@@ -110,10 +109,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: const Text('Xem thông tin chi tiết về thiết bị'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const DeviceInfoDemoScreen(),
+                  // DeviceInfoDemoScreen đã bị xóa - comment lại
+                  // Navigator.push(
+                  //   context,
+                  //   MaterialPageRoute(
+                  //     builder: (context) => const DeviceInfoDemoScreen(),
+                  //   ),
+                  // );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Tính năng này đã bị tạm thời vô hiệu hóa'),
                     ),
                   );
                 },

@@ -1,64 +1,15 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/empty_state.dart';
-import '../../../core/repositories/message_repository.dart';
+import '../../../core/services/message_service.dart';
 import '../../../core/services/auth_storage_service.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../core/models/chat_model.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/image_url_helper.dart' as image_helper;
 import 'chat_screen.dart';
-
-/// Model cho Chat
-class ChatModel {
-  final String id;
-  final int userId;
-  final String userName;
-  final String? userAvatar;
-  final String lastMessage;
-  final DateTime lastMessageTime;
-  final int unreadCount;
-  final bool isOnline;
-  final int? postId; // Có thể null nếu tin nhắn không liên quan đến post
-  final String? postTitle;
-
-  ChatModel({
-    required this.id,
-    required this.userId,
-    required this.userName,
-    this.userAvatar,
-    required this.lastMessage,
-    required this.lastMessageTime,
-    this.unreadCount = 0,
-    this.isOnline = false,
-    this.postId, // Có thể null
-    this.postTitle,
-  });
-
-  factory ChatModel.fromJson(Map<String, dynamic> json, int currentUserId) {
-    final lastMessage = json['lastMessage'] as Map<String, dynamic>?;
-    final otherUserId = json['otherUserId'] as int;
-    
-    // Tạo ConversationId chỉ từ userId (không có postId)
-    final minId = currentUserId < otherUserId ? currentUserId : otherUserId;
-    final maxId = currentUserId > otherUserId ? currentUserId : otherUserId;
-    final conversationId = '$minId' '_' '$maxId';
-    
-    return ChatModel(
-      id: conversationId,
-      userId: otherUserId,
-      userName: json['otherUserName'] as String? ?? 'Người dùng',
-      userAvatar: json['otherUserAvatarUrl'] as String?,
-      lastMessage: lastMessage?['content'] as String? ?? '',
-      lastMessageTime: lastMessage != null && lastMessage['sentTime'] != null
-          ? DateTime.parse(lastMessage['sentTime'] as String)
-          : DateTime.now(),
-      unreadCount: json['unreadCount'] as int? ?? 0,
-      isOnline: false, // TODO: Implement online status
-      postId: lastMessage?['postId'] as int?, // Có thể null, lấy từ lastMessage
-      postTitle: lastMessage?['postTitle'] as String?,
-    );
-  }
-}
 
 /// Màn hình Danh sách cuộc trò chuyện
 class ChatListScreen extends StatefulWidget {
@@ -69,14 +20,69 @@ class ChatListScreen extends StatefulWidget {
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {
-  final MessageRepository _messageRepository = MessageRepository();
+  final MessageService _messageService = MessageService();
+  final NotificationService _notificationService = NotificationService();
   bool _isLoading = false;
   List<ChatModel> _chats = [];
+  StreamSubscription<Map<String, dynamic>>? _messageStreamSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadChats();
+    // Lắng nghe tin nhắn mới từ SignalR để cập nhật danh sách chat real-time
+    _messageStreamSubscription = _notificationService.messageStream.listen((messageData) {
+      // Khi có tin nhắn mới, cập nhật local state thay vì reload từ server
+      try {
+        final senderId = int.tryParse(messageData['senderId']?.toString() ?? 
+                                     messageData['SenderId']?.toString() ?? '0') ?? 0;
+        final receiverId = int.tryParse(messageData['receiverId']?.toString() ?? 
+                                        messageData['ReceiverId']?.toString() ?? '0') ?? 0;
+        final content = messageData['content']?.toString() ?? 
+                       messageData['Content']?.toString() ?? '';
+        final sentTime = messageData['sentTime']?.toString() ?? 
+                        messageData['SentTime']?.toString();
+        
+        // Lấy currentUserId để xác định otherUserId
+        AuthStorageService.getUserId().then((currentUserId) {
+          if (currentUserId == null) return;
+          
+          // Xác định otherUserId (người còn lại trong conversation)
+          final otherUserId = senderId == currentUserId ? receiverId : senderId;
+          
+          if (otherUserId > 0 && content.isNotEmpty) {
+            DateTime lastMessageTime;
+            if (sentTime != null) {
+              final parsed = DateTime.parse(sentTime);
+              lastMessageTime = parsed.isUtc ? parsed.toLocal() : parsed;
+            } else {
+              lastMessageTime = DateTime.now();
+            }
+            
+            // Cập nhật local state
+            if (mounted) {
+              _updateChatLastMessage(
+                otherUserId: otherUserId,
+                lastMessage: content,
+                lastMessageTime: lastMessageTime,
+              );
+            }
+          }
+        });
+      } catch (e) {
+        debugPrint('Lỗi khi cập nhật chat từ SignalR: $e');
+        // Fallback: reload nếu có lỗi
+        if (mounted) {
+          _loadChats();
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _messageStreamSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadChats() async {
@@ -96,7 +102,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       // Note: Backend hiện tại sử dụng Stream Chat, endpoint này có thể không tồn tại
       // Nếu không có, sẽ trả về danh sách rỗng
       try {
-        final conversations = await _messageRepository.getConversations(userId);
+        final conversations = await _messageService.getConversations(userId);
         
         if (!mounted) return;
         setState(() {
@@ -122,6 +128,37 @@ class _ChatListScreenState extends State<ChatListScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  /// Cập nhật tin nhắn cuối cùng cho một chat cụ thể mà không cần reload từ server
+  void _updateChatLastMessage({
+    required int otherUserId,
+    required String lastMessage,
+    required DateTime lastMessageTime,
+  }) {
+    setState(() {
+      // Tìm chat tương ứng với otherUserId
+      final chatIndex = _chats.indexWhere((chat) => chat.userId == otherUserId);
+      if (chatIndex != -1) {
+        // Cập nhật lastMessage và lastMessageTime
+        final updatedChat = ChatModel(
+          id: _chats[chatIndex].id,
+          userId: _chats[chatIndex].userId,
+          userName: _chats[chatIndex].userName,
+          userAvatar: _chats[chatIndex].userAvatar,
+          lastMessage: lastMessage,
+          lastMessageTime: lastMessageTime,
+          unreadCount: _chats[chatIndex].unreadCount,
+          isOnline: _chats[chatIndex].isOnline,
+          postId: _chats[chatIndex].postId,
+          postTitle: _chats[chatIndex].postTitle,
+        );
+        _chats[chatIndex] = updatedChat;
+        
+        // Sắp xếp lại danh sách để chat có tin nhắn mới nhất lên đầu
+        _chats.sort((a, b) => b.lastMessageTime.compareTo(a.lastMessageTime));
+      }
+    });
   }
 
   String _formatTime(DateTime time) {
@@ -282,8 +319,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
                             ],
                           ],
                         ),
-                        onTap: () {
-                          Navigator.push(
+                        onTap: () async {
+                          // Navigate đến ChatScreen và cập nhật danh sách khi quay lại
+                          final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => ChatScreen(
@@ -295,6 +333,15 @@ class _ChatListScreenState extends State<ChatListScreen> {
                               ),
                             ),
                           );
+                          
+                          // Nếu có thông tin tin nhắn mới từ ChatScreen, cập nhật local state
+                          if (mounted && result != null && result is Map<String, dynamic>) {
+                            _updateChatLastMessage(
+                              otherUserId: result['otherUserId'] as int,
+                              lastMessage: result['lastMessage'] as String,
+                              lastMessageTime: result['lastMessageTime'] as DateTime,
+                            );
+                          }
                         },
                       );
                     },

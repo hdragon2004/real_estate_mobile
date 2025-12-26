@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import '../../config/app_config.dart';
 import '../services/auth_storage_service.dart';
 
@@ -28,31 +27,15 @@ class ApiClient {
       ),
     );
 
-    // Thêm Interceptor để log request/response và thêm token
+    // Thêm Interceptor để thêm token
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
         // Thêm Authorization header nếu có token
         if (_authToken != null && _authToken!.isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $_authToken';
         }
-        debugPrint('[API Request] ${options.method} ${options.path}');
         return handler.next(options);
       },
-      onResponse: (response, handler) {
-        debugPrint('[API Response] ${response.statusCode} ${response.requestOptions.path}');
-        return handler.next(response);
-      },
-      onError: (error, handler) {
-        debugPrint('[API Error] ${error.response?.statusCode} ${error.requestOptions.path}');
-        return handler.next(error);
-      },
-    ));
-
-    // Log chi tiết trong debug mode
-    _dio.interceptors.add(LogInterceptor(
-      requestBody: true,
-      responseBody: true,
-      logPrint: (object) => debugPrint('[API] $object'),
     ));
   }
 
@@ -64,10 +47,9 @@ class ApiClient {
       final token = await AuthStorageService.getToken();
       if (token != null && token.isNotEmpty) {
         _authToken = token;
-        debugPrint('[ApiClient] Đã khôi phục token từ storage');
       }
     } catch (e) {
-      debugPrint('[ApiClient] Lỗi khi load token từ storage: $e');
+      // Silent fail
     }
   }
 
@@ -83,9 +65,8 @@ class ApiClient {
     if (token != null && token.isNotEmpty) {
       try {
         await AuthStorageService.saveToken(token);
-        debugPrint('[ApiClient] Đã lưu token vào storage');
       } catch (e) {
-        debugPrint('[ApiClient] Lỗi khi lưu token: $e');
+        // Silent fail
       }
     } else {
       // Nếu token null, xóa khỏi storage
@@ -98,9 +79,8 @@ class ApiClient {
     _authToken = null;
     try {
       await AuthStorageService.deleteToken();
-      debugPrint('[ApiClient] Đã xóa token khỏi storage');
     } catch (e) {
-      debugPrint('[ApiClient] Lỗi khi xóa token: $e');
+      // Silent fail
     }
   }
 

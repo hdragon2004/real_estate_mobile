@@ -24,9 +24,7 @@ class ApiConstants {
   static const String cities = '/locations/cities';
   static const String districts = '/locations/districts';
   static const String wards = '/locations/wards';
-  // /locations/cities/{cityId}/districts - lấy quận theo thành phố
-  // /locations/districts/{districtId}/wards - lấy phường theo quận
-
+  
   // Favorite Endpoints
   static const String favorites = '/favorites';
 

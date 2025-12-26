@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:signalr_netcore/signalr_client.dart';
 import '../../config/app_config.dart';
 import 'auth_storage_service.dart';
@@ -20,171 +19,129 @@ class SignalRService {
   // Callbacks cho notifications và messages
   Function(Map<String, dynamic>)? onNotificationReceived;
   Function(Map<String, dynamic>)? onMessageReceived;
+  
+  // Callback để xử lý lỗi tập trung
+  Function(String message, dynamic error)? onError;
+
+  // Retry configuration
+  static const Duration _reconnectDelay = Duration(seconds: 3);
+  static const Duration _retryDelay = Duration(seconds: 5);
+
+  /// Helper generic để kết nối SignalR hub
+  /// Giảm code lặp giữa connectNotificationHub và connectMessageHub
+  Future<HubConnection?> _connectHub({
+    required String hubPath,
+    required String eventName,
+    required Function(Map<String, dynamic>) onReceived,
+    required bool Function() isConnected,
+    required void Function(bool) setConnected,
+    required HubConnection? Function() getHub,
+    required void Function(HubConnection?) setHub,
+    required Future<void> Function() reconnect,
+  }) async {
+    if (isConnected() && getHub() != null) {
+      return getHub();
+    }
+
+    try {
+      final token = await AuthStorageService.getToken();
+      if (token == null || token.isEmpty) {
+        onError?.call('No token found, cannot connect to $hubPath', null);
+        return null;
+      }
+
+      final baseUrl = AppConfig.baseUrl.replaceAll('/api', '');
+      final hubUrl = '$baseUrl/$hubPath?access_token=$token';
+      
+      final httpOptions = HttpConnectionOptions(
+        accessTokenFactory: () async => token,
+      );
+      
+      final hub = HubConnectionBuilder()
+          .withUrl(hubUrl, options: httpOptions)
+          .build();
+
+      // Đăng ký callback để nhận events
+      hub.on(eventName, (arguments) {
+        try {
+          if (arguments != null && arguments.isNotEmpty) {
+            final data = arguments[0];
+            Map<String, dynamic> mapData;
+            
+            if (data is Map) {
+              mapData = Map<String, dynamic>.from(data);
+            } else if (data is String) {
+              mapData = json.decode(data) as Map<String, dynamic>;
+            } else {
+              onError?.call('Unknown data format in $hubPath', data);
+              return;
+            }
+            
+            onReceived(mapData);
+          }
+        } catch (e) {
+          onError?.call('Error parsing $hubPath event', e);
+        }
+      });
+
+      // Xử lý connection events - tự động reconnect
+      hub.onclose(({Exception? error}) {
+        setConnected(false);
+        if (error != null) {
+          onError?.call('$hubPath disconnected', error);
+        }
+        Future.delayed(_reconnectDelay, () {
+          if (!isConnected()) {
+            reconnect();
+          }
+        });
+      });
+
+      await hub.start();
+      setHub(hub);
+      setConnected(true);
+      
+      return hub;
+    } catch (e) {
+      setConnected(false);
+      onError?.call('Error connecting to $hubPath', e);
+      // Retry sau delay
+      Future.delayed(_retryDelay, () {
+        if (!isConnected()) {
+          reconnect();
+        }
+      });
+      return null;
+    }
+  }
 
   /// Kết nối với NotificationHub để nhận thông báo real-time
   /// Hỗ trợ các loại: Reminder, SavedSearch, Message, approved, etc.
   Future<void> connectNotificationHub() async {
-    if (_isNotificationHubConnected && _notificationHub != null) {
-      debugPrint('[SignalR] NotificationHub already connected');
-      return;
-    }
-
-    try {
-      final token = await AuthStorageService.getToken();
-      if (token == null || token.isEmpty) {
-        debugPrint('[SignalR] No token found, cannot connect to NotificationHub');
-        return;
-      }
-
-      // Tạo connection với JWT token trong query string
-      // SignalR backend nhận token từ query string "access_token"
-      // Lấy base URL và bỏ /api vì SignalR hub không có /api prefix
-      final baseUrl = AppConfig.baseUrl.replaceAll('/api', '');
-      final hubUrl = '$baseUrl/notificationHub?access_token=$token';
-      
-      // Tạo HttpConnectionOptions với accessTokenFactory
-      final httpOptions = HttpConnectionOptions(
-        accessTokenFactory: () async => token,
-      );
-      
-      _notificationHub = HubConnectionBuilder()
-          .withUrl(hubUrl, options: httpOptions)
-          .build();
-
-      // Đăng ký callback để nhận notifications
-      _notificationHub!.on('ReceiveNotification', (arguments) {
-        try {
-          if (arguments != null && arguments.isNotEmpty) {
-            // SignalR gửi object, cần parse thành Map
-            final notification = arguments[0];
-            Map<String, dynamic> notificationMap;
-            
-            if (notification is Map) {
-              notificationMap = Map<String, dynamic>.from(notification);
-            } else if (notification is String) {
-              notificationMap = json.decode(notification) as Map<String, dynamic>;
-            } else {
-              debugPrint('[SignalR] Unknown notification format: $notification');
-              return;
-            }
-            
-            debugPrint('[SignalR] Received notification: $notificationMap');
-            onNotificationReceived?.call(notificationMap);
-          }
-        } catch (e) {
-          debugPrint('[SignalR] Error parsing notification: $e');
-        }
-      });
-
-      // Xử lý connection events
-      _notificationHub!.onclose(({Exception? error}) {
-        _isNotificationHubConnected = false;
-        debugPrint('[SignalR] NotificationHub disconnected: $error');
-        // Tự động reconnect sau 3 giây
-        Future.delayed(const Duration(seconds: 3), () {
-          if (!_isNotificationHubConnected) {
-            connectNotificationHub();
-          }
-        });
-      });
-
-      // Bắt đầu kết nối
-      await _notificationHub!.start();
-      _isNotificationHubConnected = true;
-      debugPrint('[SignalR] NotificationHub connected successfully');
-    } catch (e) {
-      _isNotificationHubConnected = false;
-      debugPrint('[SignalR] Error connecting to NotificationHub: $e');
-      // Retry sau 5 giây
-      Future.delayed(const Duration(seconds: 5), () {
-        if (!_isNotificationHubConnected) {
-          connectNotificationHub();
-        }
-      });
-    }
+    _notificationHub = await _connectHub(
+      hubPath: 'notificationHub',
+      eventName: 'ReceiveNotification',
+      onReceived: (data) => onNotificationReceived?.call(data),
+      isConnected: () => _isNotificationHubConnected,
+      setConnected: (value) => _isNotificationHubConnected = value,
+      getHub: () => _notificationHub,
+      setHub: (hub) => _notificationHub = hub,
+      reconnect: connectNotificationHub,
+    );
   }
 
   /// Kết nối với MessageHub để nhận tin nhắn real-time
   Future<void> connectMessageHub() async {
-    if (_isMessageHubConnected && _messageHub != null) {
-      debugPrint('[SignalR] MessageHub already connected');
-      return;
-    }
-
-    try {
-      final token = await AuthStorageService.getToken();
-      if (token == null || token.isEmpty) {
-        debugPrint('[SignalR] No token found, cannot connect to MessageHub');
-        return;
-      }
-
-      // Tạo connection với JWT token trong query string
-      // Lấy base URL và bỏ /api vì SignalR hub không có /api prefix
-      final baseUrl = AppConfig.baseUrl.replaceAll('/api', '');
-      final hubUrl = '$baseUrl/messageHub?access_token=$token';
-      
-      // Tạo HttpConnectionOptions với accessTokenFactory
-      final httpOptions = HttpConnectionOptions(
-        accessTokenFactory: () async => token,
-      );
-      
-      _messageHub = HubConnectionBuilder()
-          .withUrl(hubUrl, options: httpOptions)
-          .build();
-
-      // Đăng ký callback để nhận messages
-      // Backend gửi MessageDto object qua SignalR event "ReceiveMessage"
-      _messageHub!.on('ReceiveMessage', (arguments) {
-        try {
-          if (arguments != null && arguments.isNotEmpty) {
-            // Backend gửi MessageDto object (1 argument)
-            final messageData = arguments[0];
-            Map<String, dynamic> messageMap;
-            
-            if (messageData is Map) {
-              messageMap = Map<String, dynamic>.from(messageData);
-            } else if (messageData is String) {
-              messageMap = json.decode(messageData) as Map<String, dynamic>;
-            } else {
-              debugPrint('[SignalR] Unknown message format: $messageData');
-              return;
-            }
-            
-            debugPrint('[SignalR] Received message: $messageMap');
-            // Gọi callback với MessageDto đầy đủ
-            onMessageReceived?.call(messageMap);
-          }
-        } catch (e) {
-          debugPrint('[SignalR] Error parsing message: $e');
-        }
-      });
-
-      // Xử lý connection events
-      _messageHub!.onclose(({Exception? error}) {
-        _isMessageHubConnected = false;
-        debugPrint('[SignalR] MessageHub disconnected: $error');
-        // Tự động reconnect sau 3 giây
-        Future.delayed(const Duration(seconds: 3), () {
-          if (!_isMessageHubConnected) {
-            connectMessageHub();
-          }
-        });
-      });
-
-      // Bắt đầu kết nối
-      await _messageHub!.start();
-      _isMessageHubConnected = true;
-      debugPrint('[SignalR] MessageHub connected successfully');
-    } catch (e) {
-      _isMessageHubConnected = false;
-      debugPrint('[SignalR] Error connecting to MessageHub: $e');
-      // Retry sau 5 giây
-      Future.delayed(const Duration(seconds: 5), () {
-        if (!_isMessageHubConnected) {
-          connectMessageHub();
-        }
-      });
-    }
+    _messageHub = await _connectHub(
+      hubPath: 'messageHub',
+      eventName: 'ReceiveMessage',
+      onReceived: (data) => onMessageReceived?.call(data),
+      isConnected: () => _isMessageHubConnected,
+      setConnected: (value) => _isMessageHubConnected = value,
+      getHub: () => _messageHub,
+      setHub: (hub) => _messageHub = hub,
+      reconnect: connectMessageHub,
+    );
   }
 
   /// Kết nối tất cả hubs (gọi sau khi user đăng nhập)
@@ -195,20 +152,27 @@ class SignalRService {
 
   /// Ngắt kết nối tất cả hubs (gọi khi user đăng xuất)
   Future<void> disconnectAll() async {
-    try {
-      if (_notificationHub != null) {
-        await _notificationHub!.stop();
+    final futures = <Future>[];
+    
+    if (_notificationHub != null) {
+      futures.add(_notificationHub!.stop().then((_) {
         _isNotificationHubConnected = false;
-        debugPrint('[SignalR] NotificationHub disconnected');
-      }
-      if (_messageHub != null) {
-        await _messageHub!.stop();
-        _isMessageHubConnected = false;
-        debugPrint('[SignalR] MessageHub disconnected');
-      }
-    } catch (e) {
-      debugPrint('[SignalR] Error disconnecting: $e');
+      }).catchError((e) {
+        onError?.call('Error disconnecting notificationHub', e);
+        _isNotificationHubConnected = false;
+      }));
     }
+    
+    if (_messageHub != null) {
+      futures.add(_messageHub!.stop().then((_) {
+        _isMessageHubConnected = false;
+      }).catchError((e) {
+        onError?.call('Error disconnecting messageHub', e);
+        _isMessageHubConnected = false;
+      }));
+    }
+    
+    await Future.wait(futures);
   }
 
   /// Kiểm tra trạng thái kết nối

@@ -7,10 +7,11 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/models/post_model.dart';
-import '../../../core/repositories/post_repository.dart';
+import '../../../core/services/post_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_shadows.dart';
+import '../../../core/utils/formatters.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/carousel/property_carousel.dart';
 import '../post/post_details_screen.dart';
@@ -25,7 +26,7 @@ class MapSearchScreen extends StatefulWidget {
 
 class _MapSearchScreenState extends State<MapSearchScreen> {
   final MapController _mapController = MapController();
-  final PostRepository _postRepository = PostRepository();
+  final PostService _postService = PostService();
   
   // Vị trí được chọn trên map (cho search)
   LatLng? _selectedCenter;
@@ -158,7 +159,7 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
     setState(() => _isLoadingPosts = true);
     try {
       // Load tất cả posts có tọa độ
-      final posts = await _postRepository.getPosts(isApproved: true);
+      final posts = await _postService.getPosts(isApproved: true);
       final postsWithLocation = posts.where((post) => 
         post.latitude != null && post.longitude != null
       ).toList();
@@ -262,7 +263,7 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
 
     try {
       // Tìm kiếm posts trong radius
-      final results = await _postRepository.searchByRadius(
+      final results = await _postService.searchByRadius(
         centerLat: _selectedCenter!.latitude,
         centerLng: _selectedCenter!.longitude,
         radiusInKm: _selectedRadius,
@@ -297,12 +298,7 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
   }
 
   /// Format giá ngắn gọn cho marker
-  String _formatPriceShort(double price, PriceUnit unit) {
-    if (price >= 1000) {
-      return '${(price / 1000).toStringAsFixed(1)} tỷ';
-    }
-    return '${price.toStringAsFixed(0)} triệu';
-  }
+  // Sử dụng Formatters.formatCurrency thay vì _formatPriceShort
 
   @override
   Widget build(BuildContext context) {
@@ -391,7 +387,7 @@ class _MapSearchScreenState extends State<MapSearchScreen> {
                                       boxShadow: AppShadows.medium,
                                     ),
                                     child: Text(
-                                      _formatPriceShort(post.price, post.priceUnit),
+                                      Formatters.formatCurrency(post.price),
                                       style: AppTextStyles.labelSmall.copyWith(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,

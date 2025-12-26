@@ -1,58 +1,57 @@
 import 'package:dio/dio.dart';
-import '../network/api_client.dart';
 import '../constants/api_constants.dart';
 import '../models/auth_models.dart';
+import 'base_repository.dart';
+import 'api_response.dart';
 
-class UserRepository {
-  final ApiClient _apiClient = ApiClient();
-
-  Future<User> getProfile() async {
-    try {
-      final response = await _apiClient.get(ApiConstants.userProfile);
-      return User.fromJson(response);
-    } catch (e) {
-      rethrow;
-    }
+class UserRepository extends BaseRepository {
+  /// Lấy profile của user hiện tại
+  Future<ApiResponse<User>> getProfile() async {
+    return await handleRequestWithResponse<User>(
+      request: () => apiClient.get(ApiConstants.userProfile),
+      fromJson: (json) => User.fromJson(json),
+    );
   }
 
-  Future<User> updateProfile(User user) async {
-    try {
-      final response = await _apiClient.dio.put(
+  /// Lấy user theo ID
+  Future<ApiResponse<User>> getUserById(int id) async {
+    return await handleRequestWithResponse<User>(
+      request: () => apiClient.get('${ApiConstants.users}/$id'),
+      fromJson: (json) => User.fromJson(json),
+    );
+  }
+
+  /// Cập nhật profile
+  Future<ApiResponse<User>> updateProfile(User user) async {
+    return await handleRequestWithResponse<User>(
+      request: () => apiClient.dio.put(
         ApiConstants.userProfile,
         data: user.toJson(),
-      );
-      return User.fromJson(response.data);
-    } catch (e) {
-      rethrow;
-    }
+      ).then((response) => response.data),
+      fromJson: (json) => User.fromJson(json),
+    );
   }
 
-  Future<String> uploadAvatar(String filePath) async {
-    try {
-      FormData formData = FormData.fromMap({
-        'avatar': await MultipartFile.fromFile(filePath),
-      });
+  /// Upload avatar
+  Future<ApiResponse<String>> uploadAvatar(String filePath) async {
+    FormData formData = FormData.fromMap({
+      'avatar': await MultipartFile.fromFile(filePath),
+    });
 
-      final response = await _apiClient.dio.post(
+    return await handleRequestWithResponse<String>(
+      request: () => apiClient.dio.post(
         ApiConstants.userAvatar,
         data: formData,
         options: Options(
           contentType: 'multipart/form-data',
         ),
-      );
-
-      return response.data['avatarUrl'] ?? '';
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<User> getUserById(int id) async {
-    try {
-      final response = await _apiClient.get('${ApiConstants.users}/$id');
-      return User.fromJson(response);
-    } catch (e) {
-      rethrow;
-    }
+      ).then((response) => response.data),
+      fromJson: (json) {
+        // json luôn là Map<String, dynamic> từ ApiResponse.fromJson
+        // Nếu data là String trực tiếp, ApiResponse.fromJson sẽ tự cast
+        // Nếu data là Map, parse từ Map
+        return json['avatarUrl'] as String? ?? json['data'] as String? ?? '';
+      },
+    );
   }
 }

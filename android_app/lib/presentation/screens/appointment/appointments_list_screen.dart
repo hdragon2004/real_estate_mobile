@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/repositories/appointment_repository.dart';
-import '../../../core/repositories/post_repository.dart';
-import '../../../core/repositories/user_repository.dart';
+import '../../../core/services/appointment_service.dart';
+import '../../../core/services/post_service.dart';
+import '../../../core/services/user_service.dart';
 import '../../../core/services/auth_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -22,9 +22,9 @@ class AppointmentsListScreen extends StatefulWidget {
 
 class _AppointmentsListScreenState extends State<AppointmentsListScreen>
     with SingleTickerProviderStateMixin {
-  final AppointmentRepository _repository = AppointmentRepository();
-  final PostRepository _postRepository = PostRepository();
-  final UserRepository _userRepository = UserRepository();
+  final AppointmentService _appointmentService = AppointmentService();
+  final PostService _postService = PostService();
+  final UserService _userService = UserService();
   List<Map<String, dynamic>> _allAppointments = [];
   bool _isLoading = true;
   String? _error;
@@ -65,12 +65,12 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
       // Load cả 2 loại appointments:
       // 1. Appointments mà user đã tạo (user đặt lịch hẹn)
       // 2. Appointments cho các bài post của user (chủ bài post)
-      final userCreatedAppointments = await _repository.getUserAppointments();
+      final userCreatedAppointments = await _appointmentService.getUserAppointments();
       
       // Load appointments cho bài post của user (có thể fail nếu endpoint chưa được deploy)
       List<Map<String, dynamic>> postOwnerAppointments = [];
       try {
-        postOwnerAppointments = await _repository.getAllAppointmentsForMyPosts();
+        postOwnerAppointments = await _appointmentService.getAllAppointmentsForMyPosts();
       } catch (e) {
         // Nếu endpoint chưa có, chỉ log warning và tiếp tục với appointments user đã tạo
         debugPrint('[AppointmentsListScreen] Warning: Could not load post owner appointments: $e');
@@ -193,7 +193,7 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
         return;
       }
 
-      await _repository.confirmAppointment(appointmentId);
+      await _appointmentService.confirmAppointment(appointmentId);
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -271,7 +271,7 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
         return;
       }
 
-      await _repository.rejectAppointment(appointmentId);
+      await _appointmentService.rejectAppointment(appointmentId);
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -403,7 +403,7 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
     for (final postId in postIds) {
       if (!_postOwnershipCache.containsKey(postId)) {
         try {
-          final post = await _postRepository.getPostById(postId);
+          final post = await _postService.getPostById(postId);
           _postOwnershipCache[postId] = post.userId;
         } catch (e) {
           debugPrint('Error loading post $postId: $e');
@@ -468,7 +468,7 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
 
     try {
       // Lấy post details để lấy thông tin user
-      final post = await _postRepository.getPostById(postIdInt);
+      final post = await _postService.getPostById(postIdInt);
       
       int finalOtherUserId;
       if (isCreatedByUser) {
@@ -481,7 +481,7 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
         finalOtherUserId = appointmentUserIdInt;
         // Fetch thông tin user đặt lịch hẹn từ API
         try {
-          final appointmentUser = await _userRepository.getUserById(appointmentUserIdInt);
+          final appointmentUser = await _userService.getUserById(appointmentUserIdInt);
           userName = appointmentUser.name;
           userAvatar = appointmentUser.avatarUrl;
         } catch (e) {

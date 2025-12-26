@@ -15,11 +15,11 @@ class CategoryModel {
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
     return CategoryModel(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? '',
-      description: json['description'] as String?,
-      icon: json['icon'] as String?,
-      isActive: json['isActive'] ?? true,
+      id: json['id'] ?? json['Id'] ?? 0,
+      name: json['name'] ?? json['Name'] ?? '',
+      description: json['description'] ?? json['Description'],
+      icon: json['icon'] ?? json['Icon'],
+      isActive: json['isActive'] ?? json['IsActive'] ?? true,
     );
   }
 

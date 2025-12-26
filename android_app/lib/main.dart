@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-
 import 'core/theme/app_theme.dart';
 import 'core/network/api_client.dart';
 import 'presentation/screens/splash/splash_screen.dart';

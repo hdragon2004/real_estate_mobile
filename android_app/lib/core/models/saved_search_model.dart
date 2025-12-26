@@ -32,18 +32,26 @@ class SavedSearchModel {
 
   factory SavedSearchModel.fromJson(Map<String, dynamic> json) {
     return SavedSearchModel(
-      id: json['id'] as int,
-      userId: json['userId'] as int,
-      centerLatitude: (json['centerLatitude'] as num).toDouble(),
-      centerLongitude: (json['centerLongitude'] as num).toDouble(),
-      radiusKm: (json['radiusKm'] as num).toDouble(),
-      transactionType: json['transactionType'] as String? ?? 'Sale',
-      minPrice: json['minPrice'] != null ? (json['minPrice'] as num).toDouble() : null,
-      maxPrice: json['maxPrice'] != null ? (json['maxPrice'] as num).toDouble() : null,
-      enableNotification: json['enableNotification'] as bool? ?? true,
-      isActive: json['isActive'] as bool? ?? true,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      locationName: json['locationName'] as String?,
+      id: json['id'] ?? json['Id'] ?? 0,
+      userId: json['userId'] ?? json['UserId'] ?? 0,
+      centerLatitude: ((json['centerLatitude'] ?? json['CenterLatitude']) as num?)?.toDouble() ?? 0.0,
+      centerLongitude: ((json['centerLongitude'] ?? json['CenterLongitude']) as num?)?.toDouble() ?? 0.0,
+      radiusKm: ((json['radiusKm'] ?? json['RadiusKm']) as num?)?.toDouble() ?? 0.0,
+      transactionType: json['transactionType'] ?? json['TransactionType'] ?? 'Sale',
+      minPrice: json['minPrice'] != null || json['MinPrice'] != null
+          ? ((json['minPrice'] ?? json['MinPrice']) as num?)?.toDouble()
+          : null,
+      maxPrice: json['maxPrice'] != null || json['MaxPrice'] != null
+          ? ((json['maxPrice'] ?? json['MaxPrice']) as num?)?.toDouble()
+          : null,
+      enableNotification: json['enableNotification'] ?? json['EnableNotification'] ?? true,
+      isActive: json['isActive'] ?? json['IsActive'] ?? true,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : json['CreatedAt'] != null
+              ? DateTime.parse(json['CreatedAt'] as String)
+              : DateTime.now(),
+      locationName: json['locationName'] ?? json['LocationName'],
     );
   }
 

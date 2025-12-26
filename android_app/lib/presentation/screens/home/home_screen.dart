@@ -10,9 +10,8 @@ import '../notification/notifications_screen.dart';
 import 'saved_search_screen.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/models/vietnam_address_model.dart';
-import '../../../core/repositories/post_repository.dart';
-import '../../../core/repositories/notification_repository.dart';
-import '../../../core/repositories/category_repository.dart';
+import '../../../core/services/post_service.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/services/favorite_service.dart';
 import '../../../core/services/auth_storage_service.dart';
 import '../../../core/services/vietnam_address_service.dart';
@@ -23,7 +22,11 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback? onMenuTap;
   final void Function({Map<String, dynamic>? filters})? onSearchTap;
   
-  const HomeScreen({super.key, this.onMenuTap, this.onSearchTap});
+  const HomeScreen({
+    super.key, 
+    this.onMenuTap, 
+    this.onSearchTap,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -34,10 +37,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   List<PostModel> _featuredProperties = [];
   List<PostModel> _latestProperties = [];
-  final PostRepository _postRepository = PostRepository();
+  final PostService _postService = PostService();
   final FavoriteService _favoriteService = FavoriteService();
-  final NotificationRepository _notificationRepository = NotificationRepository();
-  final CategoryRepository _categoryRepository = CategoryRepository();
+  final NotificationService _notificationService = NotificationService();
   VoidCallback? _favoriteListener;
   String _selectedLocation = 'Hồ Chí Minh'; // Default location
   String? _selectedProvinceCode; // Province code từ VietnamAddressService
@@ -59,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadCategories() async {
     try {
-      final categories = await _categoryRepository.getActiveCategories();
+      final categories = await _postService.getActiveCategories();
       if (!mounted) return;
       
       setState(() {
@@ -201,8 +203,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final userId = await AuthStorageService.getUserId();
       if (userId == null) return;
       
-      final notifications = await _notificationRepository.getNotifications(userId);
-      final hasUnread = notifications.any((n) => (n['isRead'] as bool? ?? false) == false);
+      await _notificationService.initialize();
+      final notifications = _notificationService.notifications;
+      final hasUnread = notifications.any((n) => !n.isRead);
       
       if (mounted) {
         setState(() {
@@ -240,17 +243,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleCategoryTap(_CategoryItem category) {
-    // Điều hướng đến FilterScreen
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const FilterScreen(),
-      ),
-    ).then((result) {
-      if (result != null) {
-        _loadProperties();
-      }
-    });
+    // Điều hướng đến SearchScreen với category đã chọn
+    final filters = <String, dynamic>{};
+    
+    // Nếu có categoryId, thêm vào filters
+    if (category.categoryId != null) {
+      filters['categoryId'] = category.categoryId;
+    }
+    
+    // Nếu có transactionType, thêm vào filters
+    if (category.transactionType != null) {
+      filters['status'] = category.transactionType == TransactionType.sale ? 'Sale' : 'Rent';
+    }
+    
+    // Gọi callback để chuyển sang tab Search với filters
+    widget.onSearchTap?.call(filters: filters);
   }
 
   /// Normalize tên thành phố để so sánh (loại bỏ "Thành phố", "Tỉnh", etc.)
@@ -277,7 +284,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadProperties() async {
     setState(() => _isLoading = true);
     try {
-      final properties = await _postRepository.getPosts(isApproved: true);
+      final properties = await _postService.getPosts(isApproved: true);
       if (!mounted) return;
       
       debugPrint('[HomeScreen] Total properties loaded: ${properties.length}');
@@ -465,7 +472,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          // Spacer để đẩy icon thông báo sang bên phải
           const Spacer(),
           // Button để quản lý khu vực quan tâm
           IconButton(
@@ -486,7 +492,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             tooltip: 'Khu vực quan tâm',
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 1),
           // Notification icon - chỉ hiển thị chấm đỏ khi có thông báo chưa đọc
           IconButton(
             padding: EdgeInsets.zero,

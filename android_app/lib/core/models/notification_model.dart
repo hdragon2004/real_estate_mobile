@@ -1,3 +1,5 @@
+import '../utils/datetime_helper.dart';
+
 /// Model cho Notification
 class NotificationModel {
   final int id;
@@ -11,6 +13,7 @@ class NotificationModel {
   final int? senderId;
   final int? savedSearchId; // ID của khu vực tìm kiếm yêu thích
   final int? appointmentId; // ID của lịch hẹn
+  final int? messageId; // ID của tin nhắn
   final NotificationUser? user;
 
   NotificationModel({
@@ -25,38 +28,37 @@ class NotificationModel {
     this.senderId,
     this.savedSearchId,
     this.appointmentId,
+    this.messageId,
     this.user,
   });
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     // Xử lý timestamp từ nhiều field có thể có
-    // Backend trả về UTC time, cần convert về local time để hiển thị đúng
+    // Sử dụng DateTimeHelper để đảm bảo timezone đúng (Vietnam GMT+7)
     DateTime timestamp;
     if (json['createdAt'] != null) {
-      final parsed = DateTime.parse(json['createdAt'] as String);
-      timestamp = parsed.isUtc ? parsed.toLocal() : parsed;
+      timestamp = DateTimeHelper.fromBackendString(json['createdAt'] as String);
     } else if (json['created'] != null) {
-      final parsed = DateTime.parse(json['created'] as String);
-      timestamp = parsed.isUtc ? parsed.toLocal() : parsed;
+      timestamp = DateTimeHelper.fromBackendString(json['created'] as String);
     } else if (json['timestamp'] != null) {
-      final parsed = DateTime.parse(json['timestamp'] as String);
-      timestamp = parsed.isUtc ? parsed.toLocal() : parsed;
+      timestamp = DateTimeHelper.fromBackendString(json['timestamp'] as String);
     } else {
-      timestamp = DateTime.now(); // Fallback
+      timestamp = DateTimeHelper.getVietnamNow(); // Fallback
     }
     
     return NotificationModel(
-      id: json['id'] as int,
-      userId: json['userId'] as int? ?? 0,
-      title: json['title'] as String? ?? json['message'] as String? ?? 'Thông báo',
-      message: json['message'] as String? ?? json['content'] as String? ?? '',
+      id: json['id'] ?? json['Id'] ?? 0,
+      userId: json['userId'] ?? json['UserId'] ?? 0,
+      title: json['title'] ?? json['Title'] ?? json['message'] ?? json['Message'] ?? 'Thông báo',
+      message: json['message'] ?? json['Message'] ?? json['content'] ?? json['Content'] ?? '',
       timestamp: timestamp,
-      isRead: json['isRead'] as bool? ?? false,
-      type: _parseType(json['type'] as String? ?? 'system'),
-      postId: json['postId'] as int?,
-      senderId: json['senderId'] as int?,
-      savedSearchId: json['savedSearchId'] as int?,
-      appointmentId: json['appointmentId'] as int?,
+      isRead: json['isRead'] ?? json['IsRead'] ?? false,
+      type: _parseType(json['type'] ?? json['Type'] ?? 'system'),
+      postId: json['postId'] ?? json['PostId'],
+      senderId: json['senderId'] ?? json['SenderId'],
+      savedSearchId: json['savedSearchId'] ?? json['SavedSearchId'],
+      appointmentId: json['appointmentId'] ?? json['AppointmentId'],
+      messageId: json['messageId'] ?? json['MessageId'],
       user: json['user'] != null ? NotificationUser.fromJson(json['user']) : null,
     );
   }

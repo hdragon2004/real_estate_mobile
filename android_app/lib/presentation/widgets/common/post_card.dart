@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/models/post_model.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/image_url_helper.dart';
+import '../../../core/utils/formatters.dart';
 
 /// Widget PostCard dùng chung trong app
 /// Design horizontal: ảnh bên trái, content bên phải
@@ -32,14 +33,7 @@ class PostCard extends StatelessWidget {
     return null;
   }
 
-  String _formatPrice(double price, PriceUnit unit) {
-    if (price >= 1000000) {
-      return '${(price / 1000000).toStringAsFixed(1)} tỷ';
-    } else if (price >= 1000) {
-      return '${(price / 1000).toStringAsFixed(0)} triệu';
-    }
-    return '${price.toStringAsFixed(0)} đ';
-  }
+  // _formatPrice đã được thay thế bằng Formatters.formatCurrency
 
   @override
   Widget build(BuildContext context) {
@@ -243,7 +237,7 @@ class PostCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
-                            _formatPrice(property.price, property.priceUnit),
+                            Formatters.formatCurrency(property.price),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,

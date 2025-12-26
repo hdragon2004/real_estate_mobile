@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/device_info_service.dart';
+// import '../../../core/services/device_info_service.dart'; // DeviceInfoService đã bị xóa
 
 /// Màn hình demo hiển thị thông tin thiết bị (dùng info_plus)
 /// Có thể tích hợp vào Settings hoặc About screen
@@ -25,10 +25,13 @@ class _DeviceInfoDemoScreenState extends State<DeviceInfoDemoScreen> {
   Future<void> _loadDeviceInfo() async {
     setState(() => _isLoading = true);
 
-    // Lấy thông tin đầy đủ
-    final fullInfo = await DeviceInfoService.getFullDeviceInfo();
-    final appInfoString = await DeviceInfoService.getAppInfoString();
-    final wifiInfo = await DeviceInfoService.getWiFiInfo();
+    // DeviceInfoService đã bị xóa - comment lại
+    // final fullInfo = await DeviceInfoService.getFullDeviceInfo();
+    // final appInfoString = await DeviceInfoService.getAppInfoString();
+    // final wifiInfo = await DeviceInfoService.getWiFiInfo();
+    final fullInfo = <String, dynamic>{};
+    final appInfoString = 'App Version 1.0.0';
+    final wifiInfo = <String, String?>{};
 
     setState(() {
       _deviceInfo = fullInfo;
