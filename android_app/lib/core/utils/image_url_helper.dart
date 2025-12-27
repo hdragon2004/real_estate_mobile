@@ -1,12 +1,7 @@
 import '../../config/app_config.dart';
 
-/// Utility class để resolve image URL từ relative path thành full URL
 class ImageUrlHelper {
-  /// Resolve image URL từ relative path (bắt đầu bằng /) thành full URL
-  /// Nếu URL đã là full URL (bắt đầu bằng http/https) thì trả về nguyên
-  /// 
-  /// Lưu ý: Static files (uploads) được serve từ root của server, không phải từ /api
-  /// Ví dụ: /uploads/image.jpg -> https://domain.com/uploads/image.jpg (không có /api)
+
   static String resolveImageUrl(String? url) {
     if (url == null || url.isEmpty) return '';
     
